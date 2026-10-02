@@ -47,6 +47,17 @@ def validar(path, verbose=True):
         tot += len(mal)
     chk(tot == 0, f"celdas de texto declaradas sin valor: {tot}")
 
+    pr("\n=== 2b. Valores en cache vacios y tipos sobrantes")
+    vv = tn = 0
+    for n in sorted(names):
+        if not re.match(r'xl/worksheets/sheet\d+\.xml$', n):
+            continue
+        d = z.read(n).decode('utf-8', 'ignore')
+        vv += len(re.findall(r'<v\s*/>|<v></v>', d))
+        tn += len(re.findall(r'<c [^>]*?t="n"\s*/>', d))
+    chk(vv == 0, f"celdas con <v/> vacio (valor en cache sin numero): {vv}")
+    chk(tn == 0, f"celdas vacias declaradas de tipo numerico: {tn}")
+
     pr("\n=== 3. Celdas numericas con valor no numerico")
     mal = 0
     for n in sorted(names):

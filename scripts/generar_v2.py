@@ -5,7 +5,7 @@ Se parte del archivo SAP original para que las hojas de detalle conserven
 formato, filas y formulas, y sobre eso se aplican las correcciones pedidas en
 la revision.
 """
-import collections, json, os
+import collections, json, os, re, shutil, zipfile
 import openpyxl
 from openpyxl.styles import Alignment
 import estilo as E
@@ -114,7 +114,9 @@ def main():
                     if s.title in ORDEN else len(ORDEN))
     vacias = _sanear(wb)
     wb.save(OUT)
+    limpias = _limpiar_xml(OUT)
     print(f"  celdas de texto vacío normalizadas: {vacias:,}")
+    print(f"  valores en caché vacíos y tipos sobrantes depurados: {limpias:,}")
 
     # control estructural del paquete: Excel rechaza el archivo ante cualquiera
     # de estos defectos, aunque LibreOffice lo abra sin quejarse
@@ -157,6 +159,33 @@ def _sanear(wb):
                 if isinstance(c.value, str) and not c.value.strip():
                     c.value = None
                     n += 1
+    return n
+
+
+def _limpiar_xml(path):
+    """Deja el XML de las hojas con la misma forma que escribe Excel.
+
+    openpyxl emite dos construcciones que Excel considera defectuosas y que el
+    archivo original de SAP no tiene:
+      * <f>...</f><v/>  : la celda declara un valor numerico en cache pero vacio.
+      * <c ... t="n"/>  : celda vacia declarada de tipo numerico.
+    Ambas hacen que Excel ofrezca reparar el libro y, al reparar, descarte
+    contenido. Se eliminan reescribiendo el paquete, sin tocar los datos.
+    """
+    tmp = path + ".tmp"
+    n = 0
+    with zipfile.ZipFile(path) as zin, \
+         zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            data = zin.read(item.filename)
+            if re.match(r"xl/worksheets/sheet\d+\.xml$", item.filename):
+                x = data.decode("utf-8")
+                x, a = re.subn(r"<v\s*/>|<v></v>", "", x)
+                x, b = re.subn(r"(<c\b[^>]*?)\s+t=\"n\"(\s*/>)", r"\1\2", x)
+                n += a + b
+                data = x.encode("utf-8")
+            zout.writestr(item, data)
+    shutil.move(tmp, path)
     return n
 
 

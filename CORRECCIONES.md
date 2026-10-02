@@ -219,3 +219,27 @@ Se agregó `scripts/validar_ooxml.py`, que revisa el paquete `.xlsx` con ocho co
 **El generador ejecuta este control automáticamente y falla si encuentra algo**, así que este tipo de defecto no puede volver sin que se note. También lo corre `scripts/verificar.py`.
 
 Resultado sobre el archivo entregado: **sin problemas** en los ocho controles.
+
+## Segunda causa del archivo dañado: valores en caché vacíos
+
+La corrección anterior eliminó las celdas de texto sin contenido, pero **quedaba un segundo defecto**, que es el que hacía que Excel siguiera reparando el libro y, al reparar, borrara celdas enteras (por ejemplo las columnas A a E de la fila 3 de `1120 SJ`, que debían decir `2000158 · GUANTES DE EXAMINACIÓN TALLE M · 033 · ZDES`).
+
+Dos construcciones que `openpyxl` escribe y Excel considera defectuosas:
+
+| Construcción | Qué está mal |
+|---|---|
+| `<c r="N3"><f>IFERROR(...)</f><v/></c>` | la celda declara un valor numérico en caché, pero vacío: Excel no puede leer `""` como número |
+| `<c r="C3" s="5" t="n"/>` | celda vacía declarada de tipo numérico |
+
+Había **31.201** del primer tipo y **46.556** del segundo. El archivo original de SAP, que Excel abre sin quejarse, **no tiene ninguna de las dos**.
+
+La corrección reescribe el paquete al guardar y deja el XML con la misma forma que escribe Excel. Los datos no se tocan: la fila 3 conserva su material, su texto, su cantidad SAP (3.090), su recuento (2.000) y su diferencia (1.090).
+
+Comparación tras la corrección:
+
+| | `<v/>` vacíos | celdas `t="n"` vacías | texto sin contenido |
+|---|---:|---:|---:|
+| Original de SAP | 0 | 0 | 0 |
+| Archivo generado | **0** | **0** | **0** |
+
+El validador pasó a tener **diez controles** (se agregaron los dos nuevos) y el generador lo ejecuta en cada corrida, fallando si encuentra algo.
