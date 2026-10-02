@@ -282,3 +282,29 @@ Fueron tres defectos distintos, encontrados uno tras otro:
 3. **Vínculo externo** — el que realmente disparaba la reparación, confirmado por el log de Excel.
 
 Los dos primeros eran defectos reales y había que corregirlos, pero **el tercero es el que Excel reportaba**. Lo que lo resolvió fue el log de reparación: hasta tenerlo, estaba diagnosticando a ciegas contra un validador propio. Si vuelve a aparecer un aviso de este tipo, el log de Excel (el enlace "Haga clic para ver la lista de reparaciones") es el camino más corto.
+
+## Al filtrar, la alerta de valorización no daba 29
+
+Verificación de los dos números informados en el correo:
+
+- **196 ítems / 7.466 unidades sin correspondencia en SAP: correcto.** Coincide en tres lugares independientes: el filtro de `Origen del registro` en la hoja Conciliación, la hoja `Sin correspondencia SAP` y las columnas 8 y 9 del Resumen.
+- **29 materiales con alerta de valorización: el número es correcto, pero el archivo no permitía llegar a él filtrando.** Había dos problemas:
+
+| Dónde | Qué devolvía el filtro | Por qué |
+|---|---:|---|
+| Hoja Conciliación | **225** | La columna de alerta mezclaba dos cosas: las 29 alertas reales y una aclaración puesta en los 196 ítems sin código SAP ("sin valor unitario, no puede calcularse") |
+| Hojas de detalle | **181** | La alerta es del material pero se repetía en cada una de sus filas de lote y almacén |
+
+**Corrección:** la columna `Alerta de valorización` queda reservada a las alertas de valorización propiamente dichas. La aclaración de los ítems sin valor unitario pasó a `Observaciones`, que es donde corresponde, y en las hojas de detalle la alerta se escribe una sola vez por material, igual que el resto de las columnas de nivel material.
+
+Resultado tras la corrección:
+
+| Dónde | Filtrando la columna por "no vacío" |
+|---|---:|
+| Conciliación | **29** |
+| 1120 SJ | 6 |
+| 1060 NQN | 20 |
+| 1130 Salta | 3 |
+| Suma de las tres bases | **29** ✔ |
+
+Los totales del Resumen no cambiaron: la columna 12 ya excluía esas filas por su acción.

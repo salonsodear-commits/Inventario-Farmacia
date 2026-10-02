@@ -134,7 +134,9 @@ def escribir(ws, sheet, rows_sap, filas_conc, r0, r1):
             f["vu"] if f else 0,          # VU: tasa, se repite en todas las filas
             None,            # diferencia economica del material: formula
             None,            # valor del recuento fisico: formula
-            f["alerta"] if f else "",
+            # la alerta es del material, no de la fila: se escribe una sola vez
+            # para que filtrar la columna devuelva un renglon por material
+            (f["alerta"] if f else "") if primera else "",
             obs,
         ]
         for i, v in enumerate(vals):
@@ -163,7 +165,7 @@ def escribir(ws, sheet, rows_sap, filas_conc, r0, r1):
         ws.cell(fila, U0 + 3).fill = E.NIVEL_FILL.get(
             vals[3], E.FILL_EXTRA)
         ws.cell(fila, U0 + 5).fill = E.ACCION_FILL.get(vals[5], E.FILL_EXTRA)
-        if f and f["alerta"]:
+        if f and f["alerta"] and primera:
             ws.cell(fila, U0 + 19).fill = E.FILL_ALERTA
 
     # ---------- filas del inventario fisico sin codigo SAP, contiguas
@@ -197,7 +199,6 @@ def escribir(ws, sheet, rows_sap, filas_conc, r0, r1):
                 c.number_format = E.NUM
         ws.cell(fila, U0 + 3).fill = E.NIVEL_FILL["Sin coincidencia"]
         ws.cell(fila, U0 + 5).fill = E.ACCION_FILL[clasif.ACC_NUEVO]
-        ws.cell(fila, U0 + 19).fill = E.FILL_ALERTA
         f["fila_detalle_fisico"] = fila
         fila += 1
     ultima = fila - 1

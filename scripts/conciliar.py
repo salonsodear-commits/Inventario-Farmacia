@@ -136,10 +136,16 @@ def construir():
                 "accion": clasif.ACC_NUEVO,
                 "metodo": x["metodo"], "duplicidad": False, "dup_codigos": [],
                 "en_master": x["en_master"], "id_master": x["id_master"],
-                "alerta": ("Sin valor unitario en SAP: la diferencia económica de "
-                           "este ítem no puede calcularse (dato faltante)."),
+                # La columna de alerta queda reservada a las alertas de
+                # valorizacion propiamente dichas, para que filtrarla por "no
+                # vacio" devuelva exactamente esos casos. Que un item sin codigo
+                # SAP no tenga valor unitario es una aclaracion, no una alerta:
+                # va en observaciones.
+                "alerta": "",
                 "filas_detalle": [], "fila_fisico": None,
-                "observaciones": " ".join(obs),
+                "observaciones": ("Sin valor unitario en SAP: la diferencia "
+                                  "económica de este ítem no puede calcularse "
+                                  "(dato faltante). " + " ".join(obs)).strip(),
             })
     return filas, meta
 
