@@ -35,8 +35,8 @@ ACCION_FILL = {
     "Sin recuento físico": PatternFill("solid", fgColor="FFEDEDED"),
     "Fuera del alcance del inventario físico": PatternFill("solid", fgColor="FFEDEDED"),
 }
-NUM = "#,##0"
-MON = '#,##0.00'
+NUM = "#,##0"                      # UNIDADES
+MON = '"$"\\ #,##0.00'             # IMPORTE (siempre con signo $)
 L = get_column_letter
 
 

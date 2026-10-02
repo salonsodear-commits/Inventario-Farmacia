@@ -14,12 +14,13 @@ CONC = [
     ("Alcance del inventario físico", 15),
     ("Código SAP (Material)", 13), ("Nomenclatura SAP", 42),
     ("Código Avain", 13), ("Nombre en inventario físico Avain", 42),
-    ("Cantidad SAP (Libre utilización)", 14),
-    ("Cantidad física Avain", 13),
-    ("Diferencia (SAP − físico)", 13),
-    ("VU promedio ponderado", 14),
-    ("Valor SAP", 15), ("Valor recuento físico", 15),
-    ("Diferencia económica", 16),
+    ("Cantidad SAP (Libre utilización) · UNIDADES", 14),
+    ("Cantidad física Avain · UNIDADES", 13),
+    ("Diferencia (SAP − físico) · UNIDADES", 13),
+    ("VU promedio ponderado · IMPORTE $ por unidad", 15),
+    ("Valor SAP · IMPORTE $", 15),
+    ("Valor del recuento físico · IMPORTE $", 15),
+    ("Diferencia económica · IMPORTE $", 17),
     ("Alerta de valorización", 52),
     ("Nivel de coincidencia", 15),
     ("Estado de homologación / validación", 46),
@@ -75,8 +76,13 @@ def conciliacion(wb, filas, geo):
         ws.cell(f, cM, f"=$K{f}-$L{f}")
         ws.cell(f, cO, f"=IFERROR($K{f}*$N{f},\"\")")
         ws.cell(f, cP, f"=IFERROR($L{f}*$N{f},\"\")")
-        ws.cell(f, cQ, f'=IF(OR($U{f}="{clasif.ACC_BAJA}",$U{f}="{clasif.ACC_ALTA}"),'
-                       f'$M{f}*$N{f},"")')
+        # diferencia economica = diferencia de unidades x VU promedio ponderado.
+        # Se calcula en toda fila con VU, de modo que el total de esta columna
+        # coincide exactamente con el total de la columna S de las hojas de detalle.
+        if d["origen"] == "Stock SAP":
+            ws.cell(f, cQ, f'=$M{f}*$N{f}')
+        else:
+            ws.cell(f, cQ, None)      # sin VU en SAP: no es calculable
         resto = [d["alerta"], d["nivel"] if d["tiene_recuento"] else "",
                  d["estado"], d["accion"], d["metodo"],
                  ("Sí" if d["duplicidad"] else "No") if d["tiene_recuento"] else "",
@@ -114,11 +120,14 @@ def conciliacion(wb, filas, geo):
     ws.cell(f, 2, "(los totales responden al filtro aplicado)")
     ws.cell(f, 2).font = E.F_NOTA
     ws.cell(HDR_ROW, cQ).comment = Comment(
-        "Diferencia económica = Diferencia de cantidades × VU promedio ponderado.\n"
-        "Sólo se calcula donde la acción es dar de baja o dar de alta, es decir "
-        "donde hay recuento físico y la diferencia es una diferencia real.\n"
-        "Las filas sin recuento no generan diferencia económica: su stock no fue "
-        "contado, no es un faltante.", "Revisión")
+        "IMPORTE en pesos.\n\n"
+        "Diferencia económica = Diferencia de UNIDADES × VU promedio ponderado.\n\n"
+        "El total de esta columna coincide con el total de la columna S "
+        "«Diferencia economica» de las hojas 1120 SJ, 1060 NQN y 1130 Salta.\n\n"
+        "Incluye los materiales que el inventario físico no contó: en esos casos la "
+        "diferencia es todo el stock de SAP. El ajuste operativo (sólo materiales "
+        "contados) está en el Resumen, en la columna «Diferencia económica de los "
+        "materiales contados».", "Revisión")
     ws.auto_filter.ref = f"A{HDR_ROW}:{L(len(CONC))}{ultima}"
     ws.freeze_panes = f"C{HDR_ROW + 1}"
     ws.sheet_view.showGridLines = False
@@ -130,9 +139,10 @@ OPER = [
     ("Base", 11), ("Centro", 8), ("Clasificación SAP", 15),
     ("Código SAP (Material)", 13), ("Nomenclatura SAP", 44),
     ("Código Avain", 13), ("Nombre en inventario físico Avain", 42),
-    ("Cantidad SAP", 13), ("Cantidad física", 13),
-    ("Cantidad a ajustar", 14), ("VU promedio ponderado", 14),
-    ("Valor económico del ajuste", 16),
+    ("Cantidad SAP · UNIDADES", 13), ("Cantidad física · UNIDADES", 13),
+    ("Cantidad a ajustar · UNIDADES", 14),
+    ("VU promedio ponderado · IMPORTE $ por unidad", 15),
+    ("Valor económico del ajuste · IMPORTE $", 17),
     ("Nivel de coincidencia", 15),
     ("Estado de homologación / validación", 46),
     ("Alerta de valorización", 52), ("Observaciones", 100),

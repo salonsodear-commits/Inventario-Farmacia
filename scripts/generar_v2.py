@@ -11,10 +11,11 @@ from openpyxl.styles import Alignment
 import estilo as E
 from estilo import L
 import load, match, clasif, conciliar, paths
-import gen_detalle, gen_hojas, gen_resumen, gen_control
+import gen_detalle, gen_hojas, gen_resumen, gen_control, gen_guia
 
 OUT = os.path.join(paths.RAIZ, "Stock SAP vs Inventario Fisico Avain - cruce.xlsx")
-ORDEN = ["Resumen del cruce", "Conciliación", "Dar de baja en SAP",
+ORDEN = ["Guía paso a paso", "Resumen del cruce", "Conciliación",
+         "Dar de baja en SAP",
          "Dar de alta en SAP", "Sin correspondencia SAP",
          "1120 SJ", "1060 NQN", "1130 Salta", "Control de cantidades",
          "Posibles duplicidades", "Fuera del Master", "Metodología"]
@@ -84,10 +85,13 @@ def main():
             "sin_recuento": sum(1 for d in sapf
                                 if d["accion"] == clasif.ACC_SIN_REC),
         }
-    gen_resumen.escribir(wb, conc, extra)
+    gen_resumen.escribir(wb, conc, extra, geo)
 
     # ---------- control de cantidades
     gen_control.escribir(wb, filas, sap)
+
+    # ---------- guia paso a paso (primera hoja)
+    gen_guia.escribir(wb)
 
     # ---------- hojas de respaldo
     _lista(wb, "Posibles duplicidades",

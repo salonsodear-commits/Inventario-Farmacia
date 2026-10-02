@@ -37,12 +37,12 @@ EXTRA = [
     ("Códigos SAP posibles equivalentes", 22),
     ("¿Informado en Master de Seba?", 12),
     ("ID común (Master)", 12),
-    ("Cantidad SAP del material (todas las filas)", 15),
-    ("Inventario físico Avain del material", 15),
-    ("Diferencia del material (SAP − físico)", 15),
-    ("VU promedio ponderado del material", 15),
-    ("Diferencia económica del material", 16),
-    ("Valor del recuento físico (VU × cantidad física)", 16),
+    ("Cantidad SAP del material · UNIDADES", 15),
+    ("Inventario físico Avain del material · UNIDADES", 15),
+    ("Diferencia del material (SAP − físico) · UNIDADES", 15),
+    ("VU promedio ponderado del material · IMPORTE $ por unidad", 16),
+    ("Diferencia económica del material · IMPORTE $", 17),
+    ("Valor del recuento físico (VU × cantidad física) · IMPORTE $", 17),
     ("Alerta de valorización", 60),
     ("Observaciones del cruce", 100),
 ]
@@ -91,11 +91,22 @@ def escribir(ws, sheet, rows_sap, filas_conc, r0, r1):
         ws.cell(fila, 15, f"=M{fila}/SUM($M${r0}:$M${r1})")      # O: % sin fila total
         ws.cell(fila, C_VU, f"=IFERROR(M{fila}/I{fila},0)")       # P: sin #DIV/0!
         ws.cell(fila, C_DIFQ, f"=I{fila}-Q{fila}")                # R
-        ws.cell(fila, C_DIFE, f"=P{fila}*R{fila}")                # S: valoriza la dif.
+        # S valoriza la diferencia al VU promedio ponderado del material (AK), no
+        # al VU de la fila: asi la suma de S de un material da exactamente su
+        # diferencia economica y los totales cierran con el resumen.
+        if f:
+            ws.cell(fila, C_DIFE, f"=${L(U0+16)}{fila}*R{fila}")
+        else:
+            ws.cell(fila, C_DIFE, None)
 
         if tiene and primera:
             ws.cell(fila, C_QFIS, f["cant_fis"])
             ws.cell(fila, C_QFIS).number_format = E.NUM
+        # unidades e importes bien diferenciados en las columnas originales
+        for cc in (C_LIBRE, 10, C_QFIS, C_DIFQ):
+            ws.cell(fila, cc).number_format = E.NUM
+        for cc in (12, 13, C_VU, C_DIFE):
+            ws.cell(fila, cc).number_format = E.MON
 
         obs = f["observaciones"] if f else ""
         if f and tiene and not primera:
@@ -116,12 +127,13 @@ def escribir(ws, sheet, rows_sap, filas_conc, r0, r1):
             ", ".join(f["dup_codigos"]) if f else "",
             ("Sí" if f["en_master"] else "No") if tiene else "",
             f["id_master"] if f else "",
-            f["cant_sap"] if f else 0,
-            f["cant_fis"] if (f and tiene) else 0,
-            f["dif"] if f else 0,
-            f["vu"] if f else 0,
-            None,            # diferencia economica del material (formula abajo)
-            None,            # valor del recuento fisico (formula abajo)
+            # aditivas: solo en la primera fila del material (ver nota del encabezado)
+            (f["cant_sap"] if f else 0) if primera else None,
+            None,            # inventario fisico del material: formula = Q
+            None,            # diferencia del material: formula
+            f["vu"] if f else 0,          # VU: tasa, se repite en todas las filas
+            None,            # diferencia economica del material: formula
+            None,            # valor del recuento fisico: formula
             f["alerta"] if f else "",
             obs,
         ]
@@ -131,17 +143,20 @@ def escribir(ws, sheet, rows_sap, filas_conc, r0, r1):
             c.fill = E.FILL_EXTRA
             if i in (13, 14, 15):
                 c.number_format = E.NUM
-            if i == 16:
+            if i in (16, 17, 18):
                 c.number_format = E.MON
-        # formulas de valorizacion a nivel material
+        # formulas a nivel material, solo en la primera fila del material
         cAH, cAI, cAJ, cAK = U0 + 13, U0 + 14, U0 + 15, U0 + 16
         cAL, cAM = U0 + 17, U0 + 18
-        if tiene:
-            ws.cell(fila, cAL, f"=IF(OR(${L(U0+5)}{fila}=\"{clasif.ACC_BAJA}\","
-                               f"${L(U0+5)}{fila}=\"{clasif.ACC_ALTA}\"),"
-                               f"${L(cAJ)}{fila}*${L(cAK)}{fila},\"\")")
+        if f and primera:
+            # el inventario fisico del material ES la cantidad del recuento (Q)
+            ws.cell(fila, cAI, f"=Q{fila}")
+            ws.cell(fila, cAJ, f"=${L(cAH)}{fila}-${L(cAI)}{fila}")
+            ws.cell(fila, cAL, f"=${L(cAJ)}{fila}*${L(cAK)}{fila}")
             ws.cell(fila, cAM, f"=${L(cAI)}{fila}*${L(cAK)}{fila}")
-        for cc in (cAL, cAM):
+        for cc in (cAH, cAI, cAJ):
+            ws.cell(fila, cc).number_format = E.NUM
+        for cc in (cAK, cAL, cAM):
             ws.cell(fila, cc).font = E.F_BASE
             ws.cell(fila, cc).fill = E.FILL_EXTRA
             ws.cell(fila, cc).number_format = E.MON

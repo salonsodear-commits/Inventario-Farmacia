@@ -23,23 +23,24 @@ import clasif
 
 KPI = [
     ("Base / Centro", 15),
-    ("Stock SAP (Libre utilización)", 15),
-    ("Inventario físico Avain (todo el inventario)", 16),
-    ("Diferencia (SAP − físico)", 15),
-    ("Stock SAP de materiales contados", 15),
-    ("Diferencia sobre lo contado", 15),
-    ("Cantidad a dar de baja en SAP", 15),
-    ("Cantidad a dar de alta en SAP", 15),
-    ("Ítems sin correspondencia en SAP", 14),
-    ("Cantidad sin correspondencia en SAP", 15),
-    ("Diferencia económica", 18),
-    ("De la cual con alerta de valorización", 18),
-    ("Diferencia económica sin filas con alerta", 18),
+    ("1. Stock SAP · Libre utilización\nUNIDADES", 15),
+    ("2. Inventario físico Avain · todo el inventario\nUNIDADES", 16),
+    ("3. Diferencia = 1 − 2\nUNIDADES", 15),
+    ("4. Stock SAP de los materiales que SÍ se contaron\nUNIDADES", 16),
+    ("5. Diferencia neta de esos materiales contados (= 6 − 7)\nUNIDADES", 17),
+    ("6. A DAR DE BAJA en SAP (sobra en SAP)\nUNIDADES", 15),
+    ("7. A DAR DE ALTA en SAP (falta en SAP)\nUNIDADES", 15),
+    ("8. Ítems sin correspondencia en SAP\nCANTIDAD DE ÍTEMS", 15),
+    ("9. Unidades sin correspondencia en SAP\nUNIDADES", 15),
+    ("10. Diferencia económica (total de la columna S)\nIMPORTE $", 19),
+    ("11. Diferencia económica de los materiales contados\nIMPORTE $", 19),
+    ("12. De 11, con alerta de valorización\nIMPORTE $", 19),
+    ("13. Diferencia económica confiable (11 − 12)\nIMPORTE $", 19),
 ]
 BASES = ["San Juan", "Neuquén", "Salta"]
 
 
-def escribir(wb, conc, resumen_extra):
+def escribir(wb, conc, resumen_extra, geo):
     """conc: dict con hdr/ini/fin de la hoja Conciliación."""
     ws = wb.create_sheet("Resumen del cruce", 0)
     i, n = conc["ini"], conc["fin"]
@@ -59,6 +60,7 @@ def escribir(wb, conc, resumen_extra):
                  "Conciliación, de modo que respetan cualquier corrección que se "
                  "haga allí.")
     f = E.encabezados(ws, f, KPI)
+    ws.row_dimensions[f - 1].height = 62
     ini = f
     CON_REC = (f'"{clasif.ACC_BAJA}"', f'"{clasif.ACC_ALTA}"', '"Sin diferencia"')
     for base in BASES:
@@ -83,22 +85,29 @@ def escribir(wb, conc, resumen_extra):
         # 9/10. sin correspondencia en SAP
         ws.cell(f, 9, f'=COUNTIFS({rb},{b},{ro},"{_ORIG_FIS}")')
         ws.cell(f, 10, f'=SUMIFS({rL},{rb},{b},{ro},"{_ORIG_FIS}")')
-        # 11. diferencia economica
-        ws.cell(f, 11, f'=SUMIFS({rQ},{rb},{b})')
-        # 12. porcion con alerta de valorizacion
-        ws.cell(f, 12, f'=SUMIFS({rQ},{rb},{b},{rr},"?*")')
-        # 13. sin esas filas
-        ws.cell(f, 13, f"=$K{f}-$L{f}")
+        # 10. diferencia economica: suma de la columna S de la hoja de detalle
+        g = geo[_HOJA[base]]
+        ws.cell(f, 11, f"=SUM('{_HOJA[base]}'!$S${g['r0']}:$S${g['ultima']})")
+        # 11. diferencia economica solo de los materiales contados (ajuste operativo)
+        ws.cell(f, 12, "=" + "+".join(
+            f'SUMIFS({rQ},{rb},{b},{ru},"{a}")'
+            for a in (clasif.ACC_BAJA, clasif.ACC_ALTA)))
+        # 12. de esa, la porcion con alerta de valorizacion
+        ws.cell(f, 13, "=" + "+".join(
+            f'SUMIFS({rQ},{rb},{b},{ru},"{a}",{rr},"?*")'
+            for a in (clasif.ACC_BAJA, clasif.ACC_ALTA)))
+        # 13. diferencia economica confiable
+        ws.cell(f, 14, f"=$L{f}-$M{f}")
         for cc in range(2, 11):
             ws.cell(f, cc).number_format = E.NUM
             ws.cell(f, cc).font = E.F_BASE
-        for cc in (11, 12, 13):
+        for cc in (11, 12, 13, 14):
             ws.cell(f, cc).number_format = E.MON
             ws.cell(f, cc).font = E.F_BASE
         f += 1
     fin = f - 1
     ws.cell(f, 1, "TOTAL").font = E.F_BOLD
-    for cc in range(2, 14):
+    for cc in range(2, 15):
         ws.cell(f, cc, f"=SUM({L(cc)}{ini}:{L(cc)}{fin})")
         ws.cell(f, cc).number_format = E.NUM if cc <= 10 else E.MON
         ws.cell(f, cc).font = E.F_BOLD
@@ -116,35 +125,62 @@ def escribir(wb, conc, resumen_extra):
         "POSITIVA: SAP informa más de lo contado.\n"
         "NEGATIVA: el recuento supera lo informado en SAP.", "Revisión")
     ws.cell(ini - 1, 5).comment = Comment(
-        "Stock SAP de los materiales que el inventario físico efectivamente contó. "
-        "El resto del stock de SAP no fue contado (o es de una clasificación que "
-        "el inventario de Farmacia no releva) y por eso no genera ajuste.",
-        "Revisión")
+        "UNIDADES.\n\nStock que SAP informa SÓLO de los materiales que el "
+        "inventario físico efectivamente contó.\n\nEl resto del stock de SAP no "
+        "se contó, o es de una clasificación que el inventario de Farmacia no "
+        "releva (uniformes, equipos), así que no genera ajuste.", "Revisión")
+    ws.cell(ini - 1, 6).comment = Comment(
+        "UNIDADES.\n\nEs el ajuste NETO en unidades de los materiales que se "
+        "contaron: lo que sobra en SAP menos lo que falta.\n\n"
+        "Es exactamente la columna 6 menos la columna 7.\n\n"
+        "Ejemplo Salta: sobran 10.862 y faltan 11.889, así que el neto es −1.027: "
+        "en Salta se contó MÁS de lo que SAP informa.", "Revisión")
     ws.cell(ini - 1, 11).comment = Comment(
-        "Diferencia económica = diferencia de cantidades × VU promedio ponderado "
-        "(Valor libre util. / Libre utilización del material).\n"
-        "Se calcula sólo sobre las filas con recuento físico y diferencia real.",
+        "IMPORTE en pesos.\n\nEs la suma de la columna S «Diferencia economica» "
+        "de la hoja de detalle de esta base.\n\n"
+        "Diferencia económica = diferencia de UNIDADES × VU promedio ponderado "
+        "(Valor libre util. / Libre utilización del material).\n\n"
+        "Incluye los materiales que no se contaron: en ésos la diferencia es todo "
+        "el stock de SAP. Para el ajuste operativo use la columna siguiente.",
+        "Revisión")
+    ws.cell(ini - 1, 12).comment = Comment(
+        "IMPORTE en pesos.\n\nMisma valorización, pero SÓLO de los materiales que "
+        "se contaron y tienen diferencia real. Es el número del ajuste.", "Revisión")
+    ws.cell(ini - 1, 13).comment = Comment(
+        "IMPORTE en pesos.\n\nParte del importe anterior que cae en filas con "
+        "ALERTA DE VALORIZACIÓN: el valor unitario o la relación de cantidades "
+        "sugiere que SAP y el recuento usan distinta unidad de medida (SAP por caja, "
+        "recuento por unidad).\n\nNo está confirmado: por eso se muestra aparte.",
         "Revisión")
 
     f = E.subtitulo(ws, f, "Cómo leer estos indicadores")
+    f = E.nota(ws, f, "Para una explicación desde cero, ver la hoja "
+                      "«Guía paso a paso».")
     for t in [
-        "Diferencia = Stock SAP (Libre utilización) − Inventario físico Avain, "
-        "con el inventario físico completo: los ítems con código SAP y los que "
-        "todavía no lo tienen.",
+        "Las columnas 1 a 9 están en UNIDADES. Las columnas 10 a 13 son IMPORTES "
+        "en pesos y se muestran con el signo $.",
+        "Columna 3, diferencia = Stock SAP − inventario físico, con el inventario "
+        "físico completo: los ítems con código SAP y los que todavía no lo tienen.",
         "Diferencia POSITIVA: SAP informa más unidades que el recuento → "
-        "cantidad a DAR DE BAJA en SAP.",
+        "cantidad a DAR DE BAJA en SAP (columna 6).",
         "Diferencia NEGATIVA: el recuento supera lo informado en SAP → "
-        "cantidad a DAR DE ALTA en SAP.",
-        "La diferencia global incluye materiales que el inventario físico no "
-        "contó; ésos no son faltantes. El ajuste operativo son las columnas "
-        "«a dar de baja» y «a dar de alta», que sólo consideran materiales con "
-        "recuento.",
-        "Los ítems sin correspondencia en SAP no tienen valor unitario, así que "
-        "su diferencia económica no puede calcularse: figuran como dato faltante.",
-        "La diferencia económica usa el valor promedio ponderado. Las filas con "
-        "alerta de valorización se muestran por separado porque su valor unitario "
-        "o la relación de cantidades sugiere distinta unidad de medida entre SAP "
-        "y el recuento.",
+        "cantidad a DAR DE ALTA en SAP (columna 7).",
+        "Columna 5: es el ajuste NETO en unidades de los materiales que SÍ se "
+        "contaron, es decir la columna 6 menos la columna 7. En Salta da −1.027 "
+        "porque se contó más de lo que SAP informa.",
+        "La diferencia de la columna 3 incluye materiales que el inventario no "
+        "contó; ésos no son faltantes. El ajuste operativo son las columnas 6 y 7, "
+        "que sólo consideran materiales con recuento.",
+        "Columna 10: es la suma de la columna S «Diferencia economica» de las hojas "
+        "de detalle. Incluye los materiales sin recuento.",
+        "Columna 11: la misma valorización, pero sólo de los materiales contados. "
+        "Es el importe del ajuste.",
+        "Columnas 12 y 13: de ese importe, cuánto cae en filas con alerta de "
+        "valorización (posible distinta unidad de medida entre SAP y el recuento) y "
+        "cuánto queda como importe confiable. Mientras la alerta no se valide, usar "
+        "la columna 13.",
+        "Los ítems sin correspondencia en SAP no tienen valor unitario, así que su "
+        "diferencia económica no puede calcularse: figuran como dato faltante.",
     ]:
         f = E.nota(ws, f, "• " + t)
     f += 1
@@ -179,3 +215,4 @@ def escribir(wb, conc, resumen_extra):
 
 
 _ORIG_FIS = "Inventario físico sin código SAP"
+_HOJA = {"San Juan": "1120 SJ", "Neuquén": "1060 NQN", "Salta": "1130 Salta"}

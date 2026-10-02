@@ -104,3 +104,77 @@ Todos los indicadores son `SUMIFS` / `COUNTIFS` sobre `Conciliación`. No hay va
 7. **106 materiales con recuento que no estaban en el Master de Seba.**
 8. **639 materiales de medicamentos y descartables sin recuento físico.** Falta definir si no se contaron o no están en el depósito: son 329.492 unidades de stock SAP que hoy no son comparables.
 9. **Homologación incompleta:** 89 ítems del Master con más de un código SAP candidato y 17 sin candidato.
+
+---
+
+# Segunda ronda de correcciones
+
+## 1. `Cantidad fisica(recuento)` e `Inventario físico Avain del material` ahora coinciden
+
+Tenías razón: no daban lo mismo. `Q` se completaba **una vez por material** (en su primera fila) y `Inventario físico Avain del material` **se repetía en todas las filas** del material, así que al totalizar daba de más.
+
+Ahora las columnas de nivel material que son **sumables** se completan una sola vez, en la primera fila del material, igual que `Q`. Y la columna se calcula con la fórmula `=Q` de su propia fila, así que son idénticas por construcción.
+
+Verificado sobre el archivo recalculado:
+
+| Hoja | Suma `Q` | Suma `Inventario físico del material` | Suma `I` | Suma `Cantidad SAP del material` |
+|---|---:|---:|---:|---:|
+| 1120 SJ | 21.732 | 21.732 ✔ | 87.123 | 87.123 ✔ |
+| 1060 NQN | 33.107 | 33.107 ✔ | 671.967 | 671.967 ✔ |
+| 1130 Salta | 32.524 | 32.524 ✔ | 37.614 | 37.614 ✔ |
+
+El `VU promedio ponderado` sí sigue en todas las filas, porque es un **precio por unidad**, no una cantidad: repetirlo no altera ningún total y la columna S lo necesita fila por fila.
+
+## 2. `Diferencia económica` ahora da el total de la columna S
+
+El indicador del Resumen pasó a ser `=SUM('1120 SJ'!S2:S731)` y sus equivalentes. Para que esa igualdad se cumpla de verdad hubo que unificar un criterio: **la columna S ahora valoriza al VU promedio ponderado del material**, no al VU de cada fila. Si no, la suma de S difería de la valorización a nivel material cuando un material tiene varias filas con precios distintos.
+
+Verificado:
+
+| Base | Resumen · Diferencia económica | Suma de la columna S | Conciliación |
+|---|---:|---:|---:|
+| San Juan | $ 123.634.045,23 | $ 123.634.045,23 ✔ | |
+| Neuquén | $ 23.871.499,06 | $ 23.871.499,06 ✔ | |
+| Salta | $ 28.834.110,72 | $ 28.834.110,72 ✔ | |
+| **TOTAL** | **$ 176.339.655,02** | **$ 176.339.655,02** ✔ | **$ 176.339.655,02** ✔ |
+
+> **Atención al cambio de significado.** La columna S valoriza la diferencia de **todas** las filas, incluidas las de materiales que el inventario no contó (donde la "diferencia" es todo el stock de SAP). Por eso el total es +$176,3 M y no los −$210,6 M de antes, que sólo consideraban materiales contados.
+> Las dos cifras están en el Resumen, separadas y rotuladas: **columna 10** es el total de S (lo que pediste) y **columna 11** es la diferencia económica de los materiales contados, que es el importe del ajuste operativo.
+
+## 3. Unidades e importes, siempre explícitos
+
+- Cada encabezado termina en **`· UNIDADES`**, **`· IMPORTE $`** o **`· CANTIDAD DE ÍTEMS`**.
+- Todos los importes se muestran con el signo **`$`** en el formato de celda. Si no tiene `$`, son unidades.
+- Las columnas del Resumen están numeradas de 1 a 13 y las fórmulas se citan por ese número.
+
+## 4. Se renombró la columna que no se entendía
+
+`Diferencia sobre lo contado` → **`5. Diferencia neta de esos materiales contados (= 6 − 7) · UNIDADES`**, con comentario en la celda.
+
+Es el ajuste **neto** en unidades de los materiales que sí se contaron: lo que sobra menos lo que falta. Verificado que es exactamente la columna 6 menos la 7:
+
+| Base | Col. 5 | Col. 6 − Col. 7 |
+|---|---:|---:|
+| San Juan | 37.087 | 39.454 − 2.367 = 37.087 ✔ |
+| Neuquén | 351.255 | 354.178 − 2.923 = 351.255 ✔ |
+| Salta | **−1.027** | 10.862 − 11.889 = −1.027 ✔ |
+
+En Salta es negativo porque se contó **más** de lo que SAP informa.
+
+## 5. Hoja nueva: `Guía paso a paso`
+
+Primera hoja del libro, escrita sin dar nada por sabido. Nueve secciones:
+
+1. **¿Qué hace este archivo?** — las dos listas que compara y por qué hay que homologar nombres.
+2. **Dos reglas para no confundirse** — unidades vs. pesos, y qué significa el signo de la diferencia.
+3. **Qué hay en cada hoja** — una línea por hoja, con cuándo usarla.
+4. **Paso a paso: revisar UN material** — 7 pasos sobre un caso real del archivo (`2000028 JERINGA 10 ML` de San Juan: SAP 2.367, contado 918, diferencia 1.449, VU $94,90, importe $137.512,84). Los números de la guía se verificaron contra el archivo.
+5. **Paso a paso: qué ajustar en SAP** — 5 pasos por las tres hojas operativas.
+6. **Los seis estados posibles** — qué significa cada valor de `Acción en SAP` y qué hacer, aclarando que *Sin recuento físico* y *Fuera del alcance* no son faltantes.
+7. **Las cuentas** — las tres fórmulas con el ejemplo numérico, y por qué el promedio es ponderado.
+8. **Cuándo NO confiar en el importe** — el caso de los electrodos y cómo leer las tres columnas de importe.
+9. **Glosario** — 11 términos: SAP, Avain, libre utilización, homologar, Master de Seba, VU, lote, almacén, ZMED/ZDES/ZUNI, BUSCARV.
+
+## Validación de esta ronda
+
+Libro recalculado con LibreOffice: **cero errores** (`#REF!`, `#VALUE!`, `#N/A`, `#DIV/0!`). Las dos igualdades pedidas se cumplen exactamente, el ejemplo de la guía coincide con el archivo y los totales siguen cerrando contra las fuentes originales.
