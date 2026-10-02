@@ -38,83 +38,91 @@ def _avain():
     return out
 
 
-def escribir(wb, filas_conc, sap):
+def escribir(wb, filas_conc, sap, geo):
     ws = wb.create_sheet("Control de cantidades")
     f = E.titulo(ws, 2, "Control de cantidades contra las fuentes originales",
-                 "Compara los totales de los archivos originales (PDF de Avain y "
-                 "bajada de SAP) con los totales usados en el análisis. Ninguna "
-                 "cantidad fue reemplazada: las diferencias quedan señaladas.")
+                 "La columna «Total en la fuente original» es el dato de los "
+                 "archivos originales. La columna «Total usado» es una FÓRMULA VIVA "
+                 "sobre las hojas de detalle: si el libro pierde o cambia una fila, "
+                 "el estado pasa a A REVISAR automáticamente. Todo debe decir "
+                 "Coincide salvo la última línea, que es una diferencia del propio "
+                 "informe de origen.")
     f = E.encabezados(ws, f, COLS)
     ini = f
     av = _avain()
     SH = {"San Juan": "1120 SJ", "Neuquén": "1060 NQN", "Salta": "1130 Salta"}
 
-    def linea(fuente, base, concepto, orig, usado, detalle):
+    def linea(fuente, base, concepto, orig, usado, detalle, formato=E.NUM):
+        """usado puede ser un valor o una formula: si es formula, el control es
+        vivo y detecta cualquier fila que se pierda despues de generado."""
         nonlocal f
-        dif = None if (orig is None or usado is None) else round(orig - usado, 2)
-        estado = "Sin fuente" if dif is None else ("Coincide" if abs(dif) < 0.005
-                                                   else "A revisar")
-        for i, v in enumerate([fuente, base, concepto, orig, usado, dif, estado,
-                               detalle], start=1):
+        for i, v in enumerate([fuente, base, concepto, orig, usado], start=1):
             c = ws.cell(f, i, v)
             c.font = E.F_BASE
-            if i in (4, 5, 6):
-                c.number_format = E.NUM
-        ws.cell(f, 7).fill = (E.FILL_TOTAL if estado == "Coincide"
-                              else E.FILL_ALERTA)
+            if i in (4, 5):
+                c.number_format = formato
+        ws.cell(f, 6, f"=D{f}-E{f}").number_format = formato
+        ws.cell(f, 6).font = E.F_BASE
+        ws.cell(f, 7, f'=IF(ABS(F{f})<0.005,"Coincide","A REVISAR")')
+        ws.cell(f, 7).font = E.F_BOLD
+        ws.cell(f, 8, detalle).font = E.F_BASE
         f += 1
 
-    # ---- inventarios fisicos
-    for base in ("San Juan", "Salta"):
-        a = av[base]
-        usado = sum(d["cant_fis"] for d in filas_conc if d["base"] == base)
-        linea(f"PDF Avain · {base}", base,
-              "Suma de la columna Stock del PDF (todos los renglones de lote)",
-              a["suma_stock_pdf"], usado,
-              f"{a['renglones']} renglones de lote agrupados en {a['items']} ítems "
-              f"(código + denominación). El rótulo «TOTAL: "
-              f"{a['renglones_declarados']:.0f}» del PDF es la cantidad de "
-              f"renglones, no la suma de stock: ambos coinciden.")
-    a = av["Neuquén"]
-    usado = sum(d["cant_fis"] for d in filas_conc if d["base"] == "Neuquén")
-    linea("PDF Avain · Neuquén", "Neuquén",
-          "Stock actual de la sección Conciliación del informe IHSA",
-          a["suma_stock_pdf"], usado,
-          f"{a['items']} ítems, {a['con_stock']} con stock, que coincide con el "
-          f"encabezado del informe («Con stock: {a['declarado_con_stock']} "
-          f"medicamentos»).")
-    linea("PDF Avain · Neuquén", "Neuquén",
-          "Stock actual según las filas TOTAL MEDICAMENTO (sección de detalle)",
-          a["suma_totales_seccion"], usado,
-          "Control cruzado: las dos secciones del informe de Avain informan el "
-          "mismo total.")
-    linea("PDF Avain · Neuquén", "Neuquén",
-          "Suma de los saldos por lote del informe",
-          a["suma_saldos_lote"], usado,
-          "Diferencia propia del informe de Avain, no del cruce: Adrenalina "
-          "1mg/mL (15) y Metronidazol 500mg (20) tienen diferencia entre el stock "
-          "actual y el saldo de movimientos. Se conservó el stock actual, que es "
-          "el que el informe declara como total.")
-
-    # ---- stock SAP
+    # ---- cantidad de filas de SAP: detecta al instante una fila perdida
     for base, sh in SH.items():
-        orig = sum(r["libre"] or 0 for r in sap[sh])
-        usado = sum(d["cant_sap"] for d in filas_conc if d["base"] == base)
+        g = geo[sh]
+        linea(f"Bajada SAP · hoja {sh}", base,
+              "Cantidad de filas de material de SAP",
+              len(sap[sh]),
+              f"=COUNTA('{sh}'!$A${g['r0']}:$A${g['r1']})",
+              "Si este control dice A REVISAR, la hoja perdió o ganó filas "
+              "respecto de la bajada original y el resto de los números no es "
+              "confiable.")
+
+    # ---- stock SAP (formula viva sobre la hoja de detalle)
+    for base, sh in SH.items():
+        g = geo[sh]
         linea(f"Bajada SAP · hoja {sh}", base,
               "Suma de la columna Libre utilización",
-              orig, usado,
+              sum(r["libre"] or 0 for r in sap[sh]),
+              f"=SUM('{sh}'!$I${g['r0']}:$I${g['r1']})",
               f"{len(sap[sh])} filas de SAP (material / lote / almacén) agrupadas "
               f"en {len({r['material'] for r in sap[sh]})} materiales. La hoja de "
               f"detalle conserva las filas originales sin modificar.")
     for base, sh in SH.items():
-        orig = sum(r["vlibre"] or 0 for r in sap[sh])
-        usado = sum(d["cant_sap"] * d["vu"] for d in filas_conc
-                    if d["base"] == base and d["vu"])
+        g = geo[sh]
         linea(f"Bajada SAP · hoja {sh}", base,
               "Suma de la columna Valor libre util.",
-              round(orig, 2), round(usado, 2),
-              "Control de la valorización: el valor reconstruido como cantidad × "
-              "VU promedio ponderado debe reproducir el valor informado por SAP.")
+              round(sum(r["vlibre"] or 0 for r in sap[sh]), 2),
+              f"=SUM('{sh}'!$M${g['r0']}:$M${g['r1']})",
+              "Control de la valorización contra el importe informado por SAP.",
+              formato=E.MON)
+
+    # ---- inventarios fisicos (formula viva sobre la columna del recuento)
+    for base, sh in SH.items():
+        g = geo[sh]
+        a = av[base]
+        if base == "Neuquén":
+            det = (f"{a['items']} ítems, {a['con_stock']} con stock, que coincide "
+                   f"con el encabezado del informe («Con stock: "
+                   f"{a['declarado_con_stock']} medicamentos»).")
+        else:
+            det = (f"{a['renglones']} renglones de lote agrupados en {a['items']} "
+                   f"ítems. El rótulo «TOTAL: {a['renglones_declarados']:.0f}» del "
+                   f"PDF es la cantidad de renglones, no la suma de stock.")
+        linea(f"Inventario físico · {base}", base,
+              "Suma del recuento físico informado en el PDF",
+              a["suma_stock_pdf"],
+              f"=SUM('{sh}'!$Q${g['r0']}:$Q${g['ultima']})", det)
+    a = av["Neuquén"]
+    g = geo["1060 NQN"]
+    linea("Inventario físico · Neuquén", "Neuquén",
+          "Suma de los saldos por lote del informe",
+          a["suma_saldos_lote"],
+          f"=SUM('1060 NQN'!$Q${g['r0']}:$Q${g['ultima']})",
+          "Diferencia propia del informe, no del cruce: Adrenalina 1mg/mL (15) y "
+          "Metronidazol 500mg (20) difieren entre el stock actual y el saldo de "
+          "movimientos. Se conservó el stock actual, que es el total declarado.")
     fin = f - 1
     for cc in range(1, len(COLS) + 1):
         ws.cell(f, cc).border = Border(top=Side(style="medium", color=E.AZUL))

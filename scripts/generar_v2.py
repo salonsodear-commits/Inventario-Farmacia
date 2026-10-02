@@ -8,7 +8,6 @@ la revision.
 import collections, json, os, re, shutil, zipfile
 import openpyxl
 from openpyxl.styles import Alignment
-from openpyxl.comments import Comment
 import estilo as E
 from estilo import L
 import load, match, clasif, conciliar, paths
@@ -96,7 +95,7 @@ def main():
     gen_resumen.escribir(wb, conc, extra, geo)
 
     # ---------- control de cantidades
-    gen_control.escribir(wb, filas, sap)
+    gen_control.escribir(wb, filas, sap, geo)
 
     # ---------- guia paso a paso (primera hoja)
     gen_guia.escribir(wb)
@@ -173,14 +172,6 @@ def _fijar_cuenta(ws, sheet, cuentas, r0, r1):
         if isinstance(v, str) and v.startswith("="):
             ws.cell(r, 14, cuentas[sheet].get(r))
             n += 1
-    if n:
-        ws.cell(1, 14).comment = Comment(
-            "En la bajada de SAP esta columna era un VLOOKUP contra un libro "
-            "externo que no viaja con el archivo: Excel avisaba que no podía "
-            "actualizar el vínculo y terminaba reparando el libro.\n\n"
-            "Se conservaron los valores que la propia bajada ya traía "
-            "calculados y se quitó el vínculo. El contenido es el mismo.",
-            "Revisión")
     return n
 
 

@@ -16,7 +16,6 @@ Todos los indicadores son formulas SUMIFS/COUNTIFS contra la hoja Conciliacion.
 """
 import collections
 from openpyxl.styles import Font, Alignment, Border, Side
-from openpyxl.comments import Comment
 import estilo as E
 from estilo import L
 import clasif
@@ -119,39 +118,6 @@ def escribir(wb, conc, resumen_extra, geo):
     f += 2
 
     # ---- notas de lectura
-    ws.cell(ini - 1, 4).comment = Comment(
-        "Diferencia = Stock SAP − Inventario físico, contabilizando todo el "
-        "inventario físico (también los ítems sin código SAP).\n"
-        "POSITIVA: SAP informa más de lo contado.\n"
-        "NEGATIVA: el recuento supera lo informado en SAP.", "Revisión")
-    ws.cell(ini - 1, 5).comment = Comment(
-        "UNIDADES.\n\nStock que SAP informa SÓLO de los materiales que el "
-        "inventario físico efectivamente contó.\n\nEl resto del stock de SAP no "
-        "se contó, o es de una clasificación que el inventario de Farmacia no "
-        "releva (uniformes, equipos), así que no genera ajuste.", "Revisión")
-    ws.cell(ini - 1, 6).comment = Comment(
-        "UNIDADES.\n\nEs el ajuste NETO en unidades de los materiales que se "
-        "contaron: lo que sobra en SAP menos lo que falta.\n\n"
-        "Es exactamente la columna 6 menos la columna 7.\n\n"
-        "Ejemplo Salta: sobran 10.862 y faltan 11.889, así que el neto es −1.027: "
-        "en Salta se contó MÁS de lo que SAP informa.", "Revisión")
-    ws.cell(ini - 1, 11).comment = Comment(
-        "IMPORTE en pesos.\n\nEs la suma de la columna S «Diferencia economica» "
-        "de la hoja de detalle de esta base.\n\n"
-        "Diferencia económica = diferencia de UNIDADES × VU promedio ponderado "
-        "(Valor libre util. / Libre utilización del material).\n\n"
-        "Incluye los materiales que no se contaron: en ésos la diferencia es todo "
-        "el stock de SAP. Para el ajuste operativo use la columna siguiente.",
-        "Revisión")
-    ws.cell(ini - 1, 12).comment = Comment(
-        "IMPORTE en pesos.\n\nMisma valorización, pero SÓLO de los materiales que "
-        "se contaron y tienen diferencia real. Es el número del ajuste.", "Revisión")
-    ws.cell(ini - 1, 13).comment = Comment(
-        "IMPORTE en pesos.\n\nParte del importe anterior que cae en filas con "
-        "ALERTA DE VALORIZACIÓN: el valor unitario o la relación de cantidades "
-        "sugiere que SAP y el recuento usan distinta unidad de medida (SAP por caja, "
-        "recuento por unidad).\n\nNo está confirmado: por eso se muestra aparte.",
-        "Revisión")
 
     f = E.subtitulo(ws, f, "Cómo leer estos indicadores")
     f = E.nota(ws, f, "Para una explicación desde cero, ver la hoja "

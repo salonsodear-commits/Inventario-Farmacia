@@ -2,7 +2,6 @@
 """Hoja unificada de conciliacion, hojas operativas y resumen de indicadores."""
 import collections
 from openpyxl.styles import Font, Alignment, Border, Side
-from openpyxl.comments import Comment
 import estilo as E
 from estilo import L
 import clasif
@@ -119,15 +118,6 @@ def conciliacion(wb, filas, geo):
         ws.cell(f, cc).border = Border(top=Side(style="medium", color=E.AZUL))
     ws.cell(f, 2, "(los totales responden al filtro aplicado)")
     ws.cell(f, 2).font = E.F_NOTA
-    ws.cell(HDR_ROW, cQ).comment = Comment(
-        "IMPORTE en pesos.\n\n"
-        "Diferencia económica = Diferencia de UNIDADES × VU promedio ponderado.\n\n"
-        "El total de esta columna coincide con el total de la columna S "
-        "«Diferencia economica» de las hojas 1120 SJ, 1060 NQN y 1130 Salta.\n\n"
-        "Incluye los materiales que el inventario físico no contó: en esos casos la "
-        "diferencia es todo el stock de SAP. El ajuste operativo (sólo materiales "
-        "contados) está en el Resumen, en la columna «Diferencia económica de los "
-        "materiales contados».", "Revisión")
     ws.auto_filter.ref = f"A{HDR_ROW}:{L(len(CONC))}{ultima}"
     ws.freeze_panes = f"C{HDR_ROW + 1}"
     ws.sheet_view.showGridLines = False

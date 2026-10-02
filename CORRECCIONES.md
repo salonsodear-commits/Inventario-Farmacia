@@ -308,3 +308,36 @@ Resultado tras la corrección:
 | Suma de las tres bases | **29** ✔ |
 
 Los totales del Resumen no cambiaron: la columna 12 ya excluía esas filas por su acción.
+
+## La fila que Excel borraba y el control que ahora lo detecta
+
+Al comparar el Resumen contra el archivo apareció una diferencia **sólo en San Juan**: Stock SAP 84.033 en lugar de 87.123. El origen era una única fila, la del material `2000158 · GUANTES DE EXAMINACIÓN TALLE M` (3.090 en SAP, 2.000 contadas), que Excel eliminaba al reparar el libro. Cada indicador afectado cerraba exactamente contra esa fila, incluida la diferencia económica:
+
+| Indicador San Juan | Con la fila perdida | Correcto | Falta |
+|---|---:|---:|---:|
+| Stock SAP | 84.033 | 87.123 | 3.090 |
+| Inventario físico | 19.732 | 21.732 | 2.000 |
+| Diferencia | 64.301 | 65.391 | 1.090 |
+| Baja SAP | 38.364 | 39.454 | 1.090 |
+| Diferencia económica | $ 123.458.967,38 | $ 123.634.045,23 | $ 175.077,85 |
+
+Los $175.077,85 son 160,6218802588997 × 1.090, el VU del material por su diferencia.
+
+### Se redujo la superficie de reparación
+
+Se eliminaron los comentarios de celda. `openpyxl` los escribe con dibujos VML cuyos prefijos de espacio de nombres (`ns0:`, `ns1:`) no son los que Excel espera (`o:`, `v:`), y son una causa conocida de reparación. El contenido de esos comentarios ya estaba en las hojas **Guía paso a paso** y **Metodología**, así que no se perdió nada.
+
+El paquete quedó en **21 partes**, sin VML, sin comentarios, sin relaciones de hoja y sin vínculos externos.
+
+### El archivo ahora se controla solo
+
+La hoja **Control de cantidades** pasó a calcular la columna «Total usado» con **fórmulas vivas** sobre las hojas de detalle, en lugar de valores fijos. Se agregó además una línea que cuenta las filas de material de cada hoja.
+
+Probado borrando a propósito esa fila: el control pasa a **A REVISAR** y muestra la diferencia exacta.
+
+| Control | Archivo íntegro | Tras perder una fila |
+|---|---|---|
+| Cantidad de filas de material (1120 SJ) | 678 = 678 · Coincide | 678 vs 677 · **A REVISAR** |
+| Suma de Libre utilización (1120 SJ) | 87.123 = 87.123 · Coincide | 87.123 vs 84.033 · **A REVISAR** |
+
+Con esto, cualquier pérdida de contenido se ve de inmediato en una sola hoja, sin tener que comparar indicador por indicador.

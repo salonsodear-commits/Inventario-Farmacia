@@ -14,7 +14,6 @@ Correcciones respecto de la version anterior:
 """
 import collections
 from openpyxl.styles import Font, Alignment, Border, Side
-from openpyxl.comments import Comment
 import estilo as E
 from estilo import L
 import clasif
@@ -70,15 +69,6 @@ def escribir(ws, sheet, rows_sap, filas_conc, r0, r1):
     ws.row_dimensions[1].height = 60
 
     # nota al pie de los encabezados corregidos
-    ws.cell(1, C_DIFE).comment = Comment(
-        "Diferencia económica = VU × Diferencia Q (valorización de la diferencia "
-        "al valor promedio ponderado).\nAntes esta columna calculaba VU × cantidad "
-        "física, que es el valor del recuento y no una diferencia; ese cálculo se "
-        "conserva en la columna «Valor del recuento físico».", "Revisión")
-    ws.cell(1, C_VU).comment = Comment(
-        "VU = Valor libre util. / Libre utilización (valor promedio ponderado por "
-        "fila).\nSe agregó IFERROR para evitar #DIV/0! cuando la cantidad es 0; en "
-        "esos casos el valor en SAP también es 0.", "Revisión")
 
     # ---------- filas SAP
     for r in rows_sap:
@@ -216,12 +206,6 @@ def escribir(ws, sheet, rows_sap, filas_conc, r0, r1):
     ws.cell(tg, U0, "TOTAL")
     # el total de S valoriza la diferencia de TODAS las filas, incluidas las que
     # no tuvieron recuento: no es el ajuste economico operativo
-    ws.cell(tg, C_DIFE).comment = Comment(
-        "Suma de VU × Diferencia Q de todas las filas, incluidas las de materiales "
-        "que el inventario físico NO contó (donde la diferencia es simplemente el "
-        "stock no contado).\n\nLa diferencia económica operativa, que sólo "
-        "considera materiales con recuento, está en la hoja Resumen del cruce y en "
-        "la columna «Diferencia económica» de la hoja Conciliación.", "Revisión")
     for cc in range(1, U0 + len(EXTRA)):
         c = ws.cell(tg, cc)
         c.fill = E.FILL_TOTAL
