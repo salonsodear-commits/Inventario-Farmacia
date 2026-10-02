@@ -341,3 +341,32 @@ Probado borrando a propósito esa fila: el control pasa a **A REVISAR** y muestr
 | Suma de Libre utilización (1120 SJ) | 87.123 = 87.123 · Coincide | 87.123 vs 84.033 · **A REVISAR** |
 
 Con esto, cualquier pérdida de contenido se ve de inmediato en una sola hoja, sin tener que comparar indicador por indicador.
+
+## Normalización final del archivo para Excel
+
+Tras quitar los comentarios, Excel **seguía reparando** el libro y en esa reparación perdía contenido. En la hoja `1120 SJ` llegó a verse la celda A2 con el texto de otra hoja («Guía paso a paso») en lugar del material `2001555`, y desaparecida la fila de `2000158`. El Resumen quedaba entonces en 79.926 en lugar de 87.123: perdía los 3.090 de la fila borrada y los 4.107 del material cuyo código había sido pisado, porque el `SUMIF` de la hoja Conciliación ya no lo encontraba.
+
+El paquete generado por `openpyxl` es válido según el esquema —los diez controles daban verde y LibreOffice lo abría sin objeciones— pero Excel lo rechaza igual. En lugar de seguir buscando la construcción exacta que lo molesta, se cambió el enfoque: **el archivo final se reescribe con LibreOffice**, que produce un paquete con la forma que Excel espera (tabla de cadenas compartidas, estilos y valores en caché incluidos).
+
+Diferencia entre un paquete y el otro:
+
+| | openpyxl | Normalizado |
+|---|---|---|
+| Partes del paquete | 21 | 43 |
+| Tabla de cadenas compartidas | no | **sí** |
+| Valores en caché de las fórmulas | no | **sí** (Excel muestra los números sin recalcular) |
+| VML, comentarios, vínculos externos | ninguno | ninguno |
+
+La normalización **aborta si altera el libro**: compara antes y después la cantidad de hojas, la cantidad de filas de material, la suma de `Libre utilización` y celdas clave de cada hoja de base. Resultado: `1120 SJ` 678 filas / 87.123, `1060 NQN` 2.022 / 671.967, `1130 Salta` 484 / 37.614, sin cambios.
+
+### Un error propio en el camino
+
+La primera versión de la normalización no hacía nada: la entrada y la salida apuntaban al mismo archivo temporal, así que LibreOffice no convertía y se reescribía el original tal cual. Pasó inadvertido porque la comparación antes/después daba idéntica, justamente por no haber cambiado nada. Se corrigió usando carpetas distintas y se agregó un control explícito: si el paquete resultante no trae tabla de cadenas compartidas, la normalización falla en vez de seguir.
+
+### Estado del archivo entregado
+
+- A2 de `1120 SJ` = `2001555`; A3 = `2000158 · GUANTES DE EXAMINACIÓN TALLE M` con 3.090 en SAP y 2.000 contadas.
+- Fila de totales de `1120 SJ`: 87.123 y 21.732.
+- Resumen: 87.123 / 671.967 / 37.614, total 796.704.
+- `Control de cantidades`: 12 líneas en **Coincide** y 1 en **A REVISAR**, la diferencia de 35 unidades propia del informe de Neuquén.
+- Sin errores de fórmula en todo el libro.

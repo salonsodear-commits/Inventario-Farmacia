@@ -12,7 +12,7 @@ import estilo as E
 from estilo import L
 import load, match, clasif, conciliar, paths
 import gen_detalle, gen_hojas, gen_resumen, gen_control, gen_guia
-import validar_ooxml
+import validar_ooxml, normalizar
 
 OUT = os.path.join(paths.RAIZ, "Stock SAP vs Inventario Fisico Avain - cruce.xlsx")
 ORDEN = ["Guía paso a paso", "Resumen del cruce", "Conciliación",
@@ -133,6 +133,16 @@ def main():
             print("    -", p_)
         raise SystemExit(1)
     print("  control estructural del archivo: sin problemas")
+
+    # Reescritura final con LibreOffice: deja el paquete con la forma que Excel
+    # espera, de modo que el archivo abra sin que Excel ofrezca repararlo. La
+    # funcion aborta si la reescritura altera datos.
+    print("  normalizando el paquete para Excel...")
+    normalizar.normalizar(OUT)
+    problemas = validar_ooxml.validar(OUT, verbose=False)
+    if problemas:
+        print("  ATENCIÓN tras normalizar:", problemas)
+        raise SystemExit(1)
 
     print("Generado:", OUT)
     print(f"  Conciliación: filas {conc['ini']}..{conc['fin']} "
