@@ -8,6 +8,7 @@ la revision.
 import collections, json, os, re, shutil, zipfile
 import openpyxl
 from openpyxl.styles import Alignment
+from openpyxl.comments import Comment
 import estilo as E
 from estilo import L
 import load, match, clasif, conciliar, paths
@@ -25,12 +26,18 @@ ORDEN = ["Guía paso a paso", "Resumen del cruce", "Conciliación",
 def main():
     sap = load.load_sap()
     filas, meta = conciliar.construir()
-    wb = openpyxl.load_workbook(paths.dato(paths.STOCK_SAP), data_only=False)
+    # keep_links=False descarta el vinculo a un libro externo que traia la bajada
+    # de SAP. Ese vinculo era la causa del aviso "no se puede actualizar" y de que
+    # Excel reparase el archivo (sus valores en cache no sobreviven a openpyxl).
+    wb = openpyxl.load_workbook(paths.dato(paths.STOCK_SAP), data_only=False,
+                                keep_links=False)
+    cuentas = _cuentas_en_cache()
 
     # ---------- hojas de detalle SAP
     geo = {}
     for sheet, (r0, r1) in conciliar.GEO.items():
         geo[sheet] = gen_detalle.escribir(wb[sheet], sheet, sap[sheet], filas, r0, r1)
+        _fijar_cuenta(wb[sheet], sheet, cuentas, r0, r1)
 
     # ---------- hoja unificada de conciliacion
     conc = gen_hojas.conciliacion(wb, filas, geo)
@@ -141,6 +148,40 @@ def main():
               f" · filtro A1:...{g['ultima']}")
     json.dump({"geo": geo, "conc": conc}, open(paths.salida("geo_v2.json"), "w"),
               ensure_ascii=False, indent=1)
+
+
+def _cuentas_en_cache():
+    """Valores que la columna Cuenta (N) tenia calculados en la bajada de SAP.
+
+    En la hoja 1120 SJ esa columna es un VLOOKUP contra un libro externo que no
+    se distribuye con el archivo. Se toman sus valores ya calculados para poder
+    quitar el vinculo sin perder informacion.
+    """
+    wv = openpyxl.load_workbook(paths.dato(paths.STOCK_SAP), data_only=True)
+    out = {}
+    for sheet, (r0, r1) in conciliar.GEO.items():
+        ws = wv[sheet]
+        out[sheet] = {r: ws.cell(r, 14).value for r in range(r0, r1 + 1)}
+    return out
+
+
+def _fijar_cuenta(ws, sheet, cuentas, r0, r1):
+    """Reemplaza la formula externa de la columna Cuenta por su valor."""
+    n = 0
+    for r in range(r0, r1 + 1):
+        v = ws.cell(r, 14).value
+        if isinstance(v, str) and v.startswith("="):
+            ws.cell(r, 14, cuentas[sheet].get(r))
+            n += 1
+    if n:
+        ws.cell(1, 14).comment = Comment(
+            "En la bajada de SAP esta columna era un VLOOKUP contra un libro "
+            "externo que no viaja con el archivo: Excel avisaba que no podía "
+            "actualizar el vínculo y terminaba reparando el libro.\n\n"
+            "Se conservaron los valores que la propia bajada ya traía "
+            "calculados y se quitó el vínculo. El contenido es el mismo.",
+            "Revisión")
+    return n
 
 
 def _sanear(wb):

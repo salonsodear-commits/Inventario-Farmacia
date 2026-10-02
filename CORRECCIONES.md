@@ -243,3 +243,42 @@ Comparación tras la corrección:
 | Archivo generado | **0** | **0** | **0** |
 
 El validador pasó a tener **diez controles** (se agregaron los dos nuevos) y el generador lo ejecuta en cada corrida, fallando si encuentra algo.
+
+## Causa real del archivo dañado: el vínculo externo
+
+El log de reparación de Excel lo dijo con precisión:
+
+> *Registros reparados: Referencia de fórmula externa de `/xl/externalLinks/externalLink1.xml` (Valores en caché de referencia de fórmula externa)*
+
+La bajada de SAP traía un **vínculo a otro libro de Excel** que no viaja con el archivo. La columna `Cuenta` (N) de la hoja `1120 SJ` era un `VLOOKUP` contra ese libro:
+
+```
+=IFERROR(VLOOKUP(E2,[1]Total!$D$1:$M$446,10,0),0)
+```
+
+Al reescribir el archivo, los valores en caché de ese vínculo no sobreviven en forma válida, y Excel repara el libro descartando contenido. Era además la causa del aviso permanente *"NO SE PUEDE ACTUALIZAR — No pudimos obtener los valores actualizados de un libro vinculado"*.
+
+**Alcance:** sólo lo usaban las 678 filas de `1120 SJ`. Neuquén y Salta no tienen esa fórmula; su columna `Cuenta` viene vacía del origen.
+
+**Corrección:** se conservaron los valores que la propia bajada ya traía calculados y se eliminó el vínculo. El contenido visible es exactamente el mismo:
+
+| Control | Resultado |
+|---|---|
+| Filas comparadas contra el original | 678 |
+| Diferencias en la columna `Cuenta` | **0 — idéntica al original** |
+| Celdas vacías | 0 |
+| Valores distintos | 4 (medicamentos, descartables, uniformes, dispositivo de alerta) |
+| Partes de vínculo externo en el paquete | **ninguna** |
+| Fórmulas que todavía usan `[1]` | **0** |
+
+Se agregó un comentario en el encabezado de la columna explicando el cambio.
+
+### Sobre las tres rondas de este problema
+
+Fueron tres defectos distintos, encontrados uno tras otro:
+
+1. **Celdas de texto sin contenido** (33.759) — corregido.
+2. **Valores en caché vacíos y tipos sobrantes** (77.757) — corregido.
+3. **Vínculo externo** — el que realmente disparaba la reparación, confirmado por el log de Excel.
+
+Los dos primeros eran defectos reales y había que corregirlos, pero **el tercero es el que Excel reportaba**. Lo que lo resolvió fue el log de reparación: hasta tenerlo, estaba diagnosticando a ciegas contra un validador propio. Si vuelve a aparecer un aviso de este tipo, el log de Excel (el enlace "Haga clic para ver la lista de reparaciones") es el camino más corto.
