@@ -1,32 +1,29 @@
 <!doctype html>
 <html lang="es">
-<head>
-<meta charset="utf-8">
-<title>Mail - Validacion inventario fisico y homologacion SAP</title>
-</head>
+<head><meta charset="utf-8"><title>Mail - Validacion inventario fisico y homologacion SAP</title></head>
 <body style="margin:0;padding:24px;background:#ffffff;">
 <div style="font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#000000;line-height:1.45;max-width:980px;">
 
 <p style="margin:0 0 12px 0;">Buenas tardes,</p>
 
-<p style="margin:0 0 14px 0;">Les comparto la versi&oacute;n actualizada del an&aacute;lisis de inventario f&iacute;sico contra SAP para San Juan, Neuqu&eacute;n y Salta.</p>
+<p style="margin:0 0 14px 0;">Les comparto el an&aacute;lisis actualizado de inventario f&iacute;sico contra SAP para su validaci&oacute;n.</p>
 
 <table cellspacing="0" cellpadding="6" border="1" style="border-collapse:collapse;border:1px solid #BFBFBF;font-family:Calibri,Arial,sans-serif;font-size:10pt;">
 <thead>
 <tr style="background:#1F4E78;color:#FFFFFF;">
-<th align="left"   style="border:1px solid #BFBFBF;">Base</th>
-<th align="right"  style="border:1px solid #BFBFBF;">Stock SAP<br>(un.)</th>
-<th align="right"  style="border:1px solid #BFBFBF;">Inventario f&iacute;sico<br>(un.)</th>
-<th align="right"  style="border:1px solid #BFBFBF;">Diferencia<br>(un.)</th>
-<th align="right"  style="border:1px solid #BFBFBF;">Dif. %</th>
-<th align="right"  style="border:1px solid #BFBFBF;">Diferencia<br>econ&oacute;mica</th>
-<th align="right"  style="border:1px solid #BFBFBF;">Alta SAP<br>(un.)</th>
-<th align="right"  style="border:1px solid #BFBFBF;">Baja SAP<br>(un.)</th>
-<th align="right"  style="border:1px solid #BFBFBF;">Sin homologaci&oacute;n</th>
+<th align="left"  style="border:1px solid #BFBFBF;">Base</th>
+<th align="right" style="border:1px solid #BFBFBF;">Stock SAP<br>(un.)</th>
+<th align="right" style="border:1px solid #BFBFBF;">Inventario f&iacute;sico<br>(un.)</th>
+<th align="right" style="border:1px solid #BFBFBF;">Diferencia<br>(un.)</th>
+<th align="right" style="border:1px solid #BFBFBF;">Dif. %</th>
+<th align="right" style="border:1px solid #BFBFBF;">Diferencia<br>econ&oacute;mica</th>
+<th align="right" style="border:1px solid #BFBFBF;">Alta SAP<br>(un.)</th>
+<th align="right" style="border:1px solid #BFBFBF;">Baja SAP<br>(un.)</th>
+<th align="right" style="border:1px solid #BFBFBF;">Sin homologaci&oacute;n</th>
 </tr>
 </thead>
 <tbody>
-<tr>
+<tr style="">
 <td style="border:1px solid #BFBFBF;">San Juan</td>
 <td align="right" style="border:1px solid #BFBFBF;">87.123</td>
 <td align="right" style="border:1px solid #BFBFBF;">21.732</td>
@@ -48,7 +45,7 @@
 <td align="right" style="border:1px solid #BFBFBF;">354.178</td>
 <td align="right" style="border:1px solid #BFBFBF;">51 &iacute;t. / 2.744 un.</td>
 </tr>
-<tr>
+<tr style="">
 <td style="border:1px solid #BFBFBF;">Salta</td>
 <td align="right" style="border:1px solid #BFBFBF;">37.614</td>
 <td align="right" style="border:1px solid #BFBFBF;">32.524</td>
@@ -75,21 +72,9 @@
 
 <p style="margin:8px 0 14px 0;font-size:9pt;color:#595959;">Cantidades en unidades. Diferencia econ&oacute;mica: indicador &laquo;Diferencia econ&oacute;mica&raquo; del archivo. Diferencia % = Diferencia &divide; Stock SAP.</p>
 
-<p style="margin:0 0 14px 0;">Para leer la tabla: de las 796.704 unidades que informa SAP, 467.212 corresponden a materiales que el inventario f&iacute;sico efectivamente cont&oacute;. Las 329.492 restantes no se relevaron y no deben leerse como faltantes. Salta es la &uacute;nica base con saldo neto negativo, es decir que se cont&oacute; m&aacute;s de lo que SAP informa.</p>
+<p style="margin:0 0 14px 0;">La tabla es el resumen por base. Para el detalle por material est&aacute; el archivo: la hoja de conciliaci&oacute;n re&uacute;ne todo en una fila por material, y cada base tiene adem&aacute;s su propia hoja.</p>
 
-<p style="margin:0 0 6px 0;"><b>Validaciones realizadas</b></p>
-<ul style="margin:0 0 14px 0;padding-left:22px;">
-<li style="margin-bottom:4px;">Las cantidades e importes de SAP se verificaron contra los archivos originales y coinciden en las tres bases.</li>
-<li style="margin-bottom:4px;">Los inventarios f&iacute;sicos coinciden con los archivos recibidos. La &uacute;nica diferencia es interna del informe de Neuqu&eacute;n (35 unidades) y qued&oacute; identificada en el archivo.</li>
-<li style="margin-bottom:4px;">Se contempl&oacute; el inventario f&iacute;sico completo, no s&oacute;lo medicamentos y descartables. Los materiales de otras clasificaciones (uniformes, equipos y repuestos) se marcaron como fuera del alcance del relevamiento y no como falta de coincidencia: son 410 materiales.</li>
-<li style="margin-bottom:4px;">La informaci&oacute;n se unific&oacute; en una hoja con una fila por material, que permite buscar y filtrar por material, nomenclatura SAP, base y estado.</li>
-</ul>
-
-<p style="margin:0 0 6px 0;"><b>Pendientes</b></p>
-<ul style="margin:0 0 14px 0;padding-left:22px;">
-<li style="margin-bottom:4px;">196 &iacute;tems (7.466 unidades) relevados en las bases no tienen correspondencia en SAP y quedan pendientes de homologaci&oacute;n. Necesitamos que se validen esos &iacute;tems y se definan las nomenclaturas faltantes; con eso vamos a poder determinar los impactos a registrar en SAP.</li>
-<li style="margin-bottom:4px;">El monto queda pendiente de revisi&oacute;n. En 29 materiales el archivo marca una alerta de valorizaci&oacute;n por una posible diferencia de unidad de medida entre SAP y el recuento, as&iacute; que el importe todav&iacute;a no es definitivo.</li>
-</ul>
+<p style="margin:0 0 14px 0;">Quedan pendientes de homologaci&oacute;n 196 &iacute;tems (7.466 unidades) que no tienen correspondencia en SAP. El monto tambi&eacute;n queda pendiente de revisi&oacute;n: 29 materiales tienen alerta de valorizaci&oacute;n por una posible diferencia de unidad de medida.</p>
 
 <p style="margin:0 0 12px 0;">Quedo a disposici&oacute;n.</p>
 <p style="margin:0;">Saludos,</p>
