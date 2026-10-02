@@ -178,3 +178,44 @@ Primera hoja del libro, escrita sin dar nada por sabido. Nueve secciones:
 ## Validación de esta ronda
 
 Libro recalculado con LibreOffice: **cero errores** (`#REF!`, `#VALUE!`, `#N/A`, `#DIV/0!`). Las dos igualdades pedidas se cumplen exactamente, el ejemplo de la guía coincide con el archivo y los totales siguen cerrando contra las fuentes originales.
+
+---
+
+# Corrección del archivo dañado que reportaba Excel
+
+## El problema
+
+Excel mostraba *«Hemos encontrado un problema con contenido de …»* y ofrecía reparar el libro. LibreOffice lo abría sin quejarse, por eso no lo había detectado antes.
+
+**Causa:** 33.759 celdas quedaban escritas así:
+
+```xml
+<c r="X2" s="39" t="inlineStr"/>
+```
+
+La celda declara ser de tipo texto (`t="inlineStr"`) pero no trae el elemento `<is>` con el contenido, que ese tipo exige. Es XML inválido. Lo genera `openpyxl` cuando se le asigna a una celda la cadena vacía `""`: la marca como texto y después no escribe nada.
+
+Aparecía donde el cruce no tenía dato (sin código Avain, sin ID de Master, sin códigos equivalentes) y también en campos que venían vacíos de la propia bajada de SAP, como la columna *Lote*.
+
+**Alcance:** afectaba a 8 de las 13 hojas, y **ya estaba presente en las dos entregas anteriores**. El archivo original de SAP está limpio: el defecto lo introduje yo al generar.
+
+## La corrección
+
+Antes de guardar, el generador normaliza toda cadena vacía a celda realmente vacía. Se normalizaron las 33.759 celdas, sin tocar ningún dato: los totales, las fórmulas y las dos igualdades siguen dando exactamente lo mismo.
+
+## Control permanente
+
+Se agregó `scripts/validar_ooxml.py`, que revisa el paquete `.xlsx` con ocho controles pensados para lo que Excel valida y LibreOffice ignora:
+
+1. Todas las partes XML parsean.
+2. **Celdas de texto declaradas sin contenido** (el defecto de este caso).
+3. Celdas numéricas con valor no numérico.
+4. Content-types y relaciones completos y con destino existente.
+5. Identificadores de relación sin duplicar.
+6. `definedName` con `localSheetId` coherente con el orden de hojas.
+7. Alto de fila, ancho de columna y largo de texto dentro de los límites de Excel.
+8. Referencias de comentario válidas.
+
+**El generador ejecuta este control automáticamente y falla si encuentra algo**, así que este tipo de defecto no puede volver sin que se note. También lo corre `scripts/verificar.py`.
+
+Resultado sobre el archivo entregado: **sin problemas** en los ocho controles.

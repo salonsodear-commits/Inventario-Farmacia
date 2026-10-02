@@ -12,6 +12,7 @@ import estilo as E
 from estilo import L
 import load, match, clasif, conciliar, paths
 import gen_detalle, gen_hojas, gen_resumen, gen_control, gen_guia
+import validar_ooxml
 
 OUT = os.path.join(paths.RAIZ, "Stock SAP vs Inventario Fisico Avain - cruce.xlsx")
 ORDEN = ["Guía paso a paso", "Resumen del cruce", "Conciliación",
@@ -111,7 +112,19 @@ def main():
     # ---------- orden de hojas
     wb._sheets.sort(key=lambda s: ORDEN.index(s.title)
                     if s.title in ORDEN else len(ORDEN))
+    vacias = _sanear(wb)
     wb.save(OUT)
+    print(f"  celdas de texto vacío normalizadas: {vacias:,}")
+
+    # control estructural del paquete: Excel rechaza el archivo ante cualquiera
+    # de estos defectos, aunque LibreOffice lo abra sin quejarse
+    problemas = validar_ooxml.validar(OUT, verbose=False)
+    if problemas:
+        print("  ATENCIÓN · el archivo tiene problemas estructurales:")
+        for p_ in problemas:
+            print("    -", p_)
+        raise SystemExit(1)
+    print("  control estructural del archivo: sin problemas")
 
     print("Generado:", OUT)
     print(f"  Conciliación: filas {conc['ini']}..{conc['fin']} "
@@ -126,6 +139,25 @@ def main():
               f" · filtro A1:...{g['ultima']}")
     json.dump({"geo": geo, "conc": conc}, open(paths.salida("geo_v2.json"), "w"),
               ensure_ascii=False, indent=1)
+
+
+def _sanear(wb):
+    """Convierte las cadenas vacias en celdas realmente vacias.
+
+    openpyxl marca una celda con valor "" como de tipo texto y la escribe como
+    <c t="inlineStr"/>, sin el elemento <is> que ese tipo exige. Excel considera
+    invalido el archivo y ofrece repararlo (LibreOffice lo tolera en silencio).
+    Se normaliza al final, cuando el libro ya esta armado, para cubrir tambien
+    los valores que vienen de la bajada original de SAP.
+    """
+    n = 0
+    for ws in wb.worksheets:
+        for fila in ws.iter_rows():
+            for c in fila:
+                if isinstance(c.value, str) and not c.value.strip():
+                    c.value = None
+                    n += 1
+    return n
 
 
 def _lista(wb, nombre, titulo, sub, filas):

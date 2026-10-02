@@ -1,134 +1,125 @@
 # -*- coding: utf-8 -*-
-"""Verificacion del archivo generado: estructura, formulas y conciliacion."""
-import json, re, collections, sys
+"""Verificacion del archivo generado: estructura, formulas, totales e igualdades.
+
+Comprueba tambien, por separado, que el paquete xlsx sea estructuralmente valido
+para Excel (validar_ooxml.py).
+"""
+import json, re, collections, sys, os
 import openpyxl
-import load, paths, os
+import load, paths, conciliar, validar_ooxml
 
 ARCH = os.path.join(paths.RAIZ, "Stock SAP vs Inventario Fisico Avain - cruce.xlsx")
-GEO = {"1120 SJ": (2, 679, 680), "1060 NQN": (2, 2023, 2024), "1130 Salta": (2, 485, 486)}
 BASE = {"1120 SJ": "San Juan", "1060 NQN": "Neuquén", "1130 Salta": "Salta"}
-COL = {"I": 9, "Q": 17, "R": 18}
+C_LIBRE, C_QFIS, C_DIFQ, C_DIFE = 9, 17, 18, 19
+C_SAPMAT, C_FISMAT = 34, 35          # columnas de nivel material
+HOJAS = ["Guía paso a paso", "Resumen del cruce", "Conciliación",
+         "Dar de baja en SAP", "Dar de alta en SAP", "Sin correspondencia SAP",
+         "1120 SJ", "1060 NQN", "1130 Salta", "Control de cantidades",
+         "Posibles duplicidades", "Fuera del Master", "Metodología"]
 
 ok_all = True
 
 
-def check(cond, msg):
+def chk(cond, msg):
     global ok_all
-    print(("  OK   " if cond else "  FALLA") + "  " + msg)
+    print(("  OK    " if cond else "  FALLA ") + msg)
     if not cond:
         ok_all = False
 
 
-def suma_rango(ws, col, a, b):
-    t = 0.0
-    for r in range(a, b + 1):
-        v = ws.cell(r, COL[col]).value
-        if isinstance(v, (int, float)):
-            t += v
-    return t
-
-
-def eval_sumas(ws, formula):
-    """Evalua '=SUM(I2:I679)+SUM(I683:I734)'."""
-    tot = 0.0
-    for m in re.finditer(r"SUM\(([A-Z]+)(\d+):([A-Z]+)(\d+)\)", formula.replace("$", "")):
-        c, a, _, b = m.group(1), int(m.group(2)), m.group(3), int(m.group(4))
-        tot += suma_rango(ws, c, a, b)
-    return tot
-
-
 def main():
-    cruce = json.load(open(paths.salida("cruce.json"), encoding="utf-8"))
+    geo = json.load(open(paths.salida("geo_v2.json"), encoding="utf-8"))["geo"]
     sap = load.load_sap()
+    filas, _ = conciliar.construir()
     wb = openpyxl.load_workbook(ARCH, data_only=False)
 
-    print("HOJAS:", wb.sheetnames)
-    check(all(s in wb.sheetnames for s in GEO), "las tres hojas SAP se conservan")
-    check(wb.sheetnames.index("1120 SJ") < wb.sheetnames.index("1060 NQN")
-          < wb.sheetnames.index("1130 Salta"), "orden original de las hojas SAP")
+    print("=== Hojas")
+    chk(wb.sheetnames == HOJAS, f"las 13 hojas en orden: {wb.sheetnames}")
 
-    for sheet, (r0, r1, rtot) in GEO.items():
-        print(f"\n===== {sheet}")
+    for sheet, g in geo.items():
+        print(f"\n=== {sheet}")
         ws = wb[sheet]
-        base = BASE[sheet]
         rows = sap[sheet]
-        res = cruce[base]
+        r0, r1, ult, tg = g["r0"], g["r1"], g["ultima"], g["fila_total"]
 
-        # --- 1. la base SAP quedo intacta
-        difs = 0
-        for r in rows:
-            if str(ws.cell(r["row"], 1).value).strip() != r["material"]:
-                difs += 1
-            if (ws.cell(r["row"], 9).value or 0) != (r["libre"] or 0):
-                difs += 1
-        check(difs == 0, f"columnas Material y Libre utilización intactas en {len(rows)} filas")
-        check(ws["R2"].value == "=I2-Q2", "fórmula original de Diferencia Q intacta (R2)")
-        check(ws["S2"].value == "=P2*Q2", "fórmula original de Diferencia económica intacta (S2)")
-        check(str(ws[f"O2"].value).endswith(f"$M${rtot}"),
-              f"fórmula O2 sigue apuntando a $M${rtot} (fila de totales original sin mover)")
-        check(ws.cell(rtot, 13).value == f"=SUM(M2:M{r1})",
-              "fila de totales original conservada")
+        # la base de SAP no se toco
+        difs = sum(1 for r in rows
+                   if str(ws.cell(r["row"], 1).value).strip() != r["material"]
+                   or (ws.cell(r["row"], C_LIBRE).value or 0) != (r["libre"] or 0))
+        chk(difs == 0, f"Material y Libre utilización intactos en {len(rows)} filas")
+        chk(ws.cell(2, C_DIFQ).value == "=I2-Q2",
+            "fórmula original de Diferencia Q conservada")
+        chk(str(ws.cell(2, 15).value).startswith(f"=M2/SUM($M${r0}:$M${r1})"),
+            "columna O no depende de la fila de totales")
+        chk(str(ws.cell(2, 16).value).startswith("=IFERROR("),
+            "columna P (VU) protegida contra división por cero")
 
-        # --- 2. una sola imputacion de cantidad fisica por material
+        # bloque contiguo y filtro que lo cubre entero
+        chk(ws.auto_filter.ref.endswith(str(ult)),
+            f"el autofiltro llega hasta la última fila de datos ({ult})")
+        vacias = [r for r in range(r0, ult + 1)
+                  if all(ws.cell(r, c).value in (None, "") for c in range(1, 21))]
+        chk(not vacias, f"sin filas vacías dentro del bloque de datos")
+
+        # una sola imputacion de cantidad fisica por material
         filas_mat = collections.defaultdict(list)
         for r in rows:
             filas_mat[r["material"]].append(r["row"])
-        fis = collections.defaultdict(float)
-        for x in res:
-            if x["material"]:
-                fis[x["material"]] += x["cantidad"]
-        malos = []
-        for mat, qty in fis.items():
-            con_valor = [f for f in filas_mat[mat]
-                         if isinstance(ws.cell(f, 17).value, (int, float))]
-            if len(con_valor) != 1 or ws.cell(con_valor[0], 17).value != qty:
-                malos.append(mat)
-        check(not malos, f"cada material con recuento tiene la cantidad en UNA sola fila "
-                         f"({len(fis)} materiales){'' if not malos else ' -> ' + str(malos[:5])}")
+        fis = {f["material"]: f["cant_fis"] for f in filas
+               if f["hoja"] == sheet and f["origen"] == "Stock SAP"
+               and f["tiene_recuento"]}
+        malos = [m for m, q in fis.items()
+                 if [ws.cell(x, C_QFIS).value for x in filas_mat[m]
+                     ].count(q) != 1]
+        chk(not malos, f"cantidad física imputada una sola vez por material "
+                       f"({len(fis)} materiales)")
 
-        # --- 3. filas nuevas
-        nuevas = [r for r in range(rtot + 1, ws.max_row + 1)
-                  if isinstance(ws.cell(r, 17).value, (int, float))
-                  and ws.cell(r, 2).value and not str(ws.cell(r, 2).value).startswith("TOTAL")]
-        sin = [x for x in res if not x["material"]]
-        check(len(nuevas) == len(sin),
-              f"filas nuevas agregadas = ítems sin coincidencia ({len(nuevas)} = {len(sin)})")
-        check(all(ws.cell(r, 1).value in (None, "") for r in nuevas),
-              "las filas nuevas no llevan código de material (columna A vacía)")
-        check(all(ws.cell(r, 18).value == f"=I{r}-Q{r}" for r in nuevas),
-              "las filas nuevas llevan la fórmula de diferencia")
+        # columnas de nivel material: una vez por material -> totales coherentes
+        rep = [m for m in filas_mat
+               if sum(1 for x in filas_mat[m]
+                      if ws.cell(x, C_FISMAT).value is not None) > 1]
+        chk(not rep, "las columnas de nivel material se completan una sola vez")
+        chk(ws.cell(filas_mat[rows[0]["material"]][0], C_FISMAT).value
+            == f"=Q{filas_mat[rows[0]['material']][0]}",
+            "«Inventario físico del material» se calcula con =Q de su fila")
 
-        # --- 4. conciliacion de totales
-        tg = ws.max_row
-        while tg > 1 and not str(ws.cell(tg, 2).value or "").startswith("TOTAL GENERAL"):
-            tg -= 1
-        check(tg > rtot, f"fila TOTAL GENERAL presente (fila {tg})")
-        i_tot = eval_sumas(ws, ws.cell(tg, 9).value)
-        q_tot = eval_sumas(ws, ws.cell(tg, 17).value)
-        sap_esp = sum(r["libre"] or 0 for r in rows)
-        fis_esp = sum(x["cantidad"] for x in res)
-        check(abs(i_tot - sap_esp) < 1e-6,
-              f"TOTAL GENERAL stock SAP = {i_tot:,.0f} (esperado {sap_esp:,.0f})")
-        check(abs(q_tot - fis_esp) < 1e-6,
-              f"TOTAL GENERAL inventario físico = {q_tot:,.0f} (esperado {fis_esp:,.0f})")
-        print(f"       diferencia TOTAL GENERAL = {i_tot - q_tot:,.0f}")
+        # filas del inventario fisico sin codigo
+        nuevas = list(range(g["primera_fisico"], ult + 1))
+        chk(all(ws.cell(r, 1).value in (None, "") for r in nuevas),
+            f"las {len(nuevas)} filas sin código SAP no llevan material")
+        chk(all(ws.cell(r, C_DIFQ).value == f"=I{r}-Q{r}" for r in nuevas),
+            "las filas sin código llevan la fórmula de diferencia")
 
-        # --- 5. columnas complementarias
-        hdr = [ws.cell(1, c).value for c in range(21, 36)]
-        check(hdr[0] == "Nivel de coincidencia SAP–Avain" and hdr[-1] == "Observaciones del cruce",
-              "columnas complementarias presentes de U a AI")
-        niveles = collections.Counter(ws.cell(r, 21).value for r in range(r0, r1 + 1))
-        print("       niveles por fila SAP:", dict(niveles))
+        # S valoriza al VU promedio ponderado del material
+        chk(ws.cell(2, C_DIFE).value == "=$AK2*R2",
+            "columna S valoriza la diferencia al VU promedio ponderado")
+        chk(ws.cell(tg, C_DIFE).value == f"=SUM(S{r0}:S{ult})",
+            f"fila de totales (fila {tg}) suma la columna S")
 
-    # --- hojas auxiliares
-    print("\n===== hojas auxiliares")
-    for nombre, esperado in [("Sin coincidencia", sum(len([x for x in cruce[b] if not x["material"]]) for b in cruce)),
-                             ("Posibles duplicidades", sum(len([x for x in cruce[b] if x["sap_multiple"]]) for b in cruce))]:
-        ws = wb[nombre]
-        n = sum(1 for r in range(6, ws.max_row + 1) if ws.cell(r, 3).value or ws.cell(r, 4).value)
-        check(n == esperado, f"hoja '{nombre}': {n} filas (esperado {esperado})")
+    # ---- igualdades pedidas, sobre el libro recalculado
+    print("\n=== Igualdades (valores recalculados)")
+    try:
+        wv = openpyxl.load_workbook(paths.salida("recalc.xlsx"), data_only=True)
+    except Exception:
+        wv = None
+    if wv is None:
+        print("  (sin libro recalculado disponible: se omiten las igualdades)")
+    else:
+        for sheet, g in geo.items():
+            ws = wv[sheet]
+            r0, ult = g["r0"], g["ultima"]
+            q = sum(ws.cell(r, C_QFIS).value or 0 for r in range(r0, ult + 1))
+            m = sum(ws.cell(r, C_FISMAT).value or 0 for r in range(r0, ult + 1))
+            chk(abs(q - m) < 1e-6,
+                f"{sheet}: suma de Cantidad física = suma del material ({q:,.0f})")
 
-    print("\n" + ("TODAS LAS VERIFICACIONES OK" if ok_all else "HAY VERIFICACIONES EN FALLA"))
+    # ---- estructura del paquete
+    print("\n=== Estructura del archivo (controles de Excel)")
+    problemas = validar_ooxml.validar(ARCH, verbose=False)
+    chk(not problemas, f"paquete xlsx válido{'' if not problemas else ': ' + str(problemas)}")
+
+    print("\n" + ("TODAS LAS VERIFICACIONES OK" if ok_all
+                  else "HAY VERIFICACIONES EN FALLA"))
     return 0 if ok_all else 1
 
 

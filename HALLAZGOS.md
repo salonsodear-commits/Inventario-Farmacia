@@ -168,5 +168,6 @@ python3 parse_nqn.py       # Neuquén (informe IHSA)
 python3 cruce.py           # cruce con niveles de certeza
 python3 generar.py         # archivo final
 python3 verificar.py       # controles de integridad
+python3 validar_ooxml.py   # control estructural del .xlsx (lo que valida Excel)
 python3 calibrar.py        # calibración contra la homologación
 ```
