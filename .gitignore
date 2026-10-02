@@ -1,0 +1,5 @@
+# Insumos extraídos del ZIP de bajadas y resultados intermedios del cruce
+data/
+salida/
+__pycache__/
+*.pyc
