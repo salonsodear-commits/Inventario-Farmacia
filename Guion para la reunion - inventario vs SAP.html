@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guion · Inventario vs SAP</title>
+<style>
+  :root{
+    color-scheme: light;
+    --bg:#ffffff; --surface:#fcfcfb; --surface-2:#f4f4f1; --line:#e2e1dc;
+    --ink:#0b0b0b; --ink-2:#52514e; --ink-3:#86857f;
+    --azul:#2a78d6; --naranja:#eb6834; --verde:#1baf7a; --rojo:#e34948;
+    --acento:#1F4E78; --marca:#fff3cd;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:where(:not([data-theme="light"])){
+      color-scheme: dark;
+      --bg:#141413; --surface:#1a1a19; --surface-2:#232321; --line:#36352f;
+      --ink:#ffffff; --ink-2:#c3c2b7; --ink-3:#8c8b82;
+      --azul:#3987e5; --naranja:#d95926; --verde:#199e70; --rojo:#e66767;
+      --acento:#8ab4e8; --marca:#453b1b;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:26px 22px 44px;background:var(--bg);color:var(--ink);
+    font:15.5px/1.62 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:980px;margin:0 auto}
+  h1{font-size:25px;margin:0 0 3px;letter-spacing:-.02em}
+  .sub{color:var(--ink-2);font-size:14px;margin:0 0 24px}
+  h2{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);
+    margin:32px 0 11px;font-weight:650}
+
+  /* sinoptico */
+  .sin{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+  .s{background:var(--surface);border:1px solid var(--line);border-top:3px solid var(--azul);
+    border-radius:10px;padding:12px 12px 13px;text-align:center}
+  .s:nth-child(2){border-top-color:var(--naranja)}
+  .s:nth-child(3){border-top-color:var(--verde)}
+  .s:nth-child(4){border-top-color:var(--rojo)}
+  .s:nth-child(5){border-top-color:var(--acento)}
+  .s .k{font-size:15.5px;font-weight:750;letter-spacing:-.01em;line-height:1.3}
+  .s .d{font-size:11.5px;color:var(--ink-3);margin-top:5px}
+  .s .t{font-size:10px;color:var(--ink-3);letter-spacing:.06em;margin-bottom:5px}
+
+  /* guion */
+  .blk{background:var(--surface);border:1px solid var(--line);border-radius:11px;
+    padding:16px 19px;margin-bottom:11px;position:relative}
+  .blk .cab{display:flex;align-items:baseline;gap:9px;margin-bottom:8px}
+  .blk .num{width:21px;height:21px;border-radius:50%;background:var(--acento);color:#fff;
+    font-size:11.5px;font-weight:700;display:grid;place-items:center;flex:none}
+  .blk .tit{font-size:13px;font-weight:700;letter-spacing:.01em}
+  .blk .seg{margin-left:auto;font-size:10.5px;color:var(--ink-3)}
+  .blk p{margin:0 0 8px}
+  .blk p:last-child{margin-bottom:0}
+  mark{background:var(--marca);color:inherit;padding:1px 3px;border-radius:3px;font-weight:650}
+  .cif{font-weight:750;white-space:nowrap}
+
+  /* qa */
+  .qa{display:grid;gap:8px}
+  .qa div{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--azul);
+    border-radius:9px;padding:11px 15px}
+  .qa b{display:block;font-size:13.5px;margin-bottom:2px}
+  .qa span{font-size:13.5px;color:var(--ink-2)}
+
+  .evitar{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--rojo);
+    border-radius:9px;padding:13px 17px}
+  .evitar ul{margin:6px 0 0;padding-left:19px;font-size:14px;color:var(--ink-2)}
+  .evitar li{margin-bottom:5px}
+  .cierre{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;
+    padding:14px 18px;font-size:15px}
+  @media print{body{padding:0}.blk,.qa div,.s,.evitar{break-inside:avoid}}
+  @media (max-width:800px){.sin{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Guion para la reunión</h1>
+  <p class="sub">Inventario físico vs SAP · unos 3 minutos de apertura, después preguntas</p>
+
+  <h2>Sinóptico · los cinco golpes, en orden</h2>
+  <div class="sin">
+    <div class="s"><div class="t">1</div><div class="k">No es faltante</div>
+      <div class="d">sólo se contó el 59%</div></div>
+    <div class="s"><div class="t">2</div><div class="k">Baja y alta</div>
+      <div class="d">404.494 / 17.179</div></div>
+    <div class="s"><div class="t">3</div><div class="k">Unidades × precio</div>
+      <div class="d">el precio sale de SAP</div></div>
+    <div class="s"><div class="t">4</div><div class="k">29 precios</div>
+      <div class="d">cajas vs. unidades</div></div>
+    <div class="s"><div class="t">5</div><div class="k">Pido 3 cosas</div>
+      <div class="d">196 · 29 · alcance</div></div>
+  </div>
+
+  <h2>El guion</h2>
+
+  <div class="blk">
+    <div class="cab"><div class="num">0</div><div class="tit">Apertura</div>
+      <div class="seg">15 s</div></div>
+    <p>«Cruzamos lo que dice <mark>SAP</mark> contra lo que se <mark>contó</mark> en las tres bases.
+    Hay diferencias grandes, pero antes de ir a los números necesito aclarar una cosa,
+    porque si no <mark>el número grande confunde</mark>.»</p>
+  </div>
+
+  <div class="blk">
+    <div class="cab"><div class="num">1</div><div class="tit">La aclaración que evita el malentendido</div>
+      <div class="seg">30 s</div></div>
+    <p>«La diferencia bruta da <span class="cif">709.341 unidades</span>.
+    Ese número <mark>no es un faltante</mark>.»</p>
+    <p>«De las <span class="cif">796.704</span> que informa SAP, sólo
+    <span class="cif">467.212</span> fueron <mark>efectivamente contadas</mark>.
+    Las otras <span class="cif">329.492</span> <mark>nadie las contó</mark>: el inventario fue de
+    Farmacia, no cubre uniformes ni equipos, y además quedaron materiales de farmacia sin relevar.»</p>
+    <p>«Sobre esa parte <mark>no hay nada que reclamar</mark> todavía. Hay que decidir si se cuenta.»</p>
+  </div>
+
+  <div class="blk">
+    <div class="cab"><div class="num">2</div><div class="tit">Lo que sí se contó</div>
+      <div class="seg">25 s</div></div>
+    <p>«Sobre lo que sí se contó, el ajuste es concreto:»</p>
+    <p>«<mark>Sobran</mark> <span class="cif">404.494 unidades</span> en SAP → hay que
+    <mark>dar de baja</mark>.<br>
+    <mark>Faltan</mark> <span class="cif">17.179</span> → hay que <mark>dar de alta</mark>.<br>
+    Y aparecieron <span class="cif">196 ítems</span> que se contaron en el depósito y
+    <mark>no existen en SAP</mark>.»</p>
+  </div>
+
+  <div class="blk">
+    <div class="cab"><div class="num">3</div><div class="tit">Cómo se llega a la plata</div>
+      <div class="seg">35 s</div></div>
+    <p>«Para la plata la cuenta es simple y es siempre la misma, material por material:
+    <mark>la diferencia en unidades por el valor unitario que el propio SAP tiene cargado</mark>.
+    No pusimos ningún precio nosotros.»</p>
+    <p>«Un ejemplo normal: jeringas de 10 ml en San Juan. SAP dice
+    <span class="cif">2.367</span>, se contaron <span class="cif">918</span>, sobran
+    <span class="cif">1.449</span>, a <span class="cif">$94,90</span> cada una da
+    <span class="cif">$137.512</span>. Así con cada material.»</p>
+  </div>
+
+  <div class="blk">
+    <div class="cab"><div class="num">4</div><div class="tit">El problema: 29 precios que no cierran</div>
+      <div class="seg">45 s</div></div>
+    <p>«Ahora, hay <span class="cif">29 materiales</span> donde ese
+    <mark>precio no cierra</mark>. El caso testigo:
+    <mark>electrodos de desfibrilador</mark> en Neuquén.»</p>
+    <p>«SAP tiene <span class="cif">5 unidades</span> valuadas en
+    <span class="cif">un millón de pesos</span>: eso da
+    <span class="cif">$209.472</span> por electrodo. Y se contaron
+    <span class="cif">1.465</span>. Evidentemente <mark>SAP cuenta cajas</mark> y el recuento
+    <mark>contó unidades sueltas</mark>.»</p>
+    <p>«Ese material <mark>solo mueve 305 millones</mark>. Por eso, según cómo lo mires,
+    el ajuste da entre <span class="cif">+96 millones</span> y
+    <span class="cif">−210 millones</span>.»</p>
+    <p>«<mark>No es un número para cerrar hoy.</mark> La diferencia
+    <mark>en unidades sí está firme</mark>; la de pesos depende de esos 29 precios.»</p>
+  </div>
+
+  <div class="blk">
+    <div class="cab"><div class="num">5</div><div class="tit">Qué pido</div>
+      <div class="seg">25 s</div></div>
+    <p>«Necesito tres cosas para cerrarlo:»</p>
+    <p>«Uno: que <mark>validen los 196 ítems</mark> sin código, para asignarles código o darlos
+    de alta.<br>
+    Dos: que <mark>confirmen la unidad de medida</mark> de esos 29 materiales.<br>
+    Tres: que <mark>definamos el alcance</mark> del recuento, si se cuenta todo o sólo farmacia.»</p>
+  </div>
+
+  <div class="blk" style="border-left:3px solid var(--verde)">
+    <div class="cab"><div class="num" style="background:var(--verde)">✓</div>
+      <div class="tit">Cierre</div><div class="seg">15 s</div></div>
+    <p>«Las cantidades están <mark>verificadas contra los archivos originales</mark> de SAP y
+    contra los PDF del recuento: coinciden, y hay una hoja de control en el archivo que lo
+    muestra. Lo que queda abierto es <mark>el precio</mark>, no el conteo.»</p>
+  </div>
+
+  <h2>Si te preguntan…</h2>
+  <div class="qa">
+    <div><b>«¿Por qué la diferencia es tan grande?»</b>
+      <span>Porque sólo el 59% del stock de SAP se contó. Sobre lo contado, el ajuste es
+      404.494 de baja y 17.179 de alta.</span></div>
+    <div><b>«¿Cuánta plata es?»</b>
+      <span>Entre +96 y −210 millones. No lo cierro hasta revisar 29 precios donde SAP
+      probablemente cuenta cajas y el recuento unidades.</span></div>
+    <div><b>«¿El dato es confiable?»</b>
+      <span>Las cantidades sí: coinciden exacto con la bajada de SAP y con los PDF del recuento.
+      Está la hoja «Control de cantidades» que lo prueba línea por línea.</span></div>
+    <div><b>«¿Por qué hay 196 ítems sin código?»</b>
+      <span>Se contaron en el depósito y el cruce no les encontró coincidencia en SAP. Al no
+      tener código tampoco tienen precio, así que no se pueden valorizar.</span></div>
+    <div><b>«¿Por qué Neuquén es tan distinto?»</b>
+      <span>Concentra el 87% de las unidades a dar de baja y ahí está el material del problema
+      de precio.</span></div>
+    <div><b>«¿Cuándo lo cerramos?»</b>
+      <span>Cuando estén validados los 196 ítems y los 29 precios. Ahí quedan determinados los
+      ajustes a registrar y el impacto económico definitivo.</span></div>
+    <div><b>«¿Damos de baja los 404.494 ya?»</b>
+      <span>La cantidad está firme. Antes de registrar conviene resolver los 29 precios, porque
+      cambian la valorización del asiento.</span></div>
+  </div>
+
+  <h2>Evitá decir</h2>
+  <div class="evitar">
+    <ul>
+      <li><b>«Faltan 709.341 unidades»</b> — no es un faltante: 329.492 simplemente no se contaron.</li>
+      <li><b>Un número de plata cerrado</b> — hasta revisar los 29 precios el rango es demasiado amplio.</li>
+      <li><b>«Hay un error en SAP»</b> — lo más probable es una diferencia de unidad de medida, no un error de stock.</li>
+    </ul>
+  </div>
+
+  <h2>Una sola frase, si no hay tiempo</h2>
+  <div class="cierre">
+    «Sobre lo que se contó, <b>sobran 404.494 unidades en SAP y faltan 17.179</b>.
+    La diferencia en unidades está firme; <b>el impacto en pesos todavía no</b>, porque hay
+    29 materiales donde SAP parece contar cajas y el recuento contó unidades.»
+  </div>
+
+</div>
+</body>
+</html>
