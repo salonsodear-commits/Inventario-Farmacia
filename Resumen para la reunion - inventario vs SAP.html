@@ -79,6 +79,20 @@
   .nota{font-size:12px;color:var(--ink-3);margin-top:9px}
   ul{margin:7px 0 0;padding-left:19px;font-size:13.5px;color:var(--ink-2)}
   li{margin-bottom:5px}
+  .calc{background:var(--surface-2);border:1px solid var(--line);border-radius:9px;
+    padding:13px 16px;margin:10px 0 4px;font-size:14px;line-height:1.8}
+  .calc .op{color:var(--ink-3);font-weight:600;margin:0 7px}
+  .calc b{color:var(--acento)}
+  table.desc{font-size:13.5px}
+  table.desc td{border-bottom:1px solid var(--line)}
+  table.desc tr.sum td{border-top:1.5px solid var(--ink-3);border-bottom:none;
+    font-weight:700;background:transparent}
+  table.desc tr:last-child td{background:transparent}
+  table.ej td,table.ej th{font-size:12.5px;padding:7px 8px}
+  table.ej tbody tr:last-child td{background:transparent;font-weight:400}
+  .tag{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:9px;color:#fff;
+    white-space:nowrap}
+  .tag.ok{background:var(--verde)} .tag.rev{background:var(--naranja)}
   @media print{body{padding:0}.paso,.tile,.card,.qa div{break-inside:avoid}}
   @media (max-width:820px){
     .mapa,.tiles{grid-template-columns:1fr}
@@ -181,29 +195,131 @@
     Neuquén concentra el 87% de las unidades a dar de baja.
   </p>
 
-  <h2>4 · La plata todavía no está cerrada</h2>
-  <div class="card ojo">
-    <table style="font-size:13.5px">
+  <h2>4 · Cómo se pasa de unidades a pesos</h2>
+  <div class="card">
+    <p style="margin:0 0 4px;font-size:14px">Para cada material, la cuenta es siempre la misma:</p>
+    <div class="calc">
+      Lo que dice SAP <span class="op">−</span> lo que se contó
+      <span class="op">=</span> <b>diferencia en unidades</b><br>
+      Diferencia en unidades <span class="op">×</span> valor unitario del material en SAP
+      <span class="op">=</span> <b>diferencia en pesos</b>
+    </div>
+    <p class="nota">
+      El valor unitario no lo pusimos nosotros: sale del propio SAP, dividiendo el valor de
+      stock del material por sus unidades (promedio ponderado). No se estimó ningún precio.
+    </p>
+
+    <p style="margin:18px 0 6px;font-size:14px"><b>Tres casos reales del archivo</b>, con la misma
+      cuenta y tres resultados distintos:</p>
+    <table class="ej">
+      <thead><tr>
+        <th>Material</th><th>SAP</th><th>Contado</th><th>Diferencia</th>
+        <th>Valor unitario</th><th>Diferencia en pesos</th><th></th>
+      </tr></thead>
       <tbody>
-        <tr><td style="border:none">Indicador «Diferencia económica» del archivo</td>
-            <td style="border:none"><b>$ 176.339.655</b></td></tr>
-        <tr><td style="border:none">Sólo materiales contados (el ajuste real)</td>
-            <td style="border:none"><b>−$ 210.602.753</b></td></tr>
-        <tr><td style="border:none;color:var(--naranja)">De eso, 29 materiales con alerta de unidad de medida</td>
-            <td style="border:none;color:var(--naranja)"><b>−$ 306.876.081</b></td></tr>
-        <tr><td style="border:none">Importe confiable, sin esos 29</td>
-            <td style="border:none"><b>$ 96.273.328</b></td></tr>
+        <tr>
+          <td>Jeringa 10 ml · San Juan</td><td>2.367</td><td>918</td>
+          <td>1.449 sobran</td><td>$ 94,90</td><td>$ 137.512,84</td>
+          <td><span class="tag ok">normal</span></td>
+        </tr>
+        <tr>
+          <td>Electrodos c/conector · Neuquén</td><td>5</td><td>1.465</td>
+          <td>1.460 faltan</td><td>$ 209.472,24</td><td>−$ 305.829.470</td>
+          <td><span class="tag rev">precio a revisar</span></td>
+        </tr>
+        <tr>
+          <td>Barbijos quirúrgicos · San Juan</td><td>sin código</td><td>350</td>
+          <td>350 faltan</td><td>sin precio</td><td>no se puede calcular</td>
+          <td><span class="tag rev">precio a revisar</span></td>
+        </tr>
       </tbody>
     </table>
-    <p class="nota" style="margin-top:12px">
-      <b>Un solo material explica el salto.</b> «Electrodos c/conector para desfibrilador» de Neuquén:
-      SAP tiene 5 unidades valuadas en $1.047.361, o sea $209.472 cada una, contra 1.465 contadas.
-      Lo más probable es que SAP cuente cajas y el recuento cuente unidades sueltas.
-      Hasta confirmarlo, <b>no conviene llevar un número económico cerrado</b>.
+    <p class="nota">
+      El primero es el caso corriente. El segundo tiene el precio mal: un electrodo no cuesta
+      $209.472 — lo más probable es que SAP cuente cajas y el recuento cuente unidades sueltas.
+      El tercero directamente no tiene precio porque no existe en SAP.
     </p>
   </div>
 
-  <h2>5 · Lo que hace falta para cerrar</h2>
+  <h2>5 · Qué pasa al sumar todos los materiales</h2>
+  <div class="card">
+    <p style="margin:0 0 4px;font-size:14px"><b>a) El indicador del archivo mezcla dos cosas
+      distintas.</b> Por eso da positivo:</p>
+    <table class="desc">
+      <tbody>
+        <tr><td>Materiales que <b>sí se contaron</b> — el ajuste real</td>
+            <td>−$ 210.602.753</td></tr>
+        <tr><td>Materiales que <b>no se contaron</b> — stock que nadie relevó, no es un ajuste</td>
+            <td>+$ 386.942.408</td></tr>
+        <tr class="sum"><td>= Indicador «Diferencia económica» del archivo</td>
+            <td>$ 176.339.655</td></tr>
+      </tbody>
+    </table>
+    <p class="nota">
+      A los materiales sin recuento la cuenta les asigna como «diferencia» todo su stock, porque
+      del lado del inventario físico no hay nada. Eso infla el indicador en $386,9 M que no son
+      un faltante ni un sobrante: son stock que no se contó.
+    </p>
+
+    <p style="margin:20px 0 4px;font-size:14px"><b>b) El ajuste real tiene dos puntas</b> que se
+      compensan:</p>
+    <table class="desc">
+      <tbody>
+        <tr><td>Lo que <b>sobra</b> en SAP → dar de baja (404.494 un.)</td>
+            <td>+$ 137.514.564</td></tr>
+        <tr><td>Lo que <b>falta</b> en SAP → dar de alta (17.179 un.)</td>
+            <td>−$ 348.117.318</td></tr>
+        <tr class="sum"><td>= Ajuste real neto</td><td>−$ 210.602.753</td></tr>
+      </tbody>
+    </table>
+    <p class="nota">
+      Llama la atención que con sólo 17.179 unidades a dar de alta el importe supere al de las
+      404.494 a dar de baja. La razón es el precio: <b>el 88% de las altas viene de un solo
+      material</b>, los electrodos de Neuquén.
+    </p>
+
+    <p style="margin:20px 0 4px;font-size:14px"><b>c) Si separamos los materiales con el precio
+      en duda:</b></p>
+    <table class="desc">
+      <tbody>
+        <tr><td>Ajuste real neto</td><td>−$ 210.602.753</td></tr>
+        <tr><td>Menos los <b>29 materiales con precio a revisar</b></td>
+            <td style="color:var(--naranja)">−$ 306.876.081</td></tr>
+        <tr class="sum"><td>= Resto del ajuste, con precios confiables</td>
+            <td>+$ 96.273.328</td></tr>
+      </tbody>
+    </table>
+    <p class="nota" style="color:var(--naranja)">
+      <b>Conclusión para la reunión:</b> hasta revisar esos 29 precios, el ajuste económico está
+      entre <b>+$96,3 millones</b> y <b>−$210,6 millones</b>. Es un rango demasiado amplio para
+      cerrarlo hoy. La diferencia <b>en unidades</b>, en cambio, sí está firme.
+    </p>
+  </div>
+
+  <h2>6 · Los casos a revisar el precio</h2>
+  <div class="tiles" style="grid-template-columns:1fr 1fr">
+    <div class="tile" style="border-left-color:var(--naranja)">
+      <div class="t">Tienen código SAP, pero el precio no cierra</div>
+      <div class="big">29</div>
+      <div class="d">materiales · mueven $306,9 M del ajuste</div>
+      <div class="d" style="margin-top:7px;color:var(--ink-2)">
+        El valor unitario o la relación de cantidades indica que SAP y el recuento están usando
+        distinta unidad de medida. Hay que confirmar si SAP cuenta cajas y el recuento unidades.
+      </div>
+    </div>
+    <div class="tile" style="border-left-color:var(--rojo)">
+      <div class="t">No tienen código SAP, así que no tienen precio</div>
+      <div class="big">196</div>
+      <div class="d">ítems · 7.466 unidades</div>
+      <div class="d" style="margin-top:7px;color:var(--ink-2)">
+        Se contaron en el depósito pero el cruce no les encontró coincidencia en SAP. Su
+        diferencia en pesos no se puede calcular: primero hay que asignarles un código existente
+        o darlos de alta.
+      </div>
+    </div>
+  </div>
+
+  <h2>7 · Lo que hace falta para cerrar</h2>
   <div class="card">
     <ul>
       <li><b>Validar 196 ítems sin código SAP</b> (7.466 unidades): definir si les corresponde un código existente o si hay que darlos de alta.</li>
