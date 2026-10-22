@@ -370,3 +370,75 @@ La primera versión de la normalización no hacía nada: la entrada y la salida 
 - Resumen: 87.123 / 671.967 / 37.614, total 796.704.
 - `Control de cantidades`: 12 líneas en **Coincide** y 1 en **A REVISAR**, la diferencia de 35 unidades propia del informe de Neuquén.
 - Sin errores de fórmula en todo el libro.
+
+## Lectura por ítems y materiales en los materiales de la reunión (2026-10-22)
+
+Pedido: *«pasame el guion y el resumen por items ademas de por unidades, no solo
+unidades para explicar los cruces»*. Se modificaron **únicamente** los dos
+documentos HTML de la reunión y sus PNG. **El archivo Excel no se tocó**
+(md5 `1948e8f3f5f1350995d90ed83e97422a`, sin cambios en git).
+
+### Por qué hacía falta
+
+Hasta acá los dos documentos explicaban el cruce sólo en unidades. Las unidades
+responden *cuánto*, pero el cruce no se hizo unidad por unidad sino **producto
+por producto**, así que lo que explica el cruce son los ítems y los materiales.
+Y las dos lecturas no dicen lo mismo: se contó el **59% de las unidades** pero
+sólo el **29% de los materiales**.
+
+### Cifras incorporadas (todas verificadas contra el libro)
+
+| Concepto | Valor | Verificación |
+|---|---|---|
+| Materiales SAP (3 bases) | 1.482 | filas con origen «Stock SAP» en Conciliación |
+| Materiales con recuento | 433 | 319 baja + 105 alta + 9 sin diferencia |
+| Materiales sin recuento | 639 | acción «Sin recuento físico» |
+| Materiales fuera del alcance | 410 | acción «Fuera del alcance» |
+| Ítems del inventario físico | 687 | 163 SJ + 243 NQN + 281 Salta |
+| Ítems que cruzaron | 491 | 111 + 192 + 188 |
+| Ítems sin código SAP | 196 | 52 + 51 + 93 |
+| Materiales con >1 ítem imputado | 39 | 5 SJ + 18 NQN + 16 Salta |
+| Certeza de los 433 cruzados | Alta 183 · Media 125 · Baja 125 | nivel por material (regla `peor`) |
+| Materiales con precio confiable | 404 | 433 − 29 con alerta |
+
+**La aclaración clave que se agregó:** 491 ítems caen sobre 433 materiales
+porque 39 materiales recibieron más de un nombre del recuento (el caso
+Aspirineta, tres nomenclaturas → un material). Que ítems y materiales no den el
+mismo número **no es un error, es consolidación**, y ahora está dicho
+explícitamente en los dos documentos.
+
+### Cambios en «Resumen para la reunion»
+
+- El mapa de 5 pasos muestra cada paso en **dos líneas**: unidades arriba,
+  ítems/materiales abajo.
+- **Nueva sección 1 · «Qué cruzó con qué»**: los dos lados del cruce (1.482
+  materiales SAP / 687 ítems contados) y la barra de certeza 183/125/125. Las
+  secciones anteriores se renumeraron de 1-7 a 2-8.
+- La sección de cobertura trae ahora **dos barras**: unidades (59%/41%) y
+  materiales (29%/71%), con la lectura de por qué no coinciden.
+- Los tres tiles pasan a encabezar con el conteo de materiales/ítems y dejan las
+  unidades como dato secundario, más la cuenta que cierra 319+105+9 = 433.
+- **Segunda tabla por base** en ítems y materiales, junto a la de unidades. La
+  tabla de unidades pasó a mostrar unidades también en la última columna
+  (antes mezclaba «52 ít.»).
+- Las tablas de desglose económico indican a cuántos materiales corresponde cada
+  renglón, y se agregó el pedido de validar los 250 cruces de certeza media/baja.
+
+### Cambios en «Guion para la reunion»
+
+- Nuevo bloque **«La regla para no marearte»** antes del sinóptico: unidades =
+  cuánto, ítems = sobre cuántas cosas.
+- Las 5 tarjetas sinópticas llevan una segunda línea con la lectura por ítem.
+- **Nuevo bloque 2 del guion** dedicado al cruce en ítems (687 → 491 + 196 → 433
+  materiales, y la certeza). Los bloques siguientes se renumeraron a 3-6; la
+  apertura pasa de 3:00 a 3:45.
+- Tres preguntas nuevas en «Si te preguntan…» (sobre cuántos productos, por qué
+  491 dan 433, y los cruces dudosos) y una advertencia nueva en «Evitá decir»
+  sobre no mezclar ítems con unidades.
+
+### Corrección hecha sobre la marcha
+
+Un primer borrador afirmaba que San Juan y Neuquén «cruzaron mejor
+proporcionalmente» que Salta. Es falso: Salta 33% y San Juan 32% de ítems sin
+código son prácticamente iguales; la que cruzó mejor es Neuquén con 21%. La
+frase se corrigió antes de cerrar.

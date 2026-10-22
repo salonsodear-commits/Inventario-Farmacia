@@ -11,6 +11,7 @@
     --ink:#0b0b0b; --ink-2:#52514e; --ink-3:#86857f;
     --azul:#2a78d6; --naranja:#eb6834; --verde:#1baf7a; --rojo:#e34948;
     --neutro:#c9c8c2; --acento:#1F4E78;
+    --verde-d:#0f7f58; --azul-d:#1d5fae; --naranja-d:#b8431f;
   }
   @media (prefers-color-scheme: dark){
     :root:where(:not([data-theme="light"])){
@@ -19,6 +20,7 @@
       --ink:#ffffff; --ink-2:#c3c2b7; --ink-3:#8c8b82;
       --azul:#3987e5; --naranja:#d95926; --verde:#199e70; --rojo:#e66767;
       --neutro:#4a4944; --acento:#8ab4e8;
+      --verde-d:#0f7f58; --azul-d:#1d5fae; --naranja-d:#b8431f;
     }
   }
   *{box-sizing:border-box}
@@ -34,7 +36,7 @@
   /* ---- mapa ---- */
   .mapa{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;align-items:stretch}
   .paso{position:relative;background:var(--surface);border:1px solid var(--line);
-    border-radius:11px;padding:30px 13px 13px;min-height:118px}
+    border-radius:11px;padding:30px 13px 13px;min-height:160px}
   .paso .n{position:absolute;top:-11px;left:13px;width:23px;height:23px;border-radius:50%;
     background:var(--acento);color:#fff;font-size:12px;font-weight:700;
     display:grid;place-items:center}
@@ -46,6 +48,9 @@
   .paso .q{font-size:12.5px;color:var(--ink-2);min-height:34px}
   .paso .v{font-size:19px;font-weight:700;margin-top:7px;letter-spacing:-.01em}
   .paso .u{font-size:11px;color:var(--ink-3)}
+  .paso .v2{font-size:14.5px;font-weight:700;margin-top:8px;padding-top:7px;
+    border-top:1px dashed var(--line);letter-spacing:-.01em}
+  .paso .u2{font-size:10.5px;color:var(--ink-3)}
   .flecha{display:grid;place-items:center;color:var(--ink-3);font-size:17px}
 
   /* ---- barra de magnitud ---- */
@@ -71,6 +76,19 @@
     font-weight:650;border-bottom:1.5px solid var(--line)}
   tbody tr:last-child td{border-bottom:none;font-weight:700;background:var(--surface-2)}
 
+  /* ---- dos lados del cruce ---- */
+  .dos{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0 2px}
+  .col{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:13px 15px}
+  .colt{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);
+    font-weight:650;margin-bottom:9px}
+  .fl{display:flex;gap:10px;align-items:baseline;font-size:13px;color:var(--ink-2);
+    padding:5px 0;border-top:1px solid var(--line)}
+  .fl:first-of-type{border-top:none;padding-top:0}
+  .fl .n1{font-size:17px;font-weight:750;color:var(--ink);min-width:52px;text-align:right;
+    letter-spacing:-.01em;flex:none}
+  .fl.ok .n1{color:var(--verde-d)} .fl.no .n1{color:var(--rojo)}
+  .sublab{font-size:12.5px;color:var(--ink-3);margin:22px 0 0;font-weight:650;
+    letter-spacing:.03em;text-transform:uppercase}
   .qa{display:grid;gap:9px}
   .qa div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 15px}
   .qa b{display:block;font-size:13.5px;margin-bottom:3px}
@@ -104,7 +122,8 @@
 <div class="wrap">
 
   <h1>Inventario físico vs SAP</h1>
-  <p class="sub">Resumen para la reunión · San Juan, Neuquén y Salta · datos del archivo de cruce</p>
+  <p class="sub">Resumen para la reunión · San Juan, Neuquén y Salta · datos del archivo de cruce ·
+    cada número está en <b>unidades</b> y en <b>ítems / materiales</b></p>
 
   <h2>El mapa · de dónde salen los números</h2>
   <div class="mapa">
@@ -112,43 +131,116 @@
       <div class="n">1</div><div class="badge a">EMPEZÁ ACÁ</div>
       <div class="q">¿Cuánto dice SAP que hay?</div>
       <div class="v">796.704</div><div class="u">unidades</div>
+      <div class="v2">1.482</div><div class="u2">materiales</div>
     </div>
     <div class="paso">
       <div class="n">2</div>
       <div class="q">¿Cuánto se contó en el depósito?</div>
       <div class="v">87.363</div><div class="u">unidades</div>
+      <div class="v2">687</div><div class="u2">ítems contados</div>
     </div>
     <div class="paso">
       <div class="n">3</div>
       <div class="q">¿Cuánto de SAP es comparable?</div>
       <div class="v">467.212</div><div class="u">unidades contadas</div>
+      <div class="v2">433</div><div class="u2">materiales con recuento</div>
     </div>
     <div class="paso">
       <div class="n">4</div>
       <div class="q">¿Qué hay que ajustar?</div>
-      <div class="v">404.494 / 17.179</div><div class="u">baja / alta</div>
+      <div class="v">404.494 / 17.179</div><div class="u">unidades · baja / alta</div>
+      <div class="v2">319 / 105</div><div class="u2">materiales · baja / alta</div>
     </div>
     <div class="paso fin">
       <div class="n">5</div><div class="badge b">TERMINÁ ACÁ</div>
       <div class="q">¿Qué falta para cerrar?</div>
-      <div class="v">196 + 29</div><div class="u">ítems sin código · alertas</div>
+      <div class="v">196</div><div class="u">ítems sin código SAP</div>
+      <div class="v2">29</div><div class="u2">materiales con alerta de precio</div>
     </div>
   </div>
 
-  <h2>1 · El número que hay que aclarar primero</h2>
+  <h2>1 · Qué cruzó con qué · el cruce contado en ítems, no en unidades</h2>
+  <div class="card">
+    <p style="margin:0 0 2px;font-size:14px">
+      Las <b>unidades</b> dicen <i>cuánto</i> hay. Los <b>ítems y materiales</b> dicen
+      <i>sobre cuántas cosas distintas</i> estamos hablando. Son dos lecturas del mismo cruce y
+      conviene no mezclarlas: el cruce se hizo producto por producto, no unidad por unidad.
+    </p>
+    <div class="dos">
+      <div class="col">
+        <div class="colt">Lo que SAP tiene · 1.482 materiales</div>
+        <div class="fl ok"><span class="n1">433</span>
+          <span><b>con recuento</b> · son los únicos comparables</span></div>
+        <div class="fl"><span class="n1">639</span>
+          <span>de farmacia, <b>no se contaron</b></span></div>
+        <div class="fl"><span class="n1">410</span>
+          <span><b>fuera del alcance</b> · uniformes, equipos, repuestos</span></div>
+      </div>
+      <div class="col">
+        <div class="colt">Lo que se contó · 687 ítems</div>
+        <div class="fl ok"><span class="n1">491</span>
+          <span><b>encontraron su código SAP</b> → caen sobre 433 materiales</span></div>
+        <div class="fl no"><span class="n1">196</span>
+          <span><b>sin coincidencia en SAP</b> · 7.466 unidades</span></div>
+      </div>
+    </div>
+    <p class="nota">
+      <b>Por qué 491 ítems dan 433 materiales:</b> hay 39 materiales que recibieron más de un
+      nombre del recuento. Aspirineta, por ejemplo, aparece con tres nomenclaturas distintas en el
+      inventario físico y en SAP es un solo material. El cruce las suma sobre ese material. Que
+      ítems y materiales no den el mismo número no es un error: es consolidación.
+    </p>
+
+    <p style="margin:18px 0 0;font-size:14px"><b>Con qué certeza cruzaron esos 433 materiales</b>
+      — el cruce es por nombre, no por código, así que cada uno queda clasificado:</p>
+    <div class="barra">
+      <div class="seg" style="flex:183;background:var(--verde-d)">183 Alta</div>
+      <div class="seg" style="flex:125;background:var(--azul-d)">125 Media</div>
+      <div class="seg" style="flex:125;background:var(--naranja-d)">125 Baja</div>
+    </div>
+    <div class="leyenda">
+      <span><i class="pt" style="background:var(--verde-d)"></i>Alta · 42% · el nombre coincide sin dudas</span>
+      <span><i class="pt" style="background:var(--azul-d)"></i>Media · 29% · coincide, conviene confirmar</span>
+      <span><i class="pt" style="background:var(--naranja-d)"></i>Baja · 29% · posible, a validar</span>
+    </div>
+    <p class="nota">
+      Los 250 de certeza media y baja están marcados uno por uno en la columna
+      «Nivel de coincidencia» de la hoja <b>Conciliación</b>: se pueden filtrar y revisar.
+      Ninguno se dio por bueno sin dejar rastro.
+    </p>
+  </div>
+
+  <h2>2 · El número que hay que aclarar primero</h2>
   <div class="card">
     <p style="margin:0 0 2px;font-size:14px">
       La diferencia bruta es <b>709.341 unidades</b>, pero <b>no es un faltante</b>.
-      De lo que informa SAP, sólo una parte fue efectivamente contada:
+      De lo que informa SAP, sólo una parte fue efectivamente contada —
+      y se ve distinto según se mire en unidades o en materiales:
     </p>
+    <p class="sublab" style="margin:14px 0 0">En unidades</p>
     <div class="barra">
-      <div class="seg" style="flex:467212;background:var(--azul)">467.212 contadas</div>
+      <div class="seg" style="flex:467212;background:var(--azul-d)">467.212 contadas</div>
       <div class="seg" style="flex:329492;background:var(--neutro);color:var(--ink)">329.492 sin contar</div>
     </div>
     <div class="leyenda">
-      <span><i class="pt" style="background:var(--azul)"></i>Comparable · 59% del stock SAP</span>
+      <span><i class="pt" style="background:var(--azul-d)"></i>Comparable · 59% del stock SAP</span>
       <span><i class="pt" style="background:var(--neutro)"></i>No relevado · 41% · no es faltante</span>
     </div>
+    <p class="sublab">En materiales</p>
+    <div class="barra">
+      <div class="seg" style="flex:433;background:var(--azul-d)">433 con recuento</div>
+      <div class="seg" style="flex:1049;background:var(--neutro);color:var(--ink)">1.049 sin contar</div>
+    </div>
+    <div class="leyenda">
+      <span><i class="pt" style="background:var(--azul-d)"></i>Comparable · 29% de los materiales de SAP</span>
+      <span><i class="pt" style="background:var(--neutro)"></i>No relevado · 71% · 639 de farmacia + 410 fuera del alcance</span>
+    </div>
+    <p class="nota">
+      <b>Las dos barras no dan lo mismo, y eso es el dato:</b> se contó el <b>59% de las unidades</b>
+      pero sólo el <b>29% de los materiales</b>. El recuento se concentró en lo de mucho movimiento
+      y poco surtido. Dicho de otro modo: 433 materiales explican casi 6 de cada 10 unidades del
+      stock de SAP.
+    </p>
     <p class="nota">
       El inventario es de Farmacia: cubre medicamentos y descartables. Quedan fuera del alcance
       410 materiales de uniformes, equipos y repuestos, y otros 639 de farmacia que no se contaron.
@@ -156,26 +248,35 @@
     </p>
   </div>
 
-  <h2>2 · Sobre lo que sí se contó, qué hay que hacer</h2>
+  <h2>3 · Sobre lo que sí se contó, qué hay que hacer</h2>
   <div class="tiles">
     <div class="tile" style="border-left-color:var(--naranja)">
       <div class="t">Sobra en SAP → dar de baja</div>
-      <div class="big">404.494</div>
-      <div class="d">unidades · 319 materiales</div>
+      <div class="big">319 <span style="font-size:14px;font-weight:650;color:var(--ink-3)">materiales</span></div>
+      <div class="d">404.494 unidades</div>
     </div>
     <div class="tile" style="border-left-color:var(--verde)">
       <div class="t">Falta en SAP → dar de alta</div>
-      <div class="big">17.179</div>
-      <div class="d">unidades · 105 materiales</div>
+      <div class="big">105 <span style="font-size:14px;font-weight:650;color:var(--ink-3)">materiales</span></div>
+      <div class="d">17.179 unidades</div>
     </div>
     <div class="tile" style="border-left-color:var(--rojo)">
       <div class="t">Contado y sin código SAP</div>
-      <div class="big">196</div>
-      <div class="d">ítems · 7.466 unidades</div>
+      <div class="big">196 <span style="font-size:14px;font-weight:650;color:var(--ink-3)">ítems</span></div>
+      <div class="d">7.466 unidades</div>
     </div>
   </div>
+  <p class="nota">
+    <b>La cuenta de materiales cierra así:</b> 319 con sobrante + 105 con faltante + 9 que dieron
+    exacto = <b>433 materiales cruzados</b>. Los 196 ítems sin código van aparte: se contaron, pero
+    no están en SAP, así que no hay material contra el que compararlos.
+  </p>
 
-  <h2>3 · Por base</h2>
+  <h2>4 · Por base · en unidades</h2>
+  <p style="font-size:12.5px;color:var(--ink-3);margin:0 0 9px">
+    Todos los valores de esta tabla son <b>unidades</b>. La tabla de abajo cuenta las mismas tres
+    bases en <b>ítems y materiales</b>.
+  </p>
   <div class="card" style="padding:4px 12px 6px">
     <table>
       <thead><tr>
@@ -183,10 +284,10 @@
         <th>Dar de baja</th><th>Dar de alta</th><th>Sin código SAP</th>
       </tr></thead>
       <tbody>
-        <tr><td>San Juan</td><td>87.123</td><td>21.732</td><td>65.391</td><td>39.454</td><td>2.367</td><td>52 ít.</td></tr>
-        <tr><td>Neuquén</td><td>671.967</td><td>33.107</td><td>638.860</td><td>354.178</td><td>2.923</td><td>51 ít.</td></tr>
-        <tr><td>Salta</td><td>37.614</td><td>32.524</td><td>5.090</td><td>10.862</td><td>11.889</td><td>93 ít.</td></tr>
-        <tr><td>Total</td><td>796.704</td><td>87.363</td><td>709.341</td><td>404.494</td><td>17.179</td><td>196 ít.</td></tr>
+        <tr><td>San Juan</td><td>87.123</td><td>21.732</td><td>65.391</td><td>39.454</td><td>2.367</td><td>1.097</td></tr>
+        <tr><td>Neuquén</td><td>671.967</td><td>33.107</td><td>638.860</td><td>354.178</td><td>2.923</td><td>2.744</td></tr>
+        <tr><td>Salta</td><td>37.614</td><td>32.524</td><td>5.090</td><td>10.862</td><td>11.889</td><td>3.625</td></tr>
+        <tr><td>Total</td><td>796.704</td><td>87.363</td><td>709.341</td><td>404.494</td><td>17.179</td><td>7.466</td></tr>
       </tbody>
     </table>
   </div>
@@ -195,7 +296,30 @@
     Neuquén concentra el 87% de las unidades a dar de baja.
   </p>
 
-  <h2>4 · Cómo se pasa de unidades a pesos</h2>
+  <p class="sublab" style="margin-top:26px">Por base · en ítems y materiales</p>
+  <div class="card" style="padding:4px 12px 6px;margin-top:9px">
+    <table>
+      <thead><tr>
+        <th>Base</th><th>Materiales SAP</th><th>Con recuento</th><th>Sin recuento</th>
+        <th>Fuera del alcance</th><th>Ítems contados</th><th>Cruzaron</th><th>Sin código SAP</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>San Juan</td><td>424</td><td>104</td><td>233</td><td>87</td><td>163</td><td>111</td><td>52</td></tr>
+        <tr><td>Neuquén</td><td>655</td><td>167</td><td>286</td><td>202</td><td>243</td><td>192</td><td>51</td></tr>
+        <tr><td>Salta</td><td>403</td><td>162</td><td>120</td><td>121</td><td>281</td><td>188</td><td>93</td></tr>
+        <tr><td>Total</td><td>1.482</td><td>433</td><td>639</td><td>410</td><td>687</td><td>491</td><td>196</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="nota">
+    <b>Las dos tablas responden preguntas distintas.</b> La de arriba, cuánto stock hay en juego.
+    Esta, sobre cuántos productos. Y acá aparece lo que las unidades tapan: <b>Salta y San Juan
+    dejaron sin código a uno de cada tres ítems</b> que contaron (93 de 281 y 52 de 163). Neuquén
+    cruzó mejor —51 de 243, uno de cada cinco— pero es la base que peor cobertura tiene: el
+    recuento apenas tocó 167 de sus 655 materiales.
+  </p>
+
+  <h2>5 · Cómo se pasa de unidades a pesos</h2>
   <div class="card">
     <p style="margin:0 0 4px;font-size:14px">Para cada material, la cuenta es siempre la misma:</p>
     <div class="calc">
@@ -235,21 +359,25 @@
       </tbody>
     </table>
     <p class="nota">
-      El primero es el caso corriente. El segundo tiene el precio mal: un electrodo no cuesta
-      $209.472 — lo más probable es que SAP cuente cajas y el recuento cuente unidades sueltas.
-      El tercero directamente no tiene precio porque no existe en SAP.
+      El primero es el caso corriente y es la mayoría: <b>404 de los 433 materiales cruzados</b>
+      tienen precio confiable. El segundo tiene el precio mal: un electrodo no cuesta $209.472 — lo
+      más probable es que SAP cuente cajas y el recuento cuente unidades sueltas; son
+      <b>29 materiales</b>. El tercero directamente no tiene precio porque no existe en SAP: son
+      <b>196 ítems</b>, y para esos la cuenta no se puede hacer.
     </p>
   </div>
 
-  <h2>5 · Qué pasa al sumar todos los materiales</h2>
+  <h2>6 · Qué pasa al sumar todos los materiales</h2>
   <div class="card">
     <p style="margin:0 0 4px;font-size:14px"><b>a) El indicador del archivo mezcla dos cosas
       distintas.</b> Por eso da positivo:</p>
     <table class="desc">
       <tbody>
-        <tr><td>Materiales que <b>sí se contaron</b> — el ajuste real</td>
+        <tr><td>Materiales que <b>sí se contaron</b> — el ajuste real
+            <span style="color:var(--ink-3)">· 433 materiales</span></td>
             <td>−$ 210.602.753</td></tr>
-        <tr><td>Materiales que <b>no se contaron</b> — stock que nadie relevó, no es un ajuste</td>
+        <tr><td>Materiales que <b>no se contaron</b> — stock que nadie relevó, no es un ajuste
+            <span style="color:var(--ink-3)">· 1.049 materiales</span></td>
             <td>+$ 386.942.408</td></tr>
         <tr class="sum"><td>= Indicador «Diferencia económica» del archivo</td>
             <td>$ 176.339.655</td></tr>
@@ -265,17 +393,20 @@
       compensan:</p>
     <table class="desc">
       <tbody>
-        <tr><td>Lo que <b>sobra</b> en SAP → dar de baja (404.494 un.)</td>
+        <tr><td>Lo que <b>sobra</b> en SAP → dar de baja
+            <span style="color:var(--ink-3)">· 319 materiales · 404.494 un.</span></td>
             <td>+$ 137.514.564</td></tr>
-        <tr><td>Lo que <b>falta</b> en SAP → dar de alta (17.179 un.)</td>
+        <tr><td>Lo que <b>falta</b> en SAP → dar de alta
+            <span style="color:var(--ink-3)">· 105 materiales · 17.179 un.</span></td>
             <td>−$ 348.117.318</td></tr>
         <tr class="sum"><td>= Ajuste real neto</td><td>−$ 210.602.753</td></tr>
       </tbody>
     </table>
     <p class="nota">
-      Llama la atención que con sólo 17.179 unidades a dar de alta el importe supere al de las
-      404.494 a dar de baja. La razón es el precio: <b>el 88% de las altas viene de un solo
-      material</b>, los electrodos de Neuquén.
+      Llama la atención que con sólo 17.179 unidades —y 105 materiales— a dar de alta el importe
+      supere al de las 404.494 unidades y 319 materiales a dar de baja. La razón es el precio:
+      <b>el 88% de las altas viene de un solo material</b>, los electrodos de Neuquén. Acá se ve
+      por qué hace falta la lectura por ítem: <b>1 material de 105</b> explica casi todo el importe.
     </p>
 
     <p style="margin:20px 0 4px;font-size:14px"><b>c) Si separamos los materiales con el precio
@@ -283,7 +414,8 @@
     <table class="desc">
       <tbody>
         <tr><td>Ajuste real neto</td><td>−$ 210.602.753</td></tr>
-        <tr><td>Menos los <b>29 materiales con precio a revisar</b></td>
+        <tr><td>Menos los <b>29 materiales con precio a revisar</b>
+            <span style="color:var(--ink-3)">· 29 de 433</span></td>
             <td style="color:var(--naranja)">−$ 306.876.081</td></tr>
         <tr class="sum"><td>= Resto del ajuste, con precios confiables</td>
             <td>+$ 96.273.328</td></tr>
@@ -296,12 +428,12 @@
     </p>
   </div>
 
-  <h2>6 · Los casos a revisar el precio</h2>
+  <h2>7 · Los casos a revisar el precio</h2>
   <div class="tiles" style="grid-template-columns:1fr 1fr">
     <div class="tile" style="border-left-color:var(--naranja)">
       <div class="t">Tienen código SAP, pero el precio no cierra</div>
       <div class="big">29</div>
-      <div class="d">materiales · mueven $306,9 M del ajuste</div>
+      <div class="d">materiales · 29 de los 433 cruzados (7%) · mueven $306,9 M del ajuste</div>
       <div class="d" style="margin-top:7px;color:var(--ink-2)">
         El valor unitario o la relación de cantidades indica que SAP y el recuento están usando
         distinta unidad de medida. Hay que confirmar si SAP cuenta cajas y el recuento unidades.
@@ -310,7 +442,7 @@
     <div class="tile" style="border-left-color:var(--rojo)">
       <div class="t">No tienen código SAP, así que no tienen precio</div>
       <div class="big">196</div>
-      <div class="d">ítems · 7.466 unidades</div>
+      <div class="d">ítems · 196 de los 687 contados (29%) · 7.466 unidades</div>
       <div class="d" style="margin-top:7px;color:var(--ink-2)">
         Se contaron en el depósito pero el cruce no les encontró coincidencia en SAP. Su
         diferencia en pesos no se puede calcular: primero hay que asignarles un código existente
@@ -319,11 +451,12 @@
     </div>
   </div>
 
-  <h2>7 · Lo que hace falta para cerrar</h2>
+  <h2>8 · Lo que hace falta para cerrar</h2>
   <div class="card">
     <ul>
-      <li><b>Validar 196 ítems sin código SAP</b> (7.466 unidades): definir si les corresponde un código existente o si hay que darlos de alta.</li>
-      <li><b>Revisar 29 materiales con alerta de valorización</b>: confirmar la unidad de medida de SAP contra la del recuento.</li>
+      <li><b>Validar 196 ítems sin código SAP</b> (de los 687 contados · 7.466 unidades): definir si les corresponde un código existente o si hay que darlos de alta.</li>
+      <li><b>Revisar 29 materiales con alerta de valorización</b> (de los 433 cruzados): confirmar la unidad de medida de SAP contra la del recuento.</li>
+      <li><b>Confirmar los 250 cruces de certeza media y baja</b> (125 y 125, sobre 433): el cruce se hizo por nombre y están marcados uno por uno para validar.</li>
       <li><b>Definir el alcance del recuento</b>: qué se hace con los 639 materiales de farmacia que no se contaron y con los 410 que están fuera del alcance.</li>
       <li><b>Con eso cerrado</b> quedan determinados los ajustes a registrar en SAP y el impacto económico definitivo.</li>
     </ul>
@@ -332,8 +465,8 @@
   <h2>Dónde está cada número en el archivo</h2>
   <div class="card">
     <ul style="color:var(--ink-2)">
-      <li>Todos los totales de este resumen → hoja <b>Resumen del cruce</b>.</li>
-      <li>Un material puntual, de punta a punta → hoja <b>Conciliación</b> (una fila por material).</li>
+      <li>Todos los totales de este resumen → hoja <b>Resumen del cruce</b>. Los conteos de ítems y materiales están en el bloque «Desglose por nivel de certeza», al pie de esa hoja.</li>
+      <li>Un material puntual, de punta a punta → hoja <b>Conciliación</b>: una fila por material, 1.482 de SAP más 196 ítems contados sin código. Filtrando «Acción en SAP» se obtiene cualquiera de los conteos de este resumen.</li>
       <li>Los ajustes → hojas <b>Dar de baja en SAP</b>, <b>Dar de alta en SAP</b> y <b>Sin correspondencia SAP</b>.</li>
       <li>La prueba de que los totales cierran contra los archivos originales → hoja <b>Control de cantidades</b>.</li>
     </ul>

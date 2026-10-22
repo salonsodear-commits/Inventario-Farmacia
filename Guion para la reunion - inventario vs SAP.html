@@ -41,6 +41,13 @@
   .s .k{font-size:15.5px;font-weight:750;letter-spacing:-.01em;line-height:1.3}
   .s .d{font-size:11.5px;color:var(--ink-3);margin-top:5px}
   .s .t{font-size:10px;color:var(--ink-3);letter-spacing:.06em;margin-bottom:5px}
+  .s .d2{font-size:11.5px;color:var(--ink-2);margin-top:6px;padding-top:6px;
+    border-top:1px dashed var(--line);font-weight:650}
+  .regla{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:10px}
+  .regla div{background:var(--surface-2);border:1px solid var(--line);border-radius:9px;
+    padding:10px 14px;font-size:13.5px;color:var(--ink-2)}
+  .regla b{color:var(--ink)}
+  @media (max-width:800px){.regla{grid-template-columns:1fr}}
 
   /* guion */
   .blk{background:var(--surface);border:1px solid var(--line);border-radius:11px;
@@ -76,20 +83,38 @@
 <div class="wrap">
 
   <h1>Guion para la reunión</h1>
-  <p class="sub">Inventario físico vs SAP · unos 3 minutos de apertura, después preguntas</p>
+  <p class="sub">Inventario físico vs SAP · unos 3 minutos y 45 segundos de apertura, después preguntas ·
+    cada número, en unidades y en ítems</p>
+
+  <h2>La regla para no marearte · dos lecturas del mismo cruce</h2>
+  <div class="regla">
+    <div><b>UNIDADES = cuánto.</b> 796.704 en SAP, 87.363 contadas.
+      Es el tamaño del stock.</div>
+    <div><b>ÍTEMS / MATERIALES = sobre cuántas cosas.</b> 1.482 materiales en SAP,
+      687 ítems contados. Es el alcance del cruce.</div>
+  </div>
+  <p style="font-size:13px;color:var(--ink-3);margin:0 0 4px">
+    Si te preguntan «¿cuánto?» contestá en unidades. Si te preguntan «¿sobre qué?» contestá en
+    ítems. El cruce se hizo <b>producto por producto</b>, no unidad por unidad.
+  </p>
 
   <h2>Sinóptico · los cinco golpes, en orden</h2>
   <div class="sin">
     <div class="s"><div class="t">1</div><div class="k">No es faltante</div>
-      <div class="d">sólo se contó el 59%</div></div>
-    <div class="s"><div class="t">2</div><div class="k">Baja y alta</div>
-      <div class="d">404.494 / 17.179</div></div>
-    <div class="s"><div class="t">3</div><div class="k">Unidades × precio</div>
-      <div class="d">el precio sale de SAP</div></div>
+      <div class="d">59% de las unidades</div>
+      <div class="d2">433 de 1.482 materiales</div></div>
+    <div class="s"><div class="t">2</div><div class="k">687 contados</div>
+      <div class="d">491 cruzaron · 196 no</div>
+      <div class="d2">491 caen en 433 materiales</div></div>
+    <div class="s"><div class="t">3</div><div class="k">Baja y alta</div>
+      <div class="d">404.494 / 17.179 un.</div>
+      <div class="d2">319 / 105 materiales</div></div>
     <div class="s"><div class="t">4</div><div class="k">29 precios</div>
-      <div class="d">cajas vs. unidades</div></div>
+      <div class="d">cajas vs. unidades</div>
+      <div class="d2">29 de 433 · mueven $307 M</div></div>
     <div class="s"><div class="t">5</div><div class="k">Pido 3 cosas</div>
-      <div class="d">196 · 29 · alcance</div></div>
+      <div class="d">196 ítems · 29 precios</div>
+      <div class="d2">+ definir el alcance</div></div>
   </div>
 
   <h2>El guion</h2>
@@ -111,22 +136,50 @@
     <span class="cif">467.212</span> fueron <mark>efectivamente contadas</mark>.
     Las otras <span class="cif">329.492</span> <mark>nadie las contó</mark>: el inventario fue de
     Farmacia, no cubre uniformes ni equipos, y además quedaron materiales de farmacia sin relevar.»</p>
+    <p>«Y <mark>por material se ve mucho más claro</mark>: SAP tiene
+    <span class="cif">1.482 materiales</span> en las tres bases, y el recuento tocó
+    <span class="cif">433</span>. O sea: contamos el <mark>59% de las unidades</mark> pero sólo el
+    <mark>29% de los materiales</mark>. De los que quedaron afuera,
+    <span class="cif">639</span> son de farmacia y no se relevaron, y
+    <span class="cif">410</span> son uniformes, equipos y repuestos: están
+    <mark>fuera del alcance</mark>.»</p>
     <p>«Sobre esa parte <mark>no hay nada que reclamar</mark> todavía. Hay que decidir si se cuenta.»</p>
   </div>
 
   <div class="blk">
-    <div class="cab"><div class="num">2</div><div class="tit">Lo que sí se contó</div>
-      <div class="seg">25 s</div></div>
-    <p>«Sobre lo que sí se contó, el ajuste es concreto:»</p>
-    <p>«<mark>Sobran</mark> <span class="cif">404.494 unidades</span> en SAP → hay que
-    <mark>dar de baja</mark>.<br>
-    <mark>Faltan</mark> <span class="cif">17.179</span> → hay que <mark>dar de alta</mark>.<br>
-    Y aparecieron <span class="cif">196 ítems</span> que se contaron en el depósito y
-    <mark>no existen en SAP</mark>.»</p>
+    <div class="cab"><div class="num">2</div><div class="tit">Qué cruzó con qué · esto se explica en ítems, no en unidades</div>
+      <div class="seg">35 s</div></div>
+    <p>«El recuento contó <span class="cif">687 ítems</span> entre las tres bases. De esos,
+    <span class="cif">491 encontraron su código</span> en SAP y
+    <span class="cif">196 no encontraron ninguno</span>.»</p>
+    <p>«Los 491 <mark>caen sobre 433 materiales</mark> de SAP. ¿Por qué no son 491 materiales?
+    Porque hay <span class="cif">39 materiales</span> que recibieron
+    <mark>más de un nombre</mark> del recuento: la Aspirineta, por ejemplo, aparece con
+    <mark>tres nomenclaturas distintas</mark> en el inventario físico y en SAP es
+    <mark>un solo material</mark>. El cruce las suma sobre ese material. <mark>No es un error, es
+    consolidación.</mark>»</p>
+    <p>«Y de esos 433, el cruce es por nombre, así que cada uno quedó clasificado:
+    <span class="cif">183 con certeza alta</span>, <span class="cif">125 media</span> y
+    <span class="cif">125 baja</span>. <mark>Los 250 de media y baja están marcados uno por uno</mark>
+    en el archivo, para que se validen. <mark>Ninguno se dio por bueno sin dejar rastro.</mark>»</p>
   </div>
 
   <div class="blk">
-    <div class="cab"><div class="num">3</div><div class="tit">Cómo se llega a la plata</div>
+    <div class="cab"><div class="num">3</div><div class="tit">Lo que sí se contó</div>
+      <div class="seg">25 s</div></div>
+    <p>«Sobre esos 433 materiales el ajuste es concreto, y lo digo en las dos lecturas:»</p>
+    <p>«<mark>Sobran</mark> <span class="cif">404.494 unidades</span> en SAP, repartidas en
+    <span class="cif">319 materiales</span> → hay que <mark>dar de baja</mark>.<br>
+    <mark>Faltan</mark> <span class="cif">17.179 unidades</span> en
+    <span class="cif">105 materiales</span> → hay que <mark>dar de alta</mark>.<br>
+    Otros <span class="cif">9 materiales</span> dieron <mark>exacto</mark>.
+    <span style="color:var(--ink-3)">319 + 105 + 9 = los 433.</span><br>
+    Y aparte están los <span class="cif">196 ítems</span> que se contaron en el depósito y
+    <mark>no existen en SAP</mark>: son <span class="cif">7.466 unidades</span>.»</p>
+  </div>
+
+  <div class="blk">
+    <div class="cab"><div class="num">4</div><div class="tit">Cómo se llega a la plata</div>
       <div class="seg">35 s</div></div>
     <p>«Para la plata la cuenta es simple y es siempre la misma, material por material:
     <mark>la diferencia en unidades por el valor unitario que el propio SAP tiene cargado</mark>.
@@ -135,10 +188,12 @@
     <span class="cif">2.367</span>, se contaron <span class="cif">918</span>, sobran
     <span class="cif">1.449</span>, a <span class="cif">$94,90</span> cada una da
     <span class="cif">$137.512</span>. Así con cada material.»</p>
+    <p>«Y esto funciona bien en <span class="cif">404 de los 433</span> materiales.
+    <mark>El problema está en los otros 29.</mark>»</p>
   </div>
 
   <div class="blk">
-    <div class="cab"><div class="num">4</div><div class="tit">El problema: 29 precios que no cierran</div>
+    <div class="cab"><div class="num">5</div><div class="tit">El problema: 29 precios que no cierran</div>
       <div class="seg">45 s</div></div>
     <p>«Ahora, hay <span class="cif">29 materiales</span> donde ese
     <mark>precio no cierra</mark>. El caso testigo:
@@ -148,7 +203,9 @@
     <span class="cif">$209.472</span> por electrodo. Y se contaron
     <span class="cif">1.465</span>. Evidentemente <mark>SAP cuenta cajas</mark> y el recuento
     <mark>contó unidades sueltas</mark>.»</p>
-    <p>«Ese material <mark>solo mueve 305 millones</mark>. Por eso, según cómo lo mires,
+    <p>«<mark>Ese material solo mueve 305 millones.</mark> Fijate la desproporción:
+    <span class="cif">1 material</span> de los <span class="cif">105</span> a dar de alta
+    explica el <mark>88% del importe</mark> de las altas. Por eso, según cómo lo mires,
     el ajuste da entre <span class="cif">+96 millones</span> y
     <span class="cif">−210 millones</span>.»</p>
     <p>«<mark>No es un número para cerrar hoy.</mark> La diferencia
@@ -156,28 +213,43 @@
   </div>
 
   <div class="blk">
-    <div class="cab"><div class="num">5</div><div class="tit">Qué pido</div>
+    <div class="cab"><div class="num">6</div><div class="tit">Qué pido</div>
       <div class="seg">25 s</div></div>
     <p>«Necesito tres cosas para cerrarlo:»</p>
-    <p>«Uno: que <mark>validen los 196 ítems</mark> sin código, para asignarles código o darlos
-    de alta.<br>
-    Dos: que <mark>confirmen la unidad de medida</mark> de esos 29 materiales.<br>
-    Tres: que <mark>definamos el alcance</mark> del recuento, si se cuenta todo o sólo farmacia.»</p>
+    <p>«Uno: que <mark>validen los 196 ítems</mark> sin código —de los 687 que se contaron—,
+    para asignarles código o darlos de alta.<br>
+    Dos: que <mark>confirmen la unidad de medida</mark> de esos 29 materiales, sobre los 433 que
+    cruzaron.<br>
+    Tres: que <mark>definamos el alcance</mark> del recuento: qué hacemos con los
+    <span class="cif">639 materiales</span> de farmacia sin contar y los
+    <span class="cif">410</span> que quedan afuera.»</p>
   </div>
 
   <div class="blk" style="border-left:3px solid var(--verde)">
     <div class="cab"><div class="num" style="background:var(--verde)">✓</div>
       <div class="tit">Cierre</div><div class="seg">15 s</div></div>
     <p>«Las cantidades están <mark>verificadas contra los archivos originales</mark> de SAP y
-    contra los PDF del recuento: coinciden, y hay una hoja de control en el archivo que lo
-    muestra. Lo que queda abierto es <mark>el precio</mark>, no el conteo.»</p>
+    contra los PDF del recuento: coinciden <mark>ítem por ítem y unidad por unidad</mark>, y hay
+    una hoja de control en el archivo que lo muestra. Lo que queda abierto es
+    <mark>el precio</mark>, no el conteo.»</p>
   </div>
 
   <h2>Si te preguntan…</h2>
   <div class="qa">
     <div><b>«¿Por qué la diferencia es tan grande?»</b>
-      <span>Porque sólo el 59% del stock de SAP se contó. Sobre lo contado, el ajuste es
-      404.494 de baja y 17.179 de alta.</span></div>
+      <span>Porque sólo se contó el 59% de las unidades de SAP, y apenas 433 de sus 1.482
+      materiales. Sobre lo contado, el ajuste es 404.494 unidades de baja en 319 materiales y
+      17.179 de alta en 105.</span></div>
+    <div><b>«¿Sobre cuántos productos estamos hablando?»</b>
+      <span>El recuento contó 687 ítems. 491 encontraron código SAP y 196 no. SAP, del otro lado,
+      tiene 1.482 materiales y el recuento tocó 433.</span></div>
+    <div><b>«¿Por qué 491 ítems dan 433 materiales?»</b>
+      <span>Porque 39 materiales recibieron más de un nombre del recuento: la Aspirineta aparece
+      con tres nomenclaturas y en SAP es un solo material. Es consolidación, no un error.</span></div>
+    <div><b>«¿Y los cruces dudosos?»</b>
+      <span>De los 433 materiales cruzados, 183 son de certeza alta, 125 media y 125 baja. Los 250
+      de media y baja están marcados uno por uno en la columna «Nivel de coincidencia» para
+      validar.</span></div>
     <div><b>«¿Cuánta plata es?»</b>
       <span>Entre +96 y −210 millones. No lo cierro hasta revisar 29 precios donde SAP
       probablemente cuenta cajas y el recuento unidades.</span></div>
@@ -185,17 +257,20 @@
       <span>Las cantidades sí: coinciden exacto con la bajada de SAP y con los PDF del recuento.
       Está la hoja «Control de cantidades» que lo prueba línea por línea.</span></div>
     <div><b>«¿Por qué hay 196 ítems sin código?»</b>
-      <span>Se contaron en el depósito y el cruce no les encontró coincidencia en SAP. Al no
-      tener código tampoco tienen precio, así que no se pueden valorizar.</span></div>
+      <span>Son 196 de los 687 contados —casi 3 de cada 10—. Se contaron en el depósito y el cruce
+      no les encontró coincidencia en SAP. Al no tener código tampoco tienen precio, así que no se
+      pueden valorizar. Son 7.466 unidades, no 196.</span></div>
     <div><b>«¿Por qué Neuquén es tan distinto?»</b>
-      <span>Concentra el 87% de las unidades a dar de baja y ahí está el material del problema
-      de precio.</span></div>
+      <span>Concentra el 87% de las unidades a dar de baja y ahí está el material del problema de
+      precio. Además es la base con peor cobertura: el recuento tocó 167 de sus 655
+      materiales.</span></div>
     <div><b>«¿Cuándo lo cerramos?»</b>
       <span>Cuando estén validados los 196 ítems y los 29 precios. Ahí quedan determinados los
       ajustes a registrar y el impacto económico definitivo.</span></div>
     <div><b>«¿Damos de baja los 404.494 ya?»</b>
-      <span>La cantidad está firme. Antes de registrar conviene resolver los 29 precios, porque
-      cambian la valorización del asiento.</span></div>
+      <span>La cantidad está firme, y son 319 materiales concretos, listados en la hoja «Dar de
+      baja en SAP». Antes de registrar conviene resolver los 29 precios, porque cambian la
+      valorización del asiento.</span></div>
   </div>
 
   <h2>Evitá decir</h2>
@@ -204,14 +279,17 @@
       <li><b>«Faltan 709.341 unidades»</b> — no es un faltante: 329.492 simplemente no se contaron.</li>
       <li><b>Un número de plata cerrado</b> — hasta revisar los 29 precios el rango es demasiado amplio.</li>
       <li><b>«Hay un error en SAP»</b> — lo más probable es una diferencia de unidad de medida, no un error de stock.</li>
+      <li><b>Mezclar ítems con unidades</b> — 196 ítems son 7.466 unidades; 404.494 unidades son 319 materiales. Si te preguntan «¿cuánto?» respondé unidades; si preguntan «¿sobre qué?», ítems.</li>
     </ul>
   </div>
 
   <h2>Una sola frase, si no hay tiempo</h2>
   <div class="cierre">
-    «Sobre lo que se contó, <b>sobran 404.494 unidades en SAP y faltan 17.179</b>.
+    «Se contaron <b>687 ítems</b> y cruzaron con <b>433 de los 1.482 materiales</b> que SAP tiene.
+    Sobre esos: <b>sobran 404.494 unidades en 319 materiales y faltan 17.179 en otros 105</b>.
     La diferencia en unidades está firme; <b>el impacto en pesos todavía no</b>, porque hay
-    29 materiales donde SAP parece contar cajas y el recuento contó unidades.»
+    29 materiales donde SAP parece contar cajas y el recuento contó unidades — y 196 ítems que
+    no tienen código, así que no tienen precio.»
   </div>
 
 </div>
