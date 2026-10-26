@@ -11,6 +11,7 @@
     --ink:#0b0b0b; --ink-2:#52514e; --ink-3:#86857f;
     --azul:#2a78d6; --naranja:#eb6834; --verde:#1baf7a; --rojo:#e34948;
     --acento:#1F4E78; --marca:#fff3cd;
+    --verde-d:#0f7f58; --azul-d:#1d5fae; --naranja-d:#b8431f;
   }
   @media (prefers-color-scheme: dark){
     :root:where(:not([data-theme="light"])){
@@ -19,6 +20,7 @@
       --ink:#ffffff; --ink-2:#c3c2b7; --ink-3:#8c8b82;
       --azul:#3987e5; --naranja:#d95926; --verde:#199e70; --rojo:#e66767;
       --acento:#8ab4e8; --marca:#453b1b;
+      --verde-d:#0f7f58; --azul-d:#1d5fae; --naranja-d:#b8431f;
     }
   }
   *{box-sizing:border-box}
@@ -29,6 +31,27 @@
   .sub{color:var(--ink-2);font-size:14px;margin:0 0 24px}
   h2{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);
     margin:32px 0 11px;font-weight:650}
+
+  /* regla de lectura */
+  .regla{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:10px}
+  .regla div{background:var(--surface-2);border:1px solid var(--line);border-radius:9px;
+    padding:10px 14px;font-size:13.5px;color:var(--ink-2)}
+  .regla b{color:var(--ink)}
+
+  /* niveles de evidencia */
+  .niv{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .n{background:var(--surface);border:1px solid var(--line);border-radius:11px;
+    padding:14px 16px;border-left-width:4px}
+  .n.f{border-left-color:var(--verde-d)} .n.c{border-left-color:var(--azul-d)}
+  .n.p{border-left-color:var(--naranja-d)}
+  .n .et{font-size:10px;font-weight:750;letter-spacing:.07em;padding:2px 8px;border-radius:9px;
+    color:#fff;display:inline-block;margin-bottom:8px}
+  .n.f .et{background:var(--verde-d)} .n.c .et{background:var(--azul-d)}
+  .n.p .et{background:var(--naranja-d)}
+  .n .qq{font-size:13.5px;font-weight:700;margin-bottom:4px;line-height:1.35}
+  .n .dd{font-size:12.5px;color:var(--ink-2)}
+  .n .pr{font-size:11.5px;color:var(--ink-3);margin-top:8px;padding-top:7px;
+    border-top:1px solid var(--line)}
 
   /* sinoptico */
   .sin{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
@@ -43,11 +66,6 @@
   .s .t{font-size:10px;color:var(--ink-3);letter-spacing:.06em;margin-bottom:5px}
   .s .d2{font-size:11.5px;color:var(--ink-2);margin-top:6px;padding-top:6px;
     border-top:1px dashed var(--line);font-weight:650}
-  .regla{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:10px}
-  .regla div{background:var(--surface-2);border:1px solid var(--line);border-radius:9px;
-    padding:10px 14px;font-size:13.5px;color:var(--ink-2)}
-  .regla b{color:var(--ink)}
-  @media (max-width:800px){.regla{grid-template-columns:1fr}}
 
   /* guion */
   .blk{background:var(--surface);border:1px solid var(--line);border-radius:11px;
@@ -62,12 +80,48 @@
   mark{background:var(--marca);color:inherit;padding:1px 3px;border-radius:3px;font-weight:650}
   .cif{font-weight:750;white-space:nowrap}
 
+  /* tira de evidencia al pie de cada bloque */
+  .ev{margin-top:12px;padding-top:9px;border-top:1px dashed var(--line);
+    display:flex;gap:10px;align-items:flex-start;font-size:12.5px;color:var(--ink-2);
+    line-height:1.5}
+  .ev .lv{flex:none;font-size:9px;font-weight:750;letter-spacing:.06em;padding:3px 7px;
+    border-radius:9px;color:#fff;margin-top:2px}
+  .lv.f{background:var(--verde-d)} .lv.c{background:var(--azul-d)} .lv.p{background:var(--naranja-d)}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px;
+    background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;
+    white-space:nowrap}
+  .ev b{color:var(--ink)}
+
+  /* demo paso a paso */
+  .demo{counter-reset:d}
+  .dp{background:var(--surface);border:1px solid var(--line);border-radius:10px;
+    padding:13px 17px 13px 50px;margin-bottom:8px;position:relative;font-size:14px}
+  .dp::before{counter-increment:d;content:counter(d);position:absolute;left:15px;top:13px;
+    width:22px;height:22px;border-radius:50%;background:var(--acento);color:#fff;
+    font-size:12px;font-weight:700;display:grid;place-items:center}
+  .dp > b{display:block;margin-bottom:3px}
+  .dp span{color:var(--ink-2);font-size:13.5px}
+
+  /* tabla de evidencia */
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{padding:8px 9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  thead th{font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);
+    font-weight:650;border-bottom:1.5px solid var(--line)}
+  td.r{text-align:right;font-weight:700;white-space:nowrap}
+  .pill{font-size:9px;font-weight:750;letter-spacing:.06em;padding:3px 7px;border-radius:9px;
+    color:#fff;white-space:nowrap}
+  .pill.f{background:var(--verde-d)} .pill.c{background:var(--azul-d)}
+  .pill.p{background:var(--naranja-d)}
+  .tbox{background:var(--surface);border:1px solid var(--line);border-radius:11px;
+    padding:4px 14px 6px}
+
   /* qa */
   .qa{display:grid;gap:8px}
   .qa div{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--azul);
     border-radius:9px;padding:11px 15px}
-  .qa b{display:block;font-size:13.5px;margin-bottom:2px}
+  .qa b.q{display:block;font-size:13.5px;margin-bottom:2px}
   .qa span{font-size:13.5px;color:var(--ink-2)}
+  .qa .ep{display:block;font-size:11.5px;color:var(--ink-3);margin-top:5px}
 
   .evitar{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--rojo);
     border-radius:9px;padding:13px 17px}
@@ -75,27 +129,61 @@
   .evitar li{margin-bottom:5px}
   .cierre{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;
     padding:14px 18px;font-size:15px}
-  @media print{body{padding:0}.blk,.qa div,.s,.evitar{break-inside:avoid}}
-  @media (max-width:800px){.sin{grid-template-columns:1fr 1fr}}
+  .nota{font-size:12.5px;color:var(--ink-3);margin:8px 0 0}
+  @media print{body{padding:0}.blk,.qa div,.s,.evitar,.n,.dp,tr{break-inside:avoid}}
+  @media (max-width:800px){
+    .sin{grid-template-columns:1fr 1fr}
+    .regla,.niv{grid-template-columns:1fr}
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
 
   <h1>Guion para la reunión</h1>
-  <p class="sub">Inventario físico vs SAP · unos 3 minutos y 45 segundos de apertura, después preguntas ·
-    cada número, en unidades y en ítems</p>
+  <p class="sub">Inventario físico vs SAP · unos 3 minutos y 45 segundos de apertura, después
+    preguntas · cada afirmación con la evidencia al pie, lista para mostrar en pantalla</p>
 
-  <h2>La regla para no marearte · dos lecturas del mismo cruce</h2>
+  <h2>Regla 1 · dos lecturas del mismo cruce, no las mezcles</h2>
   <div class="regla">
     <div><b>UNIDADES = cuánto.</b> 796.704 en SAP, 87.363 contadas.
       Es el tamaño del stock.</div>
     <div><b>ÍTEMS / MATERIALES = sobre cuántas cosas.</b> 1.482 materiales en SAP,
       687 ítems contados. Es el alcance del cruce.</div>
   </div>
-  <p style="font-size:13px;color:var(--ink-3);margin:0 0 4px">
+  <p class="nota">
     Si te preguntan «¿cuánto?» contestá en unidades. Si te preguntan «¿sobre qué?» contestá en
     ítems. El cruce se hizo <b>producto por producto</b>, no unidad por unidad.
+  </p>
+
+  <h2>Regla 2 · la evidencia tiene tres niveles · no los defiendas igual</h2>
+  <div class="niv">
+    <div class="n f">
+      <span class="et">FIRME</span>
+      <div class="qq">Las cantidades</div>
+      <div class="dd">Salen de los archivos originales y cierran exacto contra ellos. No hay
+        criterio nuestro: es copiar y sumar. <b>Esto se defiende sin matices.</b></div>
+      <div class="pr">Hoja <b>Control de cantidades</b> · 12 de las 13 verificaciones dicen
+        «Coincide»; la 13.ª es del propio informe</div>
+    </div>
+    <div class="n c">
+      <span class="et">CLASIFICADO</span>
+      <div class="qq">El cruce nombre ↔ código</div>
+      <div class="dd">Acá sí hay criterio: SAP y el recuento usan nombres distintos. Por eso cada
+        material cruzado <b>lleva su nivel de certeza escrito</b> y se puede filtrar.</div>
+      <div class="pr">Hoja <b>Conciliación</b> · columna S · Alta 183 · Media 125 · Baja 125</div>
+    </div>
+    <div class="n p">
+      <span class="et">PENDIENTE</span>
+      <div class="qq">Lo que no cierro hoy</div>
+      <div class="dd">196 ítems sin código y 29 precios con la unidad de medida en duda.
+        <b>No los presento como resultado: los presento como pedido.</b></div>
+      <div class="pr">Hoja <b>Sin correspondencia SAP</b> · y Conciliación columna R, no vacías</div>
+    </div>
+  </div>
+  <p class="nota">
+    <b>Si te aprietan con un número, lo primero es ubicar de qué nivel es.</b> Un número firme se
+    sostiene; uno clasificado se muestra con su certeza; uno pendiente no se defiende, se deriva.
   </p>
 
   <h2>Sinóptico · los cinco golpes, en orden</h2>
@@ -109,9 +197,9 @@
     <div class="s"><div class="t">3</div><div class="k">Baja y alta</div>
       <div class="d">404.494 / 17.179 un.</div>
       <div class="d2">319 / 105 materiales</div></div>
-    <div class="s"><div class="t">4</div><div class="k">29 precios</div>
-      <div class="d">cajas vs. unidades</div>
-      <div class="d2">29 de 433 · mueven $307 M</div></div>
+    <div class="s"><div class="t">4</div><div class="k">El signo se da vuelta</div>
+      <div class="d">por 29 precios</div>
+      <div class="d2">−$210,6 M ↔ +$96,3 M</div></div>
     <div class="s"><div class="t">5</div><div class="k">Pido 3 cosas</div>
       <div class="d">196 ítems · 29 precios</div>
       <div class="d2">+ definir el alcance</div></div>
@@ -125,6 +213,9 @@
     <p>«Cruzamos lo que dice <mark>SAP</mark> contra lo que se <mark>contó</mark> en las tres bases.
     Hay diferencias grandes, pero antes de ir a los números necesito aclarar una cosa,
     porque si no <mark>el número grande confunde</mark>.»</p>
+    <p>«Y aclaro de entrada: <mark>no todo tiene el mismo respaldo</mark>. Las cantidades están
+    verificadas contra los archivos. El cruce de nombres está clasificado por certeza. Y hay dos
+    cosas que <mark>no cierro hoy</mark> y vengo a pedirles.»</p>
   </div>
 
   <div class="blk">
@@ -134,16 +225,18 @@
     Ese número <mark>no es un faltante</mark>.»</p>
     <p>«De las <span class="cif">796.704</span> que informa SAP, sólo
     <span class="cif">467.212</span> fueron <mark>efectivamente contadas</mark>.
-    Las otras <span class="cif">329.492</span> <mark>nadie las contó</mark>: el inventario fue de
-    Farmacia, no cubre uniformes ni equipos, y además quedaron materiales de farmacia sin relevar.»</p>
+    Las otras <span class="cif">329.492</span> <mark>nadie las contó</mark>.»</p>
     <p>«Y <mark>por material se ve mucho más claro</mark>: SAP tiene
-    <span class="cif">1.482 materiales</span> en las tres bases, y el recuento tocó
-    <span class="cif">433</span>. O sea: contamos el <mark>59% de las unidades</mark> pero sólo el
-    <mark>29% de los materiales</mark>. De los que quedaron afuera,
-    <span class="cif">639</span> son de farmacia y no se relevaron, y
-    <span class="cif">410</span> son uniformes, equipos y repuestos: están
-    <mark>fuera del alcance</mark>.»</p>
+    <span class="cif">1.482 materiales</span> y el recuento tocó <span class="cif">433</span>.
+    Contamos el <mark>59% de las unidades</mark> pero sólo el <mark>29% de los materiales</mark>.
+    De los que quedaron afuera, <span class="cif">639</span> son de farmacia y no se relevaron, y
+    <span class="cif">410</span> son uniformes, equipos y repuestos: <mark>fuera del
+    alcance</mark>.»</p>
     <p>«Sobre esa parte <mark>no hay nada que reclamar</mark> todavía. Hay que decidir si se cuenta.»</p>
+    <div class="ev"><span class="lv f">FIRME</span>
+      <span><b>Resumen del cruce</b>, fila TOTAL: columna 1 da 796.704 y la columna 4 da 467.212.
+      <b>Conciliación</b> → filtrar <code>U = Sin recuento físico</code> da <b>639 filas</b>;
+      <code>U = Fuera del alcance del inventario físico</code> da <b>410</b>.</span></div>
   </div>
 
   <div class="blk">
@@ -158,10 +251,16 @@
     <mark>tres nomenclaturas distintas</mark> en el inventario físico y en SAP es
     <mark>un solo material</mark>. El cruce las suma sobre ese material. <mark>No es un error, es
     consolidación.</mark>»</p>
-    <p>«Y de esos 433, el cruce es por nombre, así que cada uno quedó clasificado:
-    <span class="cif">183 con certeza alta</span>, <span class="cif">125 media</span> y
-    <span class="cif">125 baja</span>. <mark>Los 250 de media y baja están marcados uno por uno</mark>
-    en el archivo, para que se validen. <mark>Ninguno se dio por bueno sin dejar rastro.</mark>»</p>
+    <p>«Y acá va lo importante, porque <mark>el cruce es por nombre, no por código</mark>: cada uno
+    de esos 433 <mark>quedó clasificado por certeza</mark>.
+    <span class="cif">183 alta</span>, <span class="cif">125 media</span>,
+    <span class="cif">125 baja</span>. <mark>Los 250 de media y baja están marcados uno por uno</mark>,
+    se filtran en una columna y se revisan. <mark>Ninguno se dio por bueno sin dejar rastro.</mark>»</p>
+    <div class="ev"><span class="lv c">CLASIFICADO</span>
+      <span><b>Conciliación</b> → filtrar <code>S = Alta</code> da <b>183</b>,
+      <code>Media</code> <b>125</b>, <code>Baja</code> <b>125</b>,
+      <code>Sin coincidencia</code> <b>196</b>. La columna V dice por qué cruzó cada uno
+      y la AA deja la observación.</span></div>
   </div>
 
   <div class="blk">
@@ -176,6 +275,13 @@
     <span style="color:var(--ink-3)">319 + 105 + 9 = los 433.</span><br>
     Y aparte están los <span class="cif">196 ítems</span> que se contaron en el depósito y
     <mark>no existen en SAP</mark>: son <span class="cif">7.466 unidades</span>.»</p>
+    <p>«<mark>Cada uno de esos tres grupos tiene su propia hoja</mark>, con el material, la
+    cantidad y el importe. No hay que buscar nada: están listas para operar.»</p>
+    <div class="ev"><span class="lv c">CLASIFICADO</span>
+      <span>Tres hojas, cada una con su fila TOTAL al pie: <b>Dar de baja en SAP</b> (319 filas,
+      404.494 un.), <b>Dar de alta en SAP</b> (105 filas, 17.179 un.),
+      <b>Sin correspondencia SAP</b> (196 filas, 7.466 un.). En las tres, la columna M trae el
+      nivel de certeza de ese material.</span></div>
   </div>
 
   <div class="blk">
@@ -190,26 +296,36 @@
     <span class="cif">$137.512</span>. Así con cada material.»</p>
     <p>«Y esto funciona bien en <span class="cif">404 de los 433</span> materiales.
     <mark>El problema está en los otros 29.</mark>»</p>
+    <div class="ev"><span class="lv f">FIRME</span>
+      <span>En <b>Conciliación</b>, las columnas están al lado y se leen de corrido:
+      <code>K</code> SAP, <code>L</code> contado, <code>M</code> diferencia en unidades,
+      <code>N</code> valor unitario, <code>Q</code> diferencia en pesos. El valor unitario sale de
+      dividir el valor de stock de SAP por sus unidades: no es una estimación.</span></div>
   </div>
 
   <div class="blk">
-    <div class="cab"><div class="num">5</div><div class="tit">El problema: 29 precios que no cierran</div>
+    <div class="cab"><div class="num">5</div><div class="tit">El problema: 29 precios dan vuelta el signo</div>
       <div class="seg">45 s</div></div>
-    <p>«Ahora, hay <span class="cif">29 materiales</span> donde ese
-    <mark>precio no cierra</mark>. El caso testigo:
-    <mark>electrodos de desfibrilador</mark> en Neuquén.»</p>
+    <p>«Hay <span class="cif">29 materiales</span> donde ese <mark>precio no cierra</mark>.
+    El caso testigo: <mark>electrodos de desfibrilador</mark> en Neuquén.»</p>
     <p>«SAP tiene <span class="cif">5 unidades</span> valuadas en
-    <span class="cif">un millón de pesos</span>: eso da
-    <span class="cif">$209.472</span> por electrodo. Y se contaron
-    <span class="cif">1.465</span>. Evidentemente <mark>SAP cuenta cajas</mark> y el recuento
-    <mark>contó unidades sueltas</mark>.»</p>
-    <p>«<mark>Ese material solo mueve 305 millones.</mark> Fijate la desproporción:
-    <span class="cif">1 material</span> de los <span class="cif">105</span> a dar de alta
-    explica el <mark>88% del importe</mark> de las altas. Por eso, según cómo lo mires,
-    el ajuste da entre <span class="cif">+96 millones</span> y
-    <span class="cif">−210 millones</span>.»</p>
-    <p>«<mark>No es un número para cerrar hoy.</mark> La diferencia
+    <span class="cif">$1.047.361</span>: eso da <span class="cif">$209.472</span> por electrodo.
+    Y se contaron <span class="cif">1.465</span>. Evidentemente <mark>SAP cuenta cajas</mark> y el
+    recuento <mark>contó unidades sueltas</mark>.»</p>
+    <p>«Ese material solo explica el <mark>88% del importe de las altas</mark>:
+    <span class="cif">1 material</span> de los <span class="cif">105</span>.»</p>
+    <p>«Y acá está lo que me preocupa, que <mark>no es el tamaño sino el signo</mark>:<br>
+    Con esos 29 precios como están, el ajuste neto da <span class="cif">−$210,6 millones</span>:
+    <mark>el recuento supera a SAP</mark>, habría que dar de alta.<br>
+    Sacando esos 29, el resto da <span class="cif">+$96,3 millones</span>:
+    <mark>SAP supera al recuento</mark>, habría que dar de baja.»</p>
+    <p>«<mark>Se da vuelta.</mark> Por eso no traigo un número de plata cerrado. La diferencia
     <mark>en unidades sí está firme</mark>; la de pesos depende de esos 29 precios.»</p>
+    <div class="ev"><span class="lv p">PENDIENTE</span>
+      <span><b>Conciliación</b> → filtrar <code>R</code> por «no vacías» da las <b>29 filas</b>;
+      ordenando por <code>Q</code> la primera es el electrodo (material 2001077).
+      Los dos importes están en <b>Resumen del cruce</b>, fila TOTAL: la columna 11 da
+      −$210,6 M y la columna 13, que excluye las alertas, da +$96,3 M.</span></div>
   </div>
 
   <div class="blk">
@@ -223,6 +339,12 @@
     Tres: que <mark>definamos el alcance</mark> del recuento: qué hacemos con los
     <span class="cif">639 materiales</span> de farmacia sin contar y los
     <span class="cif">410</span> que quedan afuera.»</p>
+    <p>«Hay una cuarta, menor: <mark>confirmar los 250 cruces de certeza media y baja</mark>.
+    Están filtrados y listos para repasar.»</p>
+    <div class="ev"><span class="lv p">PENDIENTE</span>
+      <span>Los tres pedidos ya están en hojas separadas, listas para repartir:
+      <b>Sin correspondencia SAP</b> (196), el filtro <code>R</code> no vacías de Conciliación (29),
+      y <code>U = Sin recuento físico</code> más <code>Fuera del alcance</code> (639 y 410).</span></div>
   </div>
 
   <div class="blk" style="border-left:3px solid var(--verde)">
@@ -230,56 +352,185 @@
       <div class="tit">Cierre</div><div class="seg">15 s</div></div>
     <p>«Las cantidades están <mark>verificadas contra los archivos originales</mark> de SAP y
     contra los PDF del recuento: coinciden <mark>ítem por ítem y unidad por unidad</mark>, y hay
-    una hoja de control en el archivo que lo muestra. Lo que queda abierto es
-    <mark>el precio</mark>, no el conteo.»</p>
+    una hoja de control en el archivo que lo muestra <mark>en vivo</mark> —si alguien borra una
+    fila, la hoja lo marca sola. Lo que queda abierto es <mark>el precio</mark>, no el conteo.»</p>
+    <div class="ev"><span class="lv f">FIRME</span>
+      <span><b>Control de cantidades</b>: 13 verificaciones contra las fuentes originales,
+      <b>12 dicen «Coincide»</b>. Son fórmulas vivas, no valores pegados. La línea 18 es la única
+      «A REVISAR» y es una <b>inconsistencia del propio informe de Neuquén</b> (Adrenalina y
+      Metronidazol), no del cruce: está declarada, no escondida.</span></div>
   </div>
+
+  <h2>Si te piden que lo muestres · la secuencia, en 4 pasos</h2>
+  <div class="demo">
+    <div class="dp"><b>Abrí «Control de cantidades» — empezá siempre acá.</b>
+      <span>Trece verificaciones, doce en «Coincide». Antes de discutir ningún número conviene
+      dejar establecido que las cantidades son las de SAP y las de los PDF, sin retoques. Dura 10
+      segundos y desarma la mitad de las preguntas. La única «A REVISAR» la señalás vos primero:
+      es una inconsistencia del informe de Neuquén, no del cruce.</span></div>
+    <div class="dp"><b>Pasá a «Resumen del cruce» y quedate en la fila TOTAL.</b>
+      <span>Las columnas 1 a 9 son <b>unidades</b>, las 10 a 13 son <b>pesos</b>. Está escrito en
+      el encabezado de cada una, así que no hace falta aclararlo de memoria.</span></div>
+    <div class="dp"><b>Andá a «Conciliación» y filtrá la columna U, «Acción en SAP».</b>
+      <span><code>Dar de baja en SAP</code> → 319 · <code>Dar de alta en SAP</code> → 105 ·
+      <code>Alta de material en SAP (sin código)</code> → 196 ·
+      <code>Sin recuento físico</code> → 639 · <code>Fuera del alcance</code> → 410.
+      Cada filtro deja a la vista las filas que lo componen: ahí está el detalle, material por
+      material.</span></div>
+    <div class="dp"><b>En la misma hoja, filtrá la columna R por «no vacías».</b>
+      <span>Quedan las 29 del precio en duda. Ordenalas por la columna Q de mayor a menor y la
+      primera es el electrodo de Neuquén. Ese solo movimiento explica por qué no traigo un número
+      de plata cerrado.</span></div>
+  </div>
+  <p class="nota">
+    Si la reunión es corta, con los pasos 1 y 3 alcanza. El paso 4 es el que conviene mostrar
+    si alguien insiste con el importe.
+  </p>
+
+  <h2>Tabla de evidencia · cada afirmación, dónde se prueba</h2>
+  <div class="tbox">
+    <table>
+      <thead><tr>
+        <th>Lo que decís</th><th>Nivel</th><th>Dónde se muestra</th><th style="text-align:right">Da</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>SAP informa 796.704 unidades</td>
+            <td><span class="pill f">FIRME</span></td>
+            <td>Control de cantidades, líneas 9 a 11 · Resumen del cruce, TOTAL col. 1</td>
+            <td class="r">796.704</td></tr>
+        <tr><td>Se contaron 87.363 unidades</td>
+            <td><span class="pill f">FIRME</span></td>
+            <td>Control de cantidades, líneas 15 a 17</td>
+            <td class="r">87.363</td></tr>
+        <tr><td>Las cantidades cierran contra las fuentes</td>
+            <td><span class="pill f">FIRME</span></td>
+            <td>Control de cantidades, columna G</td>
+            <td class="r">12 de 13</td></tr>
+        <tr><td>Sólo 467.212 unidades son comparables</td>
+            <td><span class="pill f">FIRME</span></td>
+            <td>Resumen del cruce, TOTAL col. 4</td>
+            <td class="r">467.212</td></tr>
+        <tr><td>SAP tiene 1.482 materiales</td>
+            <td><span class="pill f">FIRME</span></td>
+            <td>Conciliación, filtrar <code>C = Stock SAP</code></td>
+            <td class="r">1.482</td></tr>
+        <tr><td>639 materiales no se contaron</td>
+            <td><span class="pill f">FIRME</span></td>
+            <td>Conciliación, <code>U = Sin recuento físico</code></td>
+            <td class="r">639</td></tr>
+        <tr><td>410 están fuera del alcance</td>
+            <td><span class="pill f">FIRME</span></td>
+            <td>Conciliación, <code>F = Fuera del alcance</code></td>
+            <td class="r">410</td></tr>
+        <tr><td>Se contaron 687 ítems</td>
+            <td><span class="pill f">FIRME</span></td>
+            <td>Control de cantidades, detalle de las líneas 15 a 17 (163 + 243 + 281)</td>
+            <td class="r">687</td></tr>
+        <tr><td>433 materiales tienen recuento</td>
+            <td><span class="pill c">CLASIF.</span></td>
+            <td>Conciliación, <code>S</code> = Alta + Media + Baja</td>
+            <td class="r">433</td></tr>
+        <tr><td>Certeza del cruce</td>
+            <td><span class="pill c">CLASIF.</span></td>
+            <td>Conciliación, columna <code>S</code></td>
+            <td class="r">183 / 125 / 125</td></tr>
+        <tr><td>319 materiales a dar de baja</td>
+            <td><span class="pill c">CLASIF.</span></td>
+            <td>Hoja Dar de baja en SAP, fila TOTAL</td>
+            <td class="r">319 · 404.494 un.</td></tr>
+        <tr><td>105 materiales a dar de alta</td>
+            <td><span class="pill c">CLASIF.</span></td>
+            <td>Hoja Dar de alta en SAP, fila TOTAL</td>
+            <td class="r">105 · 17.179 un.</td></tr>
+        <tr><td>El valor unitario sale de SAP</td>
+            <td><span class="pill f">FIRME</span></td>
+            <td>Conciliación, <code>N</code> = valor de stock ÷ unidades, por material</td>
+            <td class="r">—</td></tr>
+        <tr><td>196 ítems contados no tienen código SAP</td>
+            <td><span class="pill p">PEND.</span></td>
+            <td>Hoja Sin correspondencia SAP, fila TOTAL</td>
+            <td class="r">196 · 7.466 un.</td></tr>
+        <tr><td>29 materiales con el precio en duda</td>
+            <td><span class="pill p">PEND.</span></td>
+            <td>Conciliación, <code>R</code> no vacías</td>
+            <td class="r">29</td></tr>
+        <tr><td>El electrodo: $209.472 por unidad</td>
+            <td><span class="pill p">PEND.</span></td>
+            <td>Conciliación, <code>G = 2001077</code> · SAP 5 un. por $1.047.361</td>
+            <td class="r">1.465 contados</td></tr>
+        <tr><td>Ajuste neto con los 29 adentro</td>
+            <td><span class="pill p">PEND.</span></td>
+            <td>Resumen del cruce, TOTAL col. 11</td>
+            <td class="r">−$ 210.602.753</td></tr>
+        <tr><td>Ajuste con precios confiables</td>
+            <td><span class="pill p">PEND.</span></td>
+            <td>Resumen del cruce, TOTAL col. 13</td>
+            <td class="r">+$ 96.273.328</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="nota">
+    Las letras son las columnas de la hoja. En Conciliación los encabezados están en la fila 5 y
+    el filtro ya viene puesto: alcanza con desplegar la flecha.
+  </p>
 
   <h2>Si te preguntan…</h2>
   <div class="qa">
-    <div><b>«¿Por qué la diferencia es tan grande?»</b>
+    <div><b class="q">«¿Por qué la diferencia es tan grande?»</b>
       <span>Porque sólo se contó el 59% de las unidades de SAP, y apenas 433 de sus 1.482
       materiales. Sobre lo contado, el ajuste es 404.494 unidades de baja en 319 materiales y
-      17.179 de alta en 105.</span></div>
-    <div><b>«¿Sobre cuántos productos estamos hablando?»</b>
+      17.179 de alta en 105.</span>
+      <span class="ep">→ Resumen del cruce, fila TOTAL, columnas 1 y 4.</span></div>
+    <div><b class="q">«¿Sobre cuántos productos estamos hablando?»</b>
       <span>El recuento contó 687 ítems. 491 encontraron código SAP y 196 no. SAP, del otro lado,
-      tiene 1.482 materiales y el recuento tocó 433.</span></div>
-    <div><b>«¿Por qué 491 ítems dan 433 materiales?»</b>
+      tiene 1.482 materiales y el recuento tocó 433.</span>
+      <span class="ep">→ Conciliación, filtrar columna C.</span></div>
+    <div><b class="q">«¿Por qué 491 ítems dan 433 materiales?»</b>
       <span>Porque 39 materiales recibieron más de un nombre del recuento: la Aspirineta aparece
-      con tres nomenclaturas y en SAP es un solo material. Es consolidación, no un error.</span></div>
-    <div><b>«¿Y los cruces dudosos?»</b>
-      <span>De los 433 materiales cruzados, 183 son de certeza alta, 125 media y 125 baja. Los 250
-      de media y baja están marcados uno por uno en la columna «Nivel de coincidencia» para
-      validar.</span></div>
-    <div><b>«¿Cuánta plata es?»</b>
-      <span>Entre +96 y −210 millones. No lo cierro hasta revisar 29 precios donde SAP
-      probablemente cuenta cajas y el recuento unidades.</span></div>
-    <div><b>«¿El dato es confiable?»</b>
-      <span>Las cantidades sí: coinciden exacto con la bajada de SAP y con los PDF del recuento.
-      Está la hoja «Control de cantidades» que lo prueba línea por línea.</span></div>
-    <div><b>«¿Por qué hay 196 ítems sin código?»</b>
+      con tres nomenclaturas y en SAP es un solo material. Es consolidación, no un error.</span>
+      <span class="ep">→ Conciliación, columna AA: la observación lo dice en la fila del material.</span></div>
+    <div><b class="q">«¿Cómo sé que cruzaste bien dos nombres distintos?»</b>
+      <span>No te pido que confíes: cada cruce tiene su nivel de certeza escrito al lado, y la
+      columna de método dice por qué cruzó. 183 son de certeza alta; los 250 de media y baja están
+      marcados justamente para que se revisen.</span>
+      <span class="ep">→ Conciliación, columnas S (nivel), V (método) y AA (observación).</span></div>
+    <div><b class="q">«¿El dato es confiable?»</b>
+      <span>Depende de cuál. Las cantidades sí, y eso lo prueba una hoja entera. El cruce de
+      nombres está clasificado por certeza. Los precios de 29 materiales no, y por eso no cierro el
+      importe.</span>
+      <span class="ep">→ Control de cantidades, 12 líneas en «Coincide».</span></div>
+    <div><b class="q">«¿Cuánta plata es?»</b>
+      <span>No lo cierro, y no por el tamaño sino por el signo: con los 29 precios como están da
+      −$210,6 M, sacándolos da +$96,3 M. Se invierte el sentido del ajuste.</span>
+      <span class="ep">→ Resumen del cruce, TOTAL, columnas 11 y 13.</span></div>
+    <div><b class="q">«¿Por qué hay 196 ítems sin código?»</b>
       <span>Son 196 de los 687 contados —casi 3 de cada 10—. Se contaron en el depósito y el cruce
       no les encontró coincidencia en SAP. Al no tener código tampoco tienen precio, así que no se
-      pueden valorizar. Son 7.466 unidades, no 196.</span></div>
-    <div><b>«¿Por qué Neuquén es tan distinto?»</b>
+      pueden valorizar. Son 7.466 unidades, no 196.</span>
+      <span class="ep">→ Hoja Sin correspondencia SAP: están los 196, con base y cantidad.</span></div>
+    <div><b class="q">«¿Por qué Neuquén es tan distinto?»</b>
       <span>Concentra el 87% de las unidades a dar de baja y ahí está el material del problema de
       precio. Además es la base con peor cobertura: el recuento tocó 167 de sus 655
-      materiales.</span></div>
-    <div><b>«¿Cuándo lo cerramos?»</b>
+      materiales.</span>
+      <span class="ep">→ Resumen del cruce, fila Neuquén · Conciliación, filtrar A = Neuquén.</span></div>
+    <div><b class="q">«¿Damos de baja los 404.494 ya?»</b>
+      <span>La cantidad está firme, y son 319 materiales concretos, ya listados. Antes de registrar
+      conviene resolver los 29 precios, porque cambian la valorización del asiento.</span>
+      <span class="ep">→ Hoja Dar de baja en SAP: 319 filas y su fila TOTAL.</span></div>
+    <div><b class="q">«¿Cuándo lo cerramos?»</b>
       <span>Cuando estén validados los 196 ítems y los 29 precios. Ahí quedan determinados los
-      ajustes a registrar y el impacto económico definitivo.</span></div>
-    <div><b>«¿Damos de baja los 404.494 ya?»</b>
-      <span>La cantidad está firme, y son 319 materiales concretos, listados en la hoja «Dar de
-      baja en SAP». Antes de registrar conviene resolver los 29 precios, porque cambian la
-      valorización del asiento.</span></div>
+      ajustes a registrar y el impacto económico definitivo.</span>
+      <span class="ep">→ Las dos listas ya están armadas y se pueden repartir hoy.</span></div>
   </div>
 
   <h2>Evitá decir</h2>
   <div class="evitar">
     <ul>
       <li><b>«Faltan 709.341 unidades»</b> — no es un faltante: 329.492 simplemente no se contaron.</li>
-      <li><b>Un número de plata cerrado</b> — hasta revisar los 29 precios el rango es demasiado amplio.</li>
+      <li><b>Un número de plata cerrado</b> — con los 29 precios en duda el ajuste cambia de signo, no sólo de tamaño.</li>
       <li><b>«Hay un error en SAP»</b> — lo más probable es una diferencia de unidad de medida, no un error de stock.</li>
-      <li><b>Mezclar ítems con unidades</b> — 196 ítems son 7.466 unidades; 404.494 unidades son 319 materiales. Si te preguntan «¿cuánto?» respondé unidades; si preguntan «¿sobre qué?», ítems.</li>
+      <li><b>Mezclar ítems con unidades</b> — 196 ítems son 7.466 unidades; 404.494 unidades son 319 materiales.</li>
+      <li><b>Defender un número pendiente como si fuera firme</b> — si es de los 29 o de los 196, la respuesta correcta es «está identificado y pendiente de validación», no una justificación.</li>
     </ul>
   </div>
 
@@ -287,9 +538,9 @@
   <div class="cierre">
     «Se contaron <b>687 ítems</b> y cruzaron con <b>433 de los 1.482 materiales</b> que SAP tiene.
     Sobre esos: <b>sobran 404.494 unidades en 319 materiales y faltan 17.179 en otros 105</b>.
-    La diferencia en unidades está firme; <b>el impacto en pesos todavía no</b>, porque hay
-    29 materiales donde SAP parece contar cajas y el recuento contó unidades — y 196 ítems que
-    no tienen código, así que no tienen precio.»
+    Las cantidades están verificadas contra los archivos originales; <b>el impacto en pesos
+    todavía no</b>, porque 29 materiales con la unidad de medida en duda <b>dan vuelta el signo
+    del ajuste</b> — y 196 ítems contados no tienen código, así que no tienen precio.»
   </div>
 
 </div>

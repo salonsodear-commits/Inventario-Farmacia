@@ -442,3 +442,76 @@ Un primer borrador afirmaba que San Juan y Neuquén «cruzaron mejor
 proporcionalmente» que Salta. Es falso: Salta 33% y San Juan 32% de ítems sin
 código son prácticamente iguales; la que cruzó mejor es Neuquén con 21%. La
 frase se corrigió antes de cerrar.
+
+## Guion con la evidencia clasificada (2026-10-26)
+
+Pedido: *«el guion debe ser todavía más claro, permitiendo mostrar la evidencia
+bien clasificada»*. Se reescribió el guion. **El Excel no se tocó.**
+
+### Qué cambió de fondo
+
+El guion decía *qué afirmar*; ahora además dice *dónde se prueba cada
+afirmación* y *con qué fuerza se sostiene*. Tres cosas nuevas:
+
+**1. «Regla 2 · la evidencia tiene tres niveles».** Toda cifra del análisis cae
+en uno de tres:
+
+| Nivel | Qué es | Dónde | Cómo se defiende |
+|---|---|---|---|
+| **FIRME** | las cantidades | Control de cantidades | sin matices: es copiar y sumar |
+| **CLASIFICADO** | el cruce nombre ↔ código | Conciliación col. S | se muestra con su certeza |
+| **PENDIENTE** | 196 sin código · 29 precios | Sin correspondencia SAP · col. R | no se defiende, se deriva |
+
+La instrucción operativa es: *ante una pregunta incómoda, primero ubicar de qué
+nivel es el número*. Evita el error de defender como firme algo que está
+pendiente.
+
+**2. Tira de evidencia al pie de cada bloque del guion.** Cada bloque cierra con
+su nivel y el puntero exacto: hoja, columna, filtro y resultado esperado. Sirve
+para hablar con el archivo proyectado.
+
+**3. Dos secciones nuevas.** «Si te piden que lo muestres», una secuencia de 4
+pasos para recorrer el archivo en vivo (y cuáles saltear si hay poco tiempo), y
+una «Tabla de evidencia» de 18 filas: afirmación → nivel → dónde se muestra → qué
+da.
+
+### Mejora de claridad en el bloque del dinero
+
+Antes decía que el ajuste «da entre +96 y −210 millones», lo que sugiere un
+rango de magnitud. **El problema real es que cambia de signo**, y así quedó
+dicho:
+
+- con los 29 precios como están: **−$210,6 M** → el recuento supera a SAP,
+  correspondería dar de alta neto
+- sacando esos 29: **+$96,3 M** → SAP supera al recuento, correspondería dar de
+  baja neto
+
+Verificado: columna Q de Conciliación es SAP − físico valorizado, así que
+positivo = sobrante en SAP. Resumen del cruce, fila TOTAL, columnas 11 y 13.
+
+### Verificación de los punteros
+
+Se simularon **los 29 filtros que el guion indica** contra el libro (conteo de
+filas por valor de columna, sumas de la fila TOTAL, orden por columna Q). Los 29
+dan exactamente lo que el guion promete. Entre ellos: U = cada una de las 5
+acciones, C = Stock SAP, F = Fuera del alcance, S = cada nivel de certeza, R no
+vacías, y que al ordenar las 29 alertas por Q la primera sea el material
+2001077.
+
+También se corrigió una imprecisión propia: Control de cantidades tiene **13**
+verificaciones, no 12. Doce dicen «Coincide»; la decimotercera dice «A REVISAR»
+y es una inconsistencia del propio informe de Neuquén (Adrenalina y
+Metronidazol), no del cruce. El guion ahora lo dice así y recomienda señalarla
+uno mismo antes de que la encuentren.
+
+### Bug de maquetación corregido
+
+La regla CSS `.dp b{display:block}` afectaba a todos los `<b>` dentro de los
+pasos del demo, no sólo al título, y partía «unidades» y «pesos» en líneas
+sueltas. Se acotó a `.dp > b`.
+
+### Nota sobre el PNG
+
+El guion pasó de 3.600 a 6.300 px de alto. El PNG se renderiza a escala 1,25
+(1600×7835) para no superar el límite de 8.000 px. **El HTML es la versión de
+máxima calidad** y es la que conviene proyectar.
