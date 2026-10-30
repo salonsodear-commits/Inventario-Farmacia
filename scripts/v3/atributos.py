@@ -335,3 +335,57 @@ def comparar(pa, pb):
 def conflictos(pa, pb):
     """Lista de atributos en los que los dos perfiles se contradicen."""
     return comparar(pa, pb)[0]
+
+
+# ---------------------------------------------------------------- descripción
+def _n(x):
+    """100.0 -> '100' ; 5.5 -> '5,5'"""
+    return (f"{x:g}").replace(".", ",")
+
+def _conc(v):
+    if v[0] == "masa":
+        return f"{_n(v[1]/1000)} g" if v[1] >= 1000 else f"{_n(v[1])} mg"
+    if v[0] == "ratio":
+        u = f"{_n(v[1])} mg" if isinstance(v[1], float) else str(v[1])
+        return f"{u}/{_n(v[2])} {v[3]}"
+    if v[0] == "pct":
+        return f"{_n(v[1])}%"
+    if v[0] == "ui":
+        return f"{_n(v[1])} UI"
+    return str(v)
+
+def _cal(v):
+    if v[0] == "par": return f"{v[1]}/{v[2]}"
+    if v[0] == "g":   return f"{v[1]}G"
+    if v[0] == "cal": return f"{v[1]}"
+    return f"N° {v[1]}"
+
+def _mod(v):
+    return f"K{v[1]}" if v[0] == "k" else f"ref. {v[1]}"
+
+ETIQUETAS = [
+    ("concentración", "concentracion", _conc),
+    ("forma", "forma", lambda v: str(v)),
+    ("volumen", "volumen", lambda v: f"{_n(v)} ml"),
+    ("calibre", "calibre", _cal),
+    ("medidas", "medidas", lambda v: f"{_n(v[0])} × {_n(v[1])}"),
+    ("talle", "talle", lambda v: str(v).upper()),
+    ("modelo", "modelo", _mod),
+    ("longitud", "longitud", lambda v: f"{_n(v)} cm"),
+    ("población", "poblacion", lambda v: str(v)),
+    ("cantidad sin unidad", "sueltos", lambda v: str(v)),
+]
+
+def describir(p):
+    """Resumen legible de las características detectadas."""
+    trozos = []
+    for etiqueta, clave, fmt in ETIQUETAS:
+        vals = p.get(clave)
+        if not vals:
+            continue
+        try:
+            txt = ", ".join(sorted(fmt(v) for v in vals))
+        except Exception:
+            txt = ", ".join(sorted(str(v) for v in vals))
+        trozos.append(f"{etiqueta} {txt}")
+    return " · ".join(trozos)

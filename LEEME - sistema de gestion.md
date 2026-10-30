@@ -4,7 +4,7 @@ Tres piezas que salen del **mismo análisis**, por eso las cifras coinciden entr
 
 | Pieza | Archivo | Para qué |
 |---|---|---|
-| **Sistema interactivo** | `sistema/index.html` | Revisar, decidir y registrar. Es la herramienta de trabajo. |
+| **Sistema interactivo** | `Sistema - Inventario fisico vs SAP.html` | Revisar, decidir y registrar. Es la herramienta de trabajo. **Un solo archivo.** |
 | **Excel** | `Inventario fisico vs SAP - analisis.xlsx` | Analizar y seguir trabajando sobre los datos. Con fórmulas vivas. |
 | **PDF** | `Inventario fisico vs SAP - informe integral.pdf` | Explicar el caso y los resultados a quien no vio nada de esto. 85 páginas. |
 
@@ -12,16 +12,20 @@ Tres piezas que salen del **mismo análisis**, por eso las cifras coinciden entr
 
 ## Cómo abrir el sistema
 
-**Doble clic en `sistema/index.html`.** Se abre en el navegador y funciona sin internet,
-sin instalar nada y sin servidor. No envía datos a ningún lado.
+**Doble clic en `Sistema - Inventario fisico vs SAP.html`.**
+
+Es **un único archivo autocontenido**: los datos, el código y los estilos están adentro.
+No necesita internet, ni instalación, ni servidor, ni ningún otro archivo al lado. Se
+puede guardar en el escritorio, mandar por correo o dejar en una carpeta compartida, y
+funciona igual. No envía datos a ningún lado.
 
 Si al hacer doble clic se abre un editor en vez del navegador: clic derecho →
 *Abrir con* → Chrome o Edge.
 
-> Hay que conservar la carpeta `sistema/` completa. El archivo `index.html` necesita
-> los otros archivos que están al lado (`datos.js`, `app.js`, `informe.js`,
-> `exportar.js`, `xlsxmin.js`, `estilos.css`). Para pasárselo a otra persona, se
-> comparte la carpeta entera, no sólo el `index.html`.
+> **Para desarrollo**, el mismo sistema está separado en archivos dentro de la carpeta
+> `sistema/` (`index.html`, `app.js`, `informe.js`, `exportar.js`, `xlsxmin.js`,
+> `estilos.css`, `datos.js`). El archivo único se regenera con
+> `python3 scripts/v3/empaquetar.py`. Para usarlo día a día alcanza con el archivo único.
 
 ## Cómo trabajar
 

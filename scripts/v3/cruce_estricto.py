@@ -140,7 +140,7 @@ def cruzar(items_fis, maestro_sap, hints=None):
         res = {
             "base": it["base"], "codigo": it["codigo"], "nombre": it["nombre"],
             "stock": it["stock"], "lotes": it["lotes"],
-            "perfil": {k: _ser(v) for k, v in pf.items() if k != "tipo"},
+            "presentacion": A.describir(pf),
             "candidatos": [_corto(e) for e in (limpios[:4] + sucios[:4])],
         }
 
@@ -164,6 +164,7 @@ def cruzar(items_fis, maestro_sap, hints=None):
 
         mejor = limpios[0]
         segundo = limpios[1] if len(limpios) > 1 else None
+        res["atributos_ok"] = mejor["coinciden"]
         min_fis, min_sap = exigencia(mejor["n_coinc"])
         bastante = mejor["cob_fis"] >= min_fis and mejor["cob_sap"] >= min_sap
         # Sólo hay «varios códigos posibles» si el segundo también es un candidato
@@ -191,7 +192,6 @@ def cruzar(items_fis, maestro_sap, hints=None):
             res.update(clasificacion=IDENTIFICADO, motivo=None,
                        material=mejor["material"], texto_sap=mejor["texto"],
                        score=mejor["score"],
-                       atributos_ok=mejor["coinciden"],
                        justificacion=base_just + " Sin contradicción en ningún atributo.")
         elif ambiguo:
             res.update(clasificacion=REVISION, motivo=R_AMBIGUO,

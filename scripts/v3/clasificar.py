@@ -123,7 +123,7 @@ def clasificar_fisicos(resultados, maestro):
             "atributos_verificados": r.get("atributos_ok") or [],
             "confianza": confianza(r),
             "candidatos": r["candidatos"],
-            "presentacion": _presentacion(r["perfil"]),
+            "presentacion": r.get("presentacion", ""),
             "falta_para_alta": CAMPOS_ALTA if clase == B_ALTA else [],
             "estado_revision": "Pendiente",
             "aprobacion": "Sin decidir",
@@ -133,18 +133,6 @@ def clasificar_fisicos(resultados, maestro):
     return out
 
 
-def _presentacion(p):
-    """Resumen legible de las características detectadas en el nombre."""
-    trozos = []
-    for etq, clave in [("concentración", "concentracion"), ("forma", "forma"),
-                       ("volumen", "volumen"), ("calibre", "calibre"),
-                       ("medidas", "medidas"), ("talle", "talle"),
-                       ("modelo", "modelo"), ("longitud", "longitud"),
-                       ("población", "poblacion")]:
-        v = p.get(clave)
-        if v:
-            trozos.append(f"{etq}: {', '.join(str(x) for x in sorted(map(str, v)))}")
-    return " · ".join(trozos)
 
 
 def candidatos_baja(fichas, maestro):
