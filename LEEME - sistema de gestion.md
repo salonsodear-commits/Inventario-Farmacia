@@ -29,14 +29,47 @@ Si al hacer doble clic se abre un editor en vez del navegador: clic derecho →
 
 ## Cómo trabajar
 
-1. Escribí tu nombre arriba a la derecha, en **Revisor**. Queda registrado en cada decisión.
-2. En el **Panel**, hacé clic en el indicador que quieras trabajar: se abre su listado.
-3. En **Casos**, filtrá por base, tipo, clasificación, motivo, estado o buscá por texto,
-   código SAP o nomenclatura. Hacé clic en una fila para abrir la ficha.
-4. En la ficha vas a ver de dónde sale el dato, qué candidatos se evaluaron, en qué
-   coincidían y en qué se contradecían, y por qué el análisis decidió lo que decidió.
-   Ahí confirmás, corregís el código, aprobás, rechazás o dejás una observación.
-5. Al terminar, **Descargar Excel** y **Descargar PDF** exportan todo con tus decisiones.
+El sistema está armado como un **flujo de trabajo**, no como un listado. No hay que
+decidir por dónde empezar: la pantalla de inicio lo dice.
+
+1. Escribí tu nombre arriba, en **Revisor**. Queda registrado en cada decisión.
+2. **Inicio** muestra el trabajo en cinco grupos, numerados por prioridad, cada uno con
+   cuántos quedan pendientes y su barra de avance. Arriba a la derecha, el avance general.
+3. En cada grupo hay dos formas de trabajar:
+   - **Revisar de a uno** → modo revisión: un caso por pantalla, con los candidatos
+     listados y los botones de decisión al lado. Se decide con el teclado y pasa solo al
+     siguiente.
+   - **Decidir en lote** → para los grupos grandes: elegís las bases y resolvés cientos
+     de casos de una vez, con una observación común.
+4. **Buscar** es para encontrar algo puntual. También tiene casillas de selección y
+   acciones en lote sobre lo seleccionado.
+5. Al terminar, **Descargar Excel**.
+
+### El modo revisión
+
+Es donde se hace el trabajo de verdad. Muestra un caso por pantalla con todo lo necesario
+para decidir: la cantidad contada, la presentación detectada, por qué el caso llegó ahí, y
+los candidatos de SAP con **en qué coincide cada uno**. Debajo, los descartados con el
+motivo.
+
+Atajos: <kbd>1</kbd>…<kbd>9</kbd> elegir un candidato · <kbd>A</kbd> aprobar o confirmar ·
+<kbd>R</kbd> rechazar · <kbd>N</kbd> ninguno corresponde · <kbd>X</kbd> no puedo decidirlo
+ahora · <kbd>→</kbd> saltear · <kbd>F</kbd> ver la ficha completa.
+
+Después de cada decisión pasa solo al siguiente. Una tanda de 50 casos lleva pocos minutos.
+
+### El orden de los grupos
+
+| | Grupo | Pendientes | Por qué va ahí |
+|---|---|---|---|
+| 1 | Resolver los casos en revisión | 402 | Es el trabajo real, y de él dependen otros grupos |
+| 2 | Validar las altas propuestas | 58 | Pocos y de alto impacto |
+| 3 | Registrar existencias que SAP no tiene | 48 | Hay stock físico sin respaldo en el sistema |
+| 4 | Confirmar las identificaciones | 179 | Rápido: ya están verificadas |
+| 5 | Aprobar las bajas propuestas | 894 | Último, porque 153 dependen del grupo 1 |
+
+Las 153 bajas que dependen de un caso en revisión **quedan fuera del lote automáticamente**
+y el sistema avisa si intentás aprobarlas de a una.
 
 ### Dónde quedan las decisiones
 
