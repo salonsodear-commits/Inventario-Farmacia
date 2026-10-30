@@ -6,8 +6,16 @@ Inventarios físicos — son el universo base del análisis:
     Salta     · AVAIN   · informe "Stock en Almacén"
     Neuquén   · Sistema Nico (informe IHSA de Farmacia)
 
-SAP: bajada de stock por centro al 02/10. Es la fuente contra la que se verifica
-la identificación, no el universo del análisis.
+SAP: bajada de STOCK por centro al 02/10.
+
+ATENCIÓN — alcance de esta fuente: NO es el maestro completo de materiales de
+SAP. Son únicamente los materiales que hoy tienen stock. Un material dado de
+alta en SAP pero con existencia cero no figura en este archivo.
+
+Consecuencia directa: que un ítem del inventario físico no se encuentre acá NO
+prueba que no exista en SAP. Puede existir sin stock. Verificarlo contra el
+maestro completo queda FUERA DEL ALCANCE de este trabajo, y es el paso previo
+obligatorio antes de proponer cualquier alta.
 """
 import json, sys, os, collections
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))

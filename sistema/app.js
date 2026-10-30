@@ -10,10 +10,10 @@ var App = (function () {
   var D = window.DATOS;
   var CLAVE = "invsap.decisiones.v1";
   var CLAVE_REV = "invsap.revisor";
-  var LETRA = { "A · Identificado en SAP": "A", "B · Candidato a alta": "B",
+  var LETRA = { "A · Identificado en SAP": "A", "B · Sin correspondencia con stock": "B",
                 "C · Candidato a baja": "C", "D · Requiere revisión": "D",
                 "E · Fuera del alcance": "E" };
-  var CORTO = { A: "Identificados", B: "Pendientes de alta", C: "Candidatos a baja",
+  var CORTO = { A: "Identificados", B: "Sin correspondencia", C: "Candidatos a baja",
                 D: "En revisión", E: "Fuera del alcance" };
 
   function L(c) { return LETRA[c.clasificacion]; }
@@ -27,9 +27,11 @@ var App = (function () {
             "motivo exacto por el que no se dio por confirmado, así que se decide rápido.",
       pred: function (c) { return L(c) === "D"; },
       porMotivo: true, lote: false, color: "D" },
-    { id: "altas", titulo: "Validar las altas propuestas",
-      desc: "Existen físicamente y no hay en SAP ningún material que se corresponda. " +
-            "Aprobar significa proponer su creación, no crearlos.",
+    { id: "altas", titulo: "Verificar los que no aparecieron en SAP",
+      desc: "Existen físicamente y no se encontró correspondencia entre los materiales que " +
+            "HOY tienen stock en SAP. Ojo: la bajada que tenemos no es el maestro completo, " +
+            "así que el material puede existir en SAP con existencia cero. Antes de proponer " +
+            "un alta hay que verificarlo contra el maestro.",
       pred: function (c) { return L(c) === "B"; }, lote: true, color: "B" },
     { id: "existencias", titulo: "Registrar existencias que SAP no tiene",
       desc: "Están identificados y el código existe, pero SAP no registra stock de ese " +
@@ -318,6 +320,12 @@ var App = (function () {
       'homologación (declara que los costos quedan fuera) y los tres PDF de inventario ' +
       '(ninguna mención de precio). Por eso no se informa ninguna valorización. El sistema ' +
       'la calcula sola apenas se cargue el dato.</div>';
+    h += '<div class="aviso"><b>La bajada de SAP son los materiales CON STOCK, no el maestro completo.</b>' +
+      "Un material dado de alta en SAP con existencia cero no figura en el archivo. Por eso los " +
+      num(k.pendientes_alta) + " ítems del grupo 2 <b>no son altas confirmadas</b>: son ítems " +
+      "que no aparecieron entre los que tienen stock. Verificar si ya existen en el maestro —y, " +
+      "si existen, decidir si se reutiliza el código o se da de baja y se crea de nuevo— " +
+      "<b>está fuera del alcance de este trabajo</b> y es el paso previo al alta.</div>";
     h += '<div class="aviso info"><b>Nada de esto modifica SAP.</b>' +
       'Aprobar un alta o una baja deja registrada una propuesta con tu nombre y la fecha. ' +
       'La ejecución es un paso posterior, fuera de esta herramienta.</div>';
@@ -373,103 +381,145 @@ var App = (function () {
       "<span>caso " + (estado.tIdx + 1) + " de " + num(estado.triage.length) + "</span></div>" +
       '<button class="btn chico" id="tSaltar">Saltear →</button></div>';
 
-    h += '<div class="tcaso" id="tFoco" tabindex="-1"><div class="tizq">';
-    h += '<div class="tcab"><span class="et ' + L(c) + '"><i class="pt" style="background:var(--c' +
-      L(c) + ')"></i>' + L(c) + " · " + CORTO[L(c)] + "</span>" +
-      '<span class="mini">' + esc(c.base) + " · " + esc(c.sistema_origen) + " · " +
-      esc(c.tipo) + "</span></div>";
-    h += "<h1>" + esc(c.nombre_fisico || c.texto_sap) + "</h1>";
-    h += '<div class="tdatos">' +
-      dato("Cantidad", num(cant) + (c.origen === "Inventario físico" ? " unidades contadas" : " en SAP")) +
-      dato("Presentación detectada", c.presentacion || "no declara características") +
-      (c.codigo_fisico ? dato("Código en el inventario", c.codigo_fisico) : "") +
-      (c.texto_sap && c.nombre_fisico ? dato("Descripción en SAP", c.texto_sap) : "") +
-      "</div>";
-    h += '<div class="tpor"><b>Por qué llegó acá:</b> ' + esc(c.justificacion) + "</div>";
+    h += '<div class="tcaso" id="tFoco" tabindex="-1">';
 
-    // candidatos elegibles: el corazón del modo revisión
+    // ======== lo que hay en el depósito
+    h += '<section class="sist fis"><header class="sh">' +
+      '<span class="sico">◉</span><div><b>Lo que hay en el depósito</b>' +
+      '<small>' + esc(c.sistema_origen) + " · " + esc(c.base) + " · centro " + esc(c.centro) +
+      "</small></div></header><div class=\"sb\">";
+    h += '<div class="snom">' + esc(c.nombre_fisico || "—") + "</div>";
+    h += '<div class="sdatos">' +
+      dato("Cantidad contada", c.origen === "Inventario físico" ? num(cant) + " unidades" : "—") +
+      dato("Código en el inventario", c.codigo_fisico || "—") +
+      dato("Presentación que declara", c.presentacion || "no declara características") +
+      dato("Lotes", c.lotes && c.lotes.length
+           ? num(c.lotes.length) + (c.lotes.length === 1 ? " renglón" : " renglones") : "—") +
+      "</div></div></section>";
+
+    // ======== lo que hoy tiene stock en SAP
     var limpios = (c.candidatos || []).filter(function (x) { return !x.conflictos.length; });
     var sucios = (c.candidatos || []).filter(function (x) { return x.conflictos.length; });
+    var nSel = Object.keys(estado.selCand).length;
+
+    h += '<section class="sist sap"><header class="sh">' +
+      '<span class="sico">▣</span><div><b>Lo que hoy tiene stock en SAP</b>' +
+      "<small>bajada al 02/10 · no es el maestro completo · " +
+      (limpios.length ? num(limpios.length) + (limpios.length === 1 ? " candidato" : " candidatos")
+       : "ningún candidato compatible") + "</small></div></header><div class=\"sb\">";
+
     if (limpios.length) {
-      var nSel = Object.keys(estado.selCand).length;
-      h += '<h3 class="th">' + (limpios.length === 1
-        ? "El candidato de SAP"
-        : "Los candidatos de SAP") +
-        ' <span class="thnota">podés marcar más de uno si el mismo producto está ' +
-        'abierto en varios códigos</span></h3><div class="cands">';
+      h += '<p class="shint">Marcá el o los códigos que son este mismo producto. ' +
+        "Si SAP lo tiene abierto en más de un código, marcalos todos.</p>";
+      h += '<div class="cands">';
       limpios.forEach(function (x, i) {
         var m = estado.selCand[x.material];
         h += '<button class="cand' + (m ? " marcado" : "") + '" data-mat="' + esc(x.material) + '">' +
           '<span class="cmarca">' + (m ? "✓" : "") + "</span>" +
           '<span class="ckey">' + (i + 1) + "</span>" +
           '<span class="ctxt"><b>' + esc(x.material) + "</b> " + esc(x.texto) +
-          (x.coinciden.length
-            ? '<span class="cok">coincide en ' + esc(x.coinciden.join(", ")) + "</span>"
-            : '<span class="cno">sin ninguna característica verificada</span>') +
+          (x.presentacion ? '<span class="cpres">' + esc(x.presentacion) + "</span>" : "") +
           "</span></button>";
       });
       h += "</div>";
+    } else {
+      h += '<p class="svacio">Ningún material <b>con stock</b> en SAP es compatible con este ' +
+        "ítem. Los que se parecían por el nombre quedaron descartados por diferencias de " +
+        "presentación.<br><br><b>Esto no significa que no exista en SAP.</b> La bajada " +
+        "disponible trae sólo los materiales con existencia, así que el material puede estar " +
+        "dado de alta con stock cero. Verificarlo contra el maestro completo queda fuera del " +
+        "alcance de este trabajo.</p>";
+    }
+    if (sucios.length) {
+      h += '<div class="descart"><b>Descartados por diferencia de presentación</b>' +
+        sucios.slice(0, 4).map(function (x) {
+          return '<div><span class="dcod">' + esc(x.material) + "</span> " + esc(x.texto) +
+            ' <span class="dmot">difiere en ' + esc(x.conflictos.join(", ")) + "</span></div>";
+        }).join("") + "</div>";
+    }
+    h += "</div></section>";
 
+    // ======== comparación característica por característica
+    var refCand = limpios.length
+      ? (nSel ? limpios.filter(function (x) { return estado.selCand[x.material]; })[0] || limpios[0]
+         : limpios[0])
+      : (sucios[0] || null);
+    if (refCand && refCand.detalle && refCand.detalle.length) {
+      h += '<section class="comp"><header class="ch">Comparación característica por ' +
+        "característica <small>depósito frente a <b>" + esc(refCand.material) + "</b> «" +
+        esc(refCand.texto) + "»</small></header>";
+      h += '<table class="tcomp"><thead><tr><th>Característica</th>' +
+        "<th>Dice el depósito</th><th>Dice SAP</th><th>Para decidir</th></tr></thead><tbody>";
+      refCand.detalle.forEach(function (d) {
+        var txt = { coincide: "Confirma", difiere: "Contradice",
+                    solo_fisico: "SAP no lo dice", solo_sap: "El depósito no lo dice",
+                    incomparable: "No son comparables" }[d.estado];
+        h += '<tr class="e-' + d.estado + '"><td>' + esc(d.nombre) + "</td>" +
+          "<td>" + esc(d.fisico || "—") + "</td><td>" + esc(d.sap || "—") + "</td>" +
+          '<td><span class="marcaest">' + esc(txt) + "</span></td></tr>";
+      });
+      h += "</tbody></table>";
+      h += '<p class="cpie"><b>Por qué el análisis no lo cerró solo:</b> ' +
+        esc(c.justificacion) + "</p></section>";
+    }
+
+    // ======== decidir
+    h += '<section class="decidir">';
+    if (limpios.length) {
       h += '<div class="confbar' + (nSel ? " activa" : "") + '">';
       if (!nSel) {
-        h += '<span class="cbhint">Marcá el código que corresponde — con <kbd>1</kbd>…<kbd>' +
-          Math.min(limpios.length, 9) + "</kbd> o haciendo clic — y confirmá con <kbd>Enter</kbd>.</span>";
+        h += '<span class="cbhint">Marcá arriba con <kbd>1</kbd>…<kbd>' +
+          Math.min(limpios.length, 9) + "</kbd> o con el mouse, y confirmá con <kbd>Enter</kbd>.</span>";
       } else if (nSel === 1) {
-        h += '<span class="cbtxt">Se va a asignar <b>' + esc(Object.keys(estado.selCand)[0]) +
-          "</b></span>" +
+        h += '<span class="cbtxt">Este ítem del depósito queda identificado con <b>' +
+          esc(Object.keys(estado.selCand)[0]) + "</b> en SAP.</span>" +
           '<button class="btn pri" data-acc="confirmar">Confirmar <kbd>Enter</kbd></button>';
       } else {
-        h += '<div class="cbgrupo"><div class="cbtxt"><b>' + nSel + " códigos marcados.</b> " +
-          "Se van a agrupar como un mismo producto bajo esta nomenclatura unificada:</div>" +
+        h += '<div class="cbgrupo"><div class="cbtxt"><b>' + nSel +
+          " códigos marcados.</b> SAP tiene este producto abierto en varios códigos: " +
+          "se agrupan bajo la nomenclatura del depósito.</div>" +
           '<input type="text" id="unifNom" class="cod" value="' +
           esc(estado.unif || c.nombre_fisico || "") + '" placeholder="nomenclatura unificada">' +
           '<div class="cbchips">' + Object.keys(estado.selCand).map(function (m) {
             return '<span class="cbchip">' + esc(m) + "</span>"; }).join("") + "</div></div>" +
           '<button class="btn pri" data-acc="confirmar">Agrupar los ' + nSel +
-          " códigos <kbd>Enter</kbd></button>";
+          " <kbd>Enter</kbd></button>";
       }
       h += "</div>";
     }
-    if (sucios.length) {
-      h += '<div class="descart"><b>Descartados:</b> ' + sucios.slice(0, 3).map(function (x) {
-        return esc(x.material) + " (difiere en " + esc(x.conflictos.join(", ")) + ")";
-      }).join(" · ") + "</div>";
-    }
-    h += "</div>";
-
-    // ---- acciones de la cola
-    h += '<div class="tder"><h3 class="th">Decidir</h3><div class="tacc">';
+    h += '<div class="otras"><div class="oizq"><span class="k">Si ninguno corresponde</span>' +
+      '<div class="tacc">';
     if (estado.cola === "revision") {
-      h += bot("ok", "n", "No corresponde ninguno · proponer alta", "N");
+      h += bot("ok", "n", "Ninguno corresponde · verificar en el maestro", "N");
       h += bot("gris", "x", "No puedo decidirlo ahora", "X");
     } else if (estado.cola === "altas") {
-      h += bot("ok", "a", "Aprobar el alta", "A");
-      h += bot("no", "r", "Rechazar", "R");
+      h += bot("ok", "a", "Verificado: no existe · proponer alta", "A") +
+           bot("no", "r", "Ya existe en SAP · no dar de alta", "R");
     } else if (estado.cola === "bajas") {
-      h += bot("ok", "a", "Aprobar la baja", "A");
-      h += bot("no", "r", "Rechazar · el material se usa", "R");
+      h += bot("ok", "a", "Aprobar la baja", "A") +
+           bot("no", "r", "Rechazar · el material se usa", "R");
     } else if (estado.cola === "existencias") {
-      h += bot("ok", "a", "Registrar la existencia", "A");
-      h += bot("no", "r", "No corresponde", "R");
+      h += bot("ok", "a", "Registrar la existencia", "A") + bot("no", "r", "No corresponde", "R");
     } else {
-      h += bot("ok", "a", "Confirmar la identificación", "A");
-      h += bot("no", "r", "No corresponde", "R");
+      h += bot("ok", "a", "Confirmar la identificación", "A") +
+           bot("no", "r", "No corresponde", "R");
     }
     h += bot("gris", "s", "Saltear", "→");
-    h += "</div>";
-    h += '<div class="tobs"><label class="k">Observación (opcional)</label>' +
-      '<textarea id="tObs" placeholder="Por qué…">' + esc(e.observaciones) + "</textarea></div>";
-    h += '<div class="tatajos"><b>Atajos</b><div><kbd>1</kbd>…<kbd>9</kbd> marcar un código · ' +
-      "<kbd>Enter</kbd> confirmar lo marcado · <kbd>A</kbd> aprobar · <kbd>R</kbd> rechazar · " +
+    h += "</div></div>";
+    h += '<div class="oder"><span class="k">Observación (opcional)</span>' +
+      '<textarea id="tObs" placeholder="Por qué se decide esto…">' + esc(e.observaciones) + "</textarea>" +
+      '<div class="tatajos"><b>Atajos</b><div><kbd>1</kbd>…<kbd>9</kbd> marcar · ' +
+      "<kbd>Enter</kbd> confirmar · <kbd>A</kbd> aprobar · <kbd>R</kbd> rechazar · " +
       "<kbd>N</kbd> ninguno · <kbd>X</kbd> no puedo · <kbd>→</kbd> saltear · " +
-      "<kbd>F</kbd> ficha completa</div></div>";
-    h += '<button class="btn chico" id="tFicha">Ver la ficha completa</button>';
+      "<kbd>F</kbd> ficha</div></div>" +
+      '<button class="btn chico" id="tFicha">Ver la ficha completa</button></div></section>';
+
     if (c.bloqueado_por_revision) {
-      h += '<div class="cnota" style="margin-top:11px">⚠ Este material figura como posible ' +
+      h += '<div class="cnota" style="grid-column:1/-1">⚠ Este material figura como posible ' +
         "equivalencia de un ítem todavía en revisión. Si ese caso se resuelve a favor, esta " +
         "baja sería un error.</div>";
     }
-    h += "</div></div>";
+    h += "</div>";
 
     el.innerHTML = h;
     // Toma el foco para que los atajos de teclado funcionen apenas se entra,
@@ -549,11 +599,11 @@ var App = (function () {
     if (a === "n") {
       decidir(c.id, conObs({ aprobacion: "Aprobado", estado_revision: "Revisado",
                              reclasificado: "Candidato a alta" }),
-              "Ningún candidato corresponde: se propone darlo de alta");
-      aviso("Propuesto como alta."); return avanzar();
+              "Ningún material con stock corresponde: pasa a verificar contra el maestro de SAP");
+      aviso("Pasa a verificación contra el maestro de SAP."); return avanzar();
     }
     if (a === "a") {
-      var txt = { altas: "Se aprobó la PROPUESTA de alta (no ejecuta nada en SAP)",
+      var txt = { altas: "Verificado contra el maestro: se propone el alta (no ejecuta nada en SAP)",
                   bajas: "Se aprobó la PROPUESTA de baja (no ejecuta nada en SAP)",
                   existencias: "Se marcó para registrar la existencia en SAP",
                   identificados: "Se confirmó la correspondencia con SAP" }[estado.cola];
@@ -745,7 +795,8 @@ var App = (function () {
     h += '<div class="tablabox"><table><thead><tr>' +
       '<th class="chk"><input type="checkbox" id="selTodos" title="Seleccionar la página"></th>' +
       th("clase", "Clasificación") + th("base", "Base") +
-      th("nombre", "Ítem físico / material SAP") + th("material", "Código SAP") +
+      '<th class="hfis" data-campo="nombre">En el depósito</th>' +
+      '<th class="hsap" data-campo="material">Con stock en SAP</th>' +
       th("cantidad", "Cantidad") + th("aprobacion", "Estado") + "</tr></thead><tbody>";
     if (!pag.length) h += '<tr><td colspan="7" class="vacio">No hay casos con estos filtros.</td></tr>';
     pag.forEach(function (c) {
@@ -758,15 +809,20 @@ var App = (function () {
           l + " · " + CORTO[l] + "</span>" +
           (c.motivo ? '<div class="mini">' + esc(c.motivo) + "</div>" : "") + "</td>" +
         "<td>" + esc(c.base) + '<div class="mini">' + esc(c.tipo) + "</div></td>" +
-        "<td><b>" + esc(c.nombre_fisico || c.texto_sap) + "</b>" +
-          (c.nombre_fisico && c.texto_sap ? '<div class="mini">SAP: ' + esc(c.texto_sap) + "</div>" : "") +
-          "</td>" +
-        "<td>" + (e.materiales.length
-                 ? e.materiales.map(esc).join(" · ") +
-                   (e.agrupado ? '<div class="mini">agrupados como «' + esc(e.unificada) + "»</div>"
-                    : e.corregido ? '<div class="mini">asignado a mano</div>' : "")
-                 : (c.material_sugerido ? '<span class="mini">sug. ' + esc(c.material_sugerido) + "</span>" : "—")) +
-          (resueltoPorAgrupacion(c) ? '<div class="mini ok">ya identificado en una agrupación</div>' : "") + "</td>" +
+        '<td class="cfis">' + (c.nombre_fisico
+            ? "<b>" + esc(c.nombre_fisico) + "</b><div class=\"mini\">" +
+              esc(c.sistema_origen) + (c.codigo_fisico ? " · " + esc(c.codigo_fisico) : "") + "</div>"
+            : '<span class="nohay">no figura en el inventario</span>') + "</td>" +
+        '<td class="csap">' + (e.materiales.length || c.texto_sap || c.material_sugerido
+            ? (e.materiales.length
+               ? "<b>" + e.materiales.map(esc).join(" · ") + "</b>"
+               : c.material_sugerido
+                 ? '<span class="mini">candidato ' + esc(c.material_sugerido) + ", sin confirmar</span>"
+                 : "") +
+              (c.texto_sap ? '<div class="mini">' + esc(c.texto_sap) + "</div>" : "") +
+              (e.agrupado ? '<div class="mini">agrupados como «' + esc(e.unificada) + "»</div>" : "") +
+              (resueltoPorAgrupacion(c) ? '<div class="mini ok">identificado en una agrupación</div>' : "")
+            : '<span class="nohay">no está entre los que tienen stock</span>') + "</td>" +
         '<td class="num">' + num(cant) + "</td>" +
         "<td><span class=\"estado " + (e.aprobacion === "Aprobado" || e.aprobacion === "Correspondencia confirmada" ? "ap" :
             e.aprobacion === "Rechazado" ? "re" : "") + '">' + esc(e.aprobacion) + "</span>" +
@@ -879,15 +935,16 @@ var App = (function () {
         '<div style="margin-top:11px"><div class="k mini">Para darlo de alta hace falta:</div><ul style="margin:5px 0 0;padding-left:19px;font-size:13px;color:var(--tinta2)">' +
         c.falta_para_alta.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul></div>" : "") +
       "</div>";
-    h += '<div class="bloque"><h3>Origen del dato</h3><div class="campos">' +
-      campo("Base", c.base) + campo("Centro", c.centro) +
-      campo("Sistema de origen", c.sistema_origen) + campo("Informe", c.informe_origen) +
+    h += '<div class="bloque bfis"><h3><span class="sico">◉</span> Lo que hay en el depósito · ' +
+      esc(c.sistema_origen) + '</h3><div class="campos">' +
+      campo("Base", c.base) + campo("Centro", c.centro) + campo("Informe", c.informe_origen) +
       campo("Código en el inventario físico", c.codigo_fisico || "—") +
       campo("Nomenclatura original", c.nombre_fisico || "—") +
       campo("Presentación detectada", c.presentacion || "—") +
       campo("Cantidad física", c.origen === "Inventario físico"
             ? num(c.cantidad_fisica) + " unidades" : "—", true) + "</div></div>";
-    h += '<div class="bloque"><h3>Correspondencia con SAP</h3><div class="campos">' +
+    h += '<div class="bloque bsap"><h3><span class="sico">▣</span> Lo que hoy tiene stock en ' +
+      'SAP · bajada al 02/10</h3><div class="campos">' +
       campo(e.materiales.length > 1 ? "Códigos SAP agrupados" : "Código SAP",
             e.materiales.length ? e.materiales.join(" · ")
             : (c.material_sugerido ? c.material_sugerido + " (sugerido, sin confirmar)"
@@ -918,6 +975,23 @@ var App = (function () {
       h += "</tbody></table>";
     }
     h += "</div>";
+    var cmp = (c.candidatos || [])[0];
+    if (cmp && cmp.detalle && cmp.detalle.length) {
+      h += '<div class="bloque"><h3>Comparación característica por característica</h3>' +
+        '<p class="mini" style="margin:-6px 0 12px">Depósito frente a <b>' + esc(cmp.material) +
+        "</b> «" + esc(cmp.texto) + "»</p>" +
+        '<table class="tcomp"><thead><tr><th>Característica</th><th>Dice el depósito</th>' +
+        "<th>Dice SAP</th><th>Para decidir</th></tr></thead><tbody>";
+      cmp.detalle.forEach(function (dd) {
+        var tx = { coincide: "Confirma", difiere: "Contradice",
+                   solo_fisico: "SAP no lo dice", solo_sap: "El depósito no lo dice",
+                   incomparable: "No son comparables" }[dd.estado];
+        h += '<tr class="e-' + dd.estado + '"><td>' + esc(dd.nombre) + "</td><td>" +
+          esc(dd.fisico || "—") + "</td><td>" + esc(dd.sap || "—") +
+          '</td><td><span class="marcaest">' + esc(tx) + "</span></td></tr>";
+      });
+      h += "</tbody></table></div>";
+    }
     h += '<div class="bloque"><h3>Valorización</h3><div class="campos">' +
       campo("Criterio", "Precio de última compra") +
       campo("Estado", c.estado_valorizacion, true) +
@@ -1058,7 +1132,7 @@ var App = (function () {
       "decidirlo ahora · <kbd>→</kbd> saltear · <kbd>F</kbd> ver la ficha completa.</p></div>" +
       '<div class="bloque"><h3>Qué significa cada grupo</h3><table class="listalotes"><tbody>' +
       [["Resolver los casos en revisión", "El cruce encontró algo parecido pero no pudo confirmarlo por las características. Lo decide una persona."],
-       ["Validar las altas", "Existen físicamente y no hay material equivalente en SAP. Habría que crearlos."],
+       ["Verificar los que no aparecieron", "Existen físicamente y no están entre los materiales con stock en SAP. Pueden existir en el maestro sin stock: hay que verificarlo."],
        ["Registrar existencias", "El código existe y el producto está, pero SAP no registra stock en esa base. No son altas."],
        ["Confirmar identificaciones", "Ya tienen código verificado por nomenclatura y presentación. Sólo hay que dar el visto bueno."],
        ["Aprobar las bajas", "Material con stock en SAP que ningún inventario identificó en esa base."],
@@ -1066,6 +1140,14 @@ var App = (function () {
       .map(function (x) {
         return "<tr><td style=\"white-space:nowrap\"><b>" + esc(x[0]) + "</b></td><td>" +
                esc(x[1]) + "</td></tr>"; }).join("") + "</tbody></table></div>" +
+      '<div class="bloque"><h3>Contra qué se cruza (importante)</h3><p>La contraparte es la ' +
+      '<b>bajada de stock de SAP</b>, no el maestro completo de materiales: <b>sólo los ' +
+      'materiales que hoy tienen existencia</b>. Un material dado de alta con stock cero no ' +
+      'figura.</p><p>Consecuencia práctica: cuando un ítem del depósito no encuentra ' +
+      'correspondencia, <b>no está probado que no exista en SAP</b>. Puede existir sin stock. ' +
+      'Por eso el grupo 2 no dice «dar de alta» sino «verificar en el maestro». Esa ' +
+      'verificación —y la decisión de reutilizar el código o darlo de baja y crearlo de ' +
+      'nuevo— <b>está fuera del alcance</b> de este trabajo.</p></div>' +
       '<div class="bloque"><h3>Cómo se decide una coincidencia</h3><p>El parecido del nombre ' +
       'genera el candidato; <b>las características deciden</b>: concentración, forma, volumen, ' +
       'calibre, medidas, talle, modelo, longitud y población. Si los dos lados declaran la misma ' +

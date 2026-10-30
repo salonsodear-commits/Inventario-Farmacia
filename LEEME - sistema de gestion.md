@@ -85,7 +85,7 @@ en otro centro.
 | | Grupo | Pendientes | Por qué va ahí |
 |---|---|---|---|
 | 1 | Resolver los casos en revisión | 402 | Es el trabajo real, y de él dependen otros grupos |
-| 2 | Validar las altas propuestas | 58 | Pocos y de alto impacto |
+| 2 | Verificar los que no aparecieron en SAP | 58 | Pocos y de alto impacto; requieren el maestro completo |
 | 3 | Registrar existencias que SAP no tiene | 48 | Hay stock físico sin respaldo en el sistema |
 | 4 | Confirmar las identificaciones | 179 | Rápido: ya están verificadas |
 | 5 | Aprobar las bajas propuestas | 894 | Último, porque 153 dependen del grupo 1 |
@@ -106,6 +106,24 @@ respaldo y también la forma de compartir lo decidido. El Excel trae una hoja
 «Decisiones» con el historial completo: qué se cambió, quién y cuándo.
 
 ---
+
+## Una aclaración que condiciona todo
+
+**La bajada de SAP son los materiales que HOY tienen stock, no el maestro completo.**
+Un material dado de alta en SAP con existencia cero no figura en el archivo.
+
+Consecuencia directa sobre lo que se puede afirmar: cuando un ítem del depósito no
+encuentra correspondencia, **no está probado que no exista en SAP**. Puede existir sin
+stock. Por eso el grupo 2 del sistema no dice «dar de alta» sino **«verificar en el
+maestro»**.
+
+Esa verificación —y, si el material ya existe sin stock, la decisión de reutilizar el
+código o darlo de baja y crearlo de nuevo— **está fuera del alcance de este trabajo**.
+Es el paso previo obligatorio antes de proponer cualquier alta.
+
+Lo que sí se sostiene sin esa verificación: las identificaciones (grupo 4), las
+existencias sin stock en su base (grupo 3) y los candidatos a baja (grupo 5), porque esos
+materiales **sí** están en el archivo con stock.
 
 ## Qué hace el análisis
 
@@ -138,7 +156,7 @@ Tres reglas:
 | | Casos | Qué significa | Acción |
 |---|---|---|---|
 | **A** Identificado en SAP | 227 | Código verificado por nomenclatura y presentación | Mantener |
-| **B** Candidato a alta | 58 | Existe físicamente, no hay material que corresponda | Proponer alta |
+| **B** Sin correspondencia | 58 | Existe físicamente, no está entre los materiales **con stock** | Verificar en el maestro |
 | **C** Candidato a baja | 894 | Stock en SAP que ningún inventario identificó en esa base | Proponer baja |
 | **D** Requiere revisión | 402 | No se resuelve solo | Revisar y decidir |
 | **E** Fuera del alcance | 410 | Indumentaria, equipos y repuestos | **No concluir nada** |

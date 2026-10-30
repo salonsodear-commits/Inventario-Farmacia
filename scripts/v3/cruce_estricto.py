@@ -122,7 +122,9 @@ def cruzar(items_fis, maestro_sap, hints=None):
             if max(cf, cs) < UMBRAL_CAND:
                 continue
             confl, coinc, _ = A.comparar(pf, ps)
+            detalle = A.comparar_detalle(pf, ps)
             evaluados.append({
+                "detalle": detalle, "presentacion": A.describir(ps),
                 "material": m, "texto": maestro_sap[m]["texto"],
                 "tipo": maestro_sap[m]["tipo"], "cob_fis": cf, "cob_sap": cs,
                 "score": 0.5 * cf + 0.5 * cs, "conflictos": confl,
@@ -157,9 +159,12 @@ def cruzar(items_fis, maestro_sap, hints=None):
             else:
                 res.update(clasificacion=SIN_CORRESP, motivo=None, material=None,
                            texto_sap=None, score=sucios[0]["score"] if sucios else 0.0,
-                           justificacion=("No se encontró en SAP ningún material cuya "
-                                          "denominación y presentación se correspondan "
-                                          "con este ítem."))
+                           justificacion=("No se encontró ningún material cuya denominación "
+                                          "y presentación se correspondan con este ítem "
+                                          "ENTRE LOS MATERIALES QUE HOY TIENEN STOCK en SAP. "
+                                          "La bajada disponible no es el maestro completo, así "
+                                          "que el material podría existir en SAP con existencia "
+                                          "cero: hay que verificarlo antes de proponer el alta."))
             resultados.append(res); continue
 
         mejor = limpios[0]
@@ -227,4 +232,5 @@ def _ser(v):
 def _corto(e):
     return {"material": e["material"], "texto": e["texto"], "tipo": e["tipo"],
             "cob_fis": round(e["cob_fis"], 3), "cob_sap": round(e["cob_sap"], 3),
-            "conflictos": e["conflictos"], "coinciden": e["coinciden"]}
+            "conflictos": e["conflictos"], "coinciden": e["coinciden"],
+            "presentacion": e["presentacion"], "detalle": e["detalle"]}

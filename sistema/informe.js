@@ -110,6 +110,13 @@ var Informe = (function () {
       <p>Archivo <b>` + esc(m.sap.archivo) + `</b>, con corte al ` + esc(m.sap.corte) + `.
       Contiene ` + num(m.sap.codigos_unicos) + ` códigos de material distintos y
       ` + num(m.sap.pares_material_base) + ` combinaciones de material y base.</p>
+      <p class="aviso"><b>Qué es y qué no es esta bajada.</b> Son <b>únicamente los materiales
+      que hoy tienen stock</b> en SAP. <b>No es el maestro completo de materiales:</b> un
+      material dado de alta con existencia cero no figura en el archivo.</p>
+      <p>Esto tiene una consecuencia directa sobre lo que el análisis puede afirmar: que un ítem
+      del inventario físico no encuentre correspondencia <b>no prueba que no exista en SAP</b>.
+      Puede existir sin stock. Verificarlo contra el maestro completo <b>queda fuera del alcance
+      de este trabajo</b> y es el paso previo obligatorio antes de proponer cualquier alta.</p>
       <h4>Integridad de las fuentes</h4>
       <p>Los archivos originales no se modificaron. Cada registro conserva de qué base, de qué
       sistema y de qué informe proviene. El sistema incluye controles que comparan sus propios
@@ -153,7 +160,7 @@ var Informe = (function () {
       revisión.</p>` +
       tabla(["", "Clasificación", "Qué significa", "Curso de acción"], [
         [et("A"), "Identificado en SAP", "Existe físicamente y se encontró un código cuya nomenclatura y presentación se corresponden.", "Mantener la identificación. No se propone alta."],
-        [et("B"), "Candidato a alta", "Existe físicamente y no hay en SAP ningún material que se corresponda.", "Proponer el alta. Se indica qué información falta para crearlo."],
+        [et("B"), "Sin correspondencia con stock", "Existe físicamente y no se encontró correspondencia entre los materiales que HOY tienen stock en SAP.", "Verificar primero en el maestro completo si ya existe sin stock. Recién después, proponer el alta."],
         [et("C"), "Candidato a baja", "Material con stock en SAP que ningún inventario físico identificó en esa base.", "Proponer la baja del stock de esa base."],
         [et("D"), "Requiere revisión", "Coincidencia parcial, diferencia de presentación, varios códigos posibles o nomenclatura insuficiente.", "Revisar y decidir. No se resuelve automáticamente."],
         [et("E"), "Fuera del alcance", "Indumentaria, equipamiento y repuestos.", "No concluir nada."],
@@ -203,10 +210,19 @@ var Informe = (function () {
       tabla(["Campo", "Contenido"], m.valorizacion.layout_esperado.map(function (x) {
         return ["<b>" + esc(x.campo) + "</b>", esc(x.descripcion)];
       })) + `
-      <h4>Alcance y limitaciones</h4>
+      `, "Parte 1");
+
+    marcar("Alcance y limitaciones", 1);
+    pagina("6 · Alcance y limitaciones del análisis", `
+      <p>Lo que este trabajo puede afirmar, y lo que no.</p>
       <ul>
         <li>El análisis cubre los tres inventarios físicos recibidos y el stock de SAP de las
         tres bases al ` + esc(m.sap.corte) + `. No cubre movimientos posteriores.</li>
+        <li><b>La contraparte de SAP son los materiales con stock, no el maestro completo.</b>
+        Por eso la clasificación B no afirma que el material no exista en SAP, sino que no está
+        entre los que hoy tienen existencia. Confirmarlo contra el maestro —y, si ya existe sin
+        stock, decidir si se reutiliza el código o se da de baja y se crea de nuevo— está fuera
+        del alcance de este trabajo.</li>
         <li>La identificación se valida sobre la <b>denominación y la presentación declaradas en
         los textos</b>. Si un texto de SAP no declara la presentación, el caso va a revisión en
         lugar de resolverse por aproximación.</li>
@@ -220,7 +236,7 @@ var Informe = (function () {
     marcar("Parte 2 · Resultados", 0);
     marcar("Resumen ejecutivo", 1);
     var pctId = t.A / k.items_fisicos * 100;
-    pagina("6 · Resumen ejecutivo", `
+    pagina("7 · Resumen ejecutivo", `
       <p>Se analizaron <b>` + num(k.items_fisicos) + ` ítems</b> relevados en los inventarios
       físicos de las tres bases, que suman <b>` + num(k.unidades_fisicas) + ` unidades</b>
       contadas. Cruzados contra SAP, y sumando los materiales de SAP que ningún inventario
@@ -239,8 +255,11 @@ var Informe = (function () {
       <ul>
         <li>De los ` + num(k.items_fisicos) + ` ítems contados, <b>` + num(t.A) + ` quedaron
         identificados</b> con un código verificado por presentación (` + pctId.toFixed(0) + `%),
-        <b>` + num(t.B) + ` no tienen correspondencia</b> en SAP y <b>` + num(t.D) + ` requieren
-        una decisión humana</b>.</li>
+        <b>` + num(t.B) + ` no encontraron correspondencia</b> entre los materiales con stock en
+        SAP y <b>` + num(t.D) + ` requieren una decisión humana</b>.</li>
+        <li><b>Los ` + num(t.B) + ` no son altas confirmadas.</b> La bajada de SAP trae sólo los
+        materiales con existencia, así que esos ítems podrían estar ya dados de alta con stock
+        cero. Verificarlo contra el maestro completo está fuera del alcance de este trabajo.</li>
         <li>La proporción en revisión es alta a propósito: el criterio no admite resolver por
         parecido de nombre. Cada uno de esos casos trae el candidato más probable y el motivo
         exacto por el que no se dio por confirmado, así que la revisión es rápida.</li>
@@ -258,7 +277,7 @@ var Informe = (function () {
       sujetas a revisión y aprobación.</p>`, "Parte 2");
 
     marcar("Resultados por base y por tipo", 1);
-    pagina("7 · Resultados por base y por tipo de material", `
+    pagina("8 · Resultados por base y por tipo de material", `
       <h4>Por base</h4>` +
       tabla(["Base", "Sistema", "Ítems físicos", "Unidades", "A", "B", "C", "D", "E", "Casos"],
         m.bases.map(function (b) {
@@ -298,7 +317,7 @@ var Informe = (function () {
       primero. El sistema permite filtrarlas.</p>`, "Parte 2");
 
     marcar("Valorización y controles", 1);
-    pagina("8 · Resultados de la valorización y controles de integridad", `
+    pagina("9 · Resultados de la valorización y controles de integridad", `
       <h4>Valorización por precio de última compra</h4>` +
       tabla(["Concepto", "Resultado"], [
         ["Criterio aplicado", "<b>Precio de última compra</b>"],
@@ -328,7 +347,7 @@ var Informe = (function () {
       y deja de cerrar, el estado cambia solo.</p>`, "Parte 2");
 
     marcar("Estado de la gestión", 1);
-    pagina("9 · Estado de la gestión de decisiones", `
+    pagina("10 · Estado de la gestión de decisiones", `
       <p>El sistema registra qué se decidió, quién lo decidió y cuándo. Este informe refleja el
       estado al momento de generarlo.</p>` +
       tabla(["Estado", "Casos"], [
@@ -394,35 +413,35 @@ var Informe = (function () {
       });
     }
     marcar("Detalle · identificados", 1);
-    tablaPaginada("10 · Detalle de los materiales identificados en SAP", "Parte 3",
+    tablaPaginada("11 · Detalle de los materiales identificados en SAP", "Parte 3",
       "Ítems del inventario físico con un código de SAP verificado por nomenclatura y " +
       "presentación. No requieren alta. La justificación completa de cada uno está en el " +
       "sistema y en el Excel.",
       CAB, filasDe(function (c) { return L(c) === "A"; }, true), CLS, 30);
 
     marcar("Detalle · propuestas de alta", 1);
-    tablaPaginada("11 · Detalle de los materiales propuestos para alta", "Parte 3",
+    tablaPaginada("12 · Detalle de los ítems sin correspondencia con stock", "Parte 3",
       "Ítems que existen físicamente y para los que no se encontró en SAP ningún material " +
       "cuya nomenclatura y presentación se correspondan. Son PROPUESTAS de alta, sujetas a " +
       "revisión y aprobación.",
       CAB, filasDe(function (c) { return L(c) === "B"; }, false), CLS, 30);
 
     marcar("Detalle · casos a revisar", 1);
-    tablaPaginada("12 · Detalle de los casos que requieren revisión", "Parte 3",
+    tablaPaginada("13 · Detalle de los casos que requieren revisión", "Parte 3",
       "No se resuelven automáticamente porque el criterio no admite asignar un código sin que " +
       "la correspondencia esté justificada por las características. Cada fila indica el motivo " +
       "y, cuando existe, el código candidato sin confirmar.",
       CAB, filasDe(function (c) { return L(c) === "D"; }, true), CLS, 30);
 
     marcar("Detalle · propuestas de baja", 1);
-    tablaPaginada("13 · Detalle de los materiales propuestos para baja", "Parte 3",
+    tablaPaginada("14 · Detalle de los materiales propuestos para baja", "Parte 3",
       "Materiales con stock en SAP que ningún inventario físico identificó en esa base. Son " +
       "PROPUESTAS de baja, sujetas a revisión y aprobación, y provisionales mientras queden " +
       "casos en revisión.",
       CAB, filasDe(function (c) { return L(c) === "C"; }, false), CLS, 32);
 
     marcar("Próximos pasos", 1);
-    pagina("14 · Próximos pasos y decisiones que requieren validación", `
+    pagina("15 · Próximos pasos y decisiones que requieren validación", `
       <h4>Próximos pasos recomendados, en orden</h4>
       <ol>
         <li><b>Conseguir el precio de última compra.</b> Es lo único que impide valorizar. Hace
@@ -434,8 +453,11 @@ var Informe = (function () {
         que se deciden eligiendo entre candidatos ya identificados, y seguir por los
         ` + num(k.motivos["Conflicto de presentación"] || 0) + ` de «conflicto de presentación»,
         que suelen revelar que falta el material con la presentación correcta en SAP.</li>
-        <li><b>Validar las ` + num(t.B) + ` propuestas de alta</b> con Farmacia, y completar
-        para cada una la información que el sistema indica como faltante.</li>
+        <li><b>Pedir el maestro completo de materiales de SAP</b> y cruzar contra él los
+        ` + num(t.B) + ` ítems sin correspondencia. Es el paso que hoy no se puede dar con los
+        archivos disponibles, y sin él no se puede afirmar que haya que crear ningún material.
+        Para los que ya existan sin stock habrá que decidir si se reutiliza el código o se da de
+        baja y se crea de nuevo.</li>
         <li><b>Revisar las ` + num(k.bajas_bloqueadas) + ` bajas que dependen de un caso en
         revisión</b> antes que el resto, porque pueden dejar de ser bajas.</li>
         <li><b>Resolver los ` + num(k.sin_stock_en_base) + ` ítems con existencia física y sin
@@ -450,6 +472,7 @@ var Informe = (function () {
       tabla(["Decisión", "Por qué requiere validación"], [
         ["Alcance del recuento", "El inventario cubrió Farmacia. Hay que confirmar que los " + num(t.E) + " materiales de indumentaria, equipamiento y repuestos quedan definitivamente fuera y cómo se controlan."],
         ["Criterio de baja", "La propuesta de dar de baja todo lo no identificado afecta a " + num(t.C) + " combinaciones de material y base. Conviene validar que la ausencia en el recuento es motivo suficiente, o si se exige una verificación previa en depósito."],
+        ["Reutilizar o recrear un código", "Para los ítems que resulten existir en el maestro de SAP sin stock, hay que definir el criterio: se reutiliza el código existente, o se da de baja y se crea uno nuevo. La decisión afecta la trazabilidad histórica del material."],
         ["Unidad de la baja", "Un material identificado en una base y no en otra: se da de baja sólo el stock de la base, no el material. Hay que confirmar que ese es el criterio."],
         ["Fuente del precio", "Definir de qué reporte sale el precio de última compra y con qué corte, para que la valorización sea reproducible."],
         ["Responsable de la validación por base", "Las decisiones quedan registradas con nombre. Hay que definir quién valida cada base y quién cierra con Farmacia."],
@@ -463,7 +486,7 @@ var Informe = (function () {
 
   // ---------------------------------------------------------- render
   var A4 = 297 * 96 / 25.4;        // alto de una A4 en px CSS
-  var RESERVA = 92;                // pie + relleno inferior + margen de la tabla
+  var RESERVA = 104;               // pie + relleno inferior + margen de la tabla, con holgura
 
   /* Reparte las filas de un bloque de tabla en hojas, agregándolas de a una y
      midiendo: cuando la última no entra, se saca y empieza una hoja nueva. */
@@ -693,11 +716,18 @@ var Informe = (function () {
     @page{size:A4;margin:0}
     body{background:#fff !important}
     body>*{display:none !important}
-    body>main{display:block !important}
+    /* El relleno inferior de main empuja una página en blanco al final. */
+    body>main{display:block !important;padding:0 !important;margin:0 !important;
+      max-width:none !important}
     main>section{display:none !important}
     main>section#v-informe{display:block !important}
     .informe{background:#fff;padding:0}
-    .hoja{margin:0;box-shadow:none;page-break-after:always;break-after:page}
+    /* 296 mm y no 297: una hoja de exactamente el alto del papel, con salto
+       después, hace que el navegador emita una página en blanco extra y corra
+       toda la numeración. El contenido termina muy por encima, así que recortar
+       el milímetro sobrante no pierde nada. */
+    .hoja{margin:0;box-shadow:none;page-break-after:always;break-after:page;
+      height:296mm;min-height:296mm;overflow:hidden}
     .hoja:last-child{page-break-after:auto;break-after:auto}
   }
   </style>`;

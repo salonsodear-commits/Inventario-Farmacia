@@ -567,3 +567,65 @@ pedido describía.
   «Confirmar X» con uno, y el formulario de agrupación con dos o más.
 - Correcciones menores: singular/plural en los contadores, y un valor de color del
   modo oscuro que había quedado mal tipeado.
+
+## La bajada de SAP no es el maestro completo (2026-10-30)
+
+Aclaración del usuario: *«El archivo que se interpreta como master de SAP no es la
+totalidad de materiales que existen cargados en SAP, sino la totalidad de materiales
+que hoy en día tienen stock. Una revisión adicional, actualmente fuera de alcance, es
+ver si lo que no se identifica ya existe en SAP o no. O si se decide eliminarlo y crear
+el ítem de nuevo.»*
+
+Esto **cambia lo que el análisis puede afirmar**, no los números. La clasificación B
+decía «Candidato a alta», lo que afirmaba que el material no existía en SAP. Con la
+bajada disponible eso no se puede sostener: un material dado de alta con existencia cero
+no figura en el archivo.
+
+Cambios:
+
+- **B pasa de «Candidato a alta» a «Sin correspondencia con stock»**, y su curso de
+  acción de «Proponer alta de material nuevo» a **«Verificar en el maestro completo de
+  SAP»**.
+- La lista de qué hace falta para dar de alta ahora **empieza** por dos puntos nuevos:
+  confirmar en el maestro que el material no exista ya sin stock, y —si existe— decidir
+  si se reutiliza el código o se da de baja y se crea de nuevo.
+- La justificación de cada caso B dice explícitamente que no se encontró *entre los
+  materiales que hoy tienen stock*, y que eso no prueba que no exista.
+- El panel de SAP del modo revisión se titula **«Lo que hoy tiene stock en SAP»** y
+  aclara «no es el maestro completo». Cuando no hay candidatos, el texto explica que el
+  material puede estar dado de alta con stock cero.
+- Los botones de la cola 2 pasan a ser «Verificado: no existe · proponer alta» y «Ya
+  existe en SAP · no dar de alta».
+- Aviso permanente en el inicio, sección propia en la ayuda, y en el Excel la hoja
+  pasa a llamarse «B Verificar en el maestro» con la aclaración en Metodología.
+- En el PDF: párrafo destacado en «Fuentes de información», una **página nueva de
+  alcance y limitaciones**, el punto en el resumen ejecutivo, el primer próximo paso
+  («pedir el maestro completo») y una decisión nueva a validar («reutilizar o recrear
+  un código»).
+
+Lo que **no** cambia: las clases A, C, D y E. Esos materiales sí están en la bajada con
+stock, así que las identificaciones, los candidatos a baja y los casos a revisar se
+sostienen igual.
+
+### Incidente: pérdida y recuperación de app.js
+
+Al aplicar estos cambios ejecuté `open(ruta,'w').write(open(ruta).read().replace(...))`.
+Python evalúa primero el `open(...,'w')`, que **trunca el archivo**, y recién después lo
+lee: la lectura devolvió vacío y `app.js` quedó en 0 bytes, con el rediseño de ese turno
+sin commitear. Se restauró desde el último commit y se rehicieron los cambios leyendo y
+escribiendo en pasos separados. Verificado: el sistema volvió a quedar sin errores de
+JavaScript y con las cinco colas operativas.
+
+### Otras correcciones de este turno
+
+- **Página en blanco al final del PDF.** El `padding-bottom` de `main` no se reseteaba en
+  impresión y empujaba una hoja extra, lo que además corría toda la numeración. Se agregó
+  `padding:0` a `main` en el bloque `@media print`, y las hojas pasaron a `296mm` en vez
+  de `297mm`: una hoja de exactamente el alto del papel, con salto después, hace que el
+  navegador emita una página vacía.
+- **Encabezado de tabla por debajo de la primera fila.** `overflow:hidden` en la caja de
+  la tabla la convertía en el contenedor de scroll del encabezado pegajoso. Se quitó y
+  las esquinas se redondean recortando las celdas de los extremos.
+- **«14G» leído como 14 gramos.** En agujas y catéteres el gauge se descartaba del
+  análisis de concentración sólo en el calibre, no en la concentración. Aparecía en la
+  tabla de comparación como «concentración: 14 g». Corregido.

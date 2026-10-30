@@ -335,10 +335,12 @@ var Exportar = (function () {
         x.renglones_lote + " renglones de lote.");
     });
     f.push([]);
-    t("Contraparte SAP");
+    t("Contraparte SAP · qué es y qué no es");
     p("Archivo " + m.sap.archivo + ", corte al " + m.sap.corte + ". " +
       m.sap.codigos_unicos + " códigos únicos y " + m.sap.pares_material_base +
       " combinaciones material-base. Los archivos originales no se modificaron.");
+    p("ATENCIÓN: " + m.sap.que_contiene + " " + m.sap.limitacion);
+    p("FUERA DE ALCANCE: " + m.sap.fuera_de_alcance);
     f.push([]);
     t("Cómo se valida una correspondencia");
     p("El parecido del nombre genera el candidato; las características deciden. De cada " +
@@ -354,7 +356,7 @@ var Exportar = (function () {
     f.push([]);
     t("Clasificaciones");
     [["A · Identificado en SAP", "Existe físicamente y se encontró un código cuya nomenclatura y presentación se corresponden. No se propone alta."],
-     ["B · Candidato a alta", "Existe físicamente y no hay en SAP ningún material que se corresponda. Se propone crearlo; la ficha indica qué información falta."],
+     ["B · Sin correspondencia con stock", "Existe físicamente y no se encontró correspondencia ENTRE LOS MATERIALES CON STOCK en SAP. No está probado que no exista: la bajada no es el maestro completo. Hay que verificarlo antes de proponer el alta."],
      ["C · Candidato a baja", "Material con stock en SAP que ningún inventario físico identificó en esa base. Se propone la baja del stock de esa base."],
      ["D · Requiere revisión", "Coincidencia parcial, diferencia de presentación, varios códigos posibles o nomenclatura insuficiente. No se resuelve automáticamente."],
      ["E · Fuera del alcance", "Indumentaria, equipamiento y repuestos. El inventario es de Farmacia: nunca iban a aparecer, así que su ausencia no prueba nada y no se propone baja."]
@@ -375,6 +377,9 @@ var Exportar = (function () {
       "trabajo ejecuta ninguna modificación sobre SAP.");
     p("La lista de candidatos a baja es provisional mientras queden casos en revisión: si un " +
       "caso se resuelve identificando un material, ese material deja de ser candidato a baja.");
+    p("La clasificación B NO afirma que el material no exista en SAP. Afirma que no está entre " +
+      "los materiales con stock. Verificarlo contra el maestro completo es el paso previo " +
+      "obligatorio al alta, y queda fuera del alcance de este trabajo.");
     p("Un material compartido por varias bases se identifica en común pero conserva su " +
       "trazabilidad por base: coincidir en el material no es coincidir en el stock.");
     return { nombre: "Metodología", filas: f, anchos: [40, 104] };
@@ -388,8 +393,11 @@ var Exportar = (function () {
         "Existen en el inventario físico y tienen un código de SAP cuya nomenclatura y " +
         "presentación se corresponden. No hay que darlos de alta.",
         function (c) { return L(c) === "A"; }),
-      hojaOperativa("B Propuestas de alta", "Materiales físicos sin correspondencia en SAP",
-        "PROPUESTA de alta, sujeta a revisión y aprobación. No ejecuta nada en SAP.",
+      hojaOperativa("B Verificar en el maestro", "Ítems sin correspondencia entre los materiales CON STOCK",
+        "La bajada de SAP son los materiales que hoy tienen existencia, NO el maestro completo. " +
+        "Estos ítems no aparecieron ahí, pero pueden existir en SAP con stock cero. Antes de " +
+        "proponer un alta hay que verificarlo contra el maestro: eso está fuera del alcance de " +
+        "este trabajo.",
         function (c) { return L(c) === "B"; }),
       hojaOperativa("C Propuestas de baja", "Materiales de SAP sin correspondencia física",
         "PROPUESTA de baja, sujeta a revisión y aprobación. No ejecuta nada en SAP. " +

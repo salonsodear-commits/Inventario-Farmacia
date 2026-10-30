@@ -93,13 +93,24 @@ UNID_CONC = {
 }
 A_MG = {"mg": 1.0, "g": 1000.0, "mcg": 0.001}
 
+# Se definen acá porque la concentración necesita descartar el calibre primero.
+CTX_CALIBRE = re.compile(r"(aguja|abbocath|abocath|catete?r|branula|jeringa|guia|gu[ií]a|"
+                         r"sonda|trocar|mariposa|butterfly|lanceta|macrogotero|microgotero)")
+RX_CAL_G   = re.compile(r"(\d{2})\s*g(?![a-z])")
+
 RX_RATIO = re.compile(r"(\d+(?:[.,]\d+)?)\s*(mg|mgr|g|gr|mcg|ug|ui)\s*/\s*(\d+(?:[.,]\d+)?)?\s*(ml|l|dosis|hora|h)\b")
 RX_CONC  = re.compile(r"(\d+(?:[.,]\d+)?)\s*(mg|mgr|miligramos?|gramos?|gr|g|mcg|ug|ui)(?![a-z/])")
 RX_PCT   = re.compile(r"(\d+(?:[.,]\d+)?)\s*%")
 
 def concentracion(txt):
-    """Devuelve un set de concentraciones normalizadas a mg (o '%'/'ui')."""
+    """Devuelve un set de concentraciones normalizadas a mg (o '%'/'ui').
+
+    En agujas y catéteres, «14G» es el calibre y no 14 gramos: ese patrón se
+    saca antes de buscar concentraciones.
+    """
     t = base(txt)
+    if CTX_CALIBRE.search(t):
+        t = RX_CAL_G.sub(" ", t)
     out = set()
     for m in RX_RATIO.finditer(t):
         val, u, por, uu = m.group(1), m.group(2), m.group(3), m.group(4)
@@ -151,16 +162,12 @@ def conflicto_simple(a, b):
 
 # ---------------------------------------------------------------- calibre y medidas
 RX_CAL_N   = re.compile(r"(?:n[º°ºªo]\.?|nro\.?|numero)\s*(\d{1,2})(?![\d])")
-RX_CAL_G   = re.compile(r"(\d{2})\s*g(?![a-z])")
 RX_PAR     = re.compile(r"(?<![\d/])(\d{2})\s*[/x]\s*(\d{1,2})(?![\d])")   # 40/8 · 25/8 · 16x5
 RX_MED     = re.compile(r"(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*(cm|mm)?")
 RX_TALLE   = re.compile(r"talle\s*([a-z]{1,3})(?![a-z])")
 RX_TALLE2  = re.compile(r"(?<![a-z])talle\s*(\d{2})(?![\d])")
 
 # Un par "40/8" sólo es calibre en materiales punzantes; en una gasa, "10x10" son medidas.
-CTX_CALIBRE = re.compile(r"(aguja|abbocath|abocath|catete?r|branula|jeringa|guia|gu[ií]a|"
-                         r"sonda|trocar|mariposa|butterfly|lanceta|macrogotero|microgotero)")
-
 def calibre(txt):
     """En agujas y catéteres, «N° 14» y «14G» nombran el mismo calibre: van a una
     única clase comparable. Fuera de ese contexto, un «N°» es un número de modelo
@@ -335,6 +342,41 @@ def comparar(pa, pb):
 def conflictos(pa, pb):
     """Lista de atributos en los que los dos perfiles se contradicen."""
     return comparar(pa, pb)[0]
+
+
+def comparar_detalle(pa, pb):
+    """Comparación característica por característica, lista para mostrar en una
+    tabla: qué dice cada sistema y si eso confirma, contradice o no alcanza.
+
+    Sólo se devuelven las características que al menos uno de los dos declara:
+    las que ninguno menciona no aportan nada a la decisión.
+    """
+    out = []
+    for nombre, clave, fn in CONFLICTOS:
+        va, vb = pa[clave], pb[clave]
+        if not va and not vb:
+            continue
+        fmt = dict((c, f) for _, c, f in ETIQUETAS).get(clave, str)
+        def pinta(v):
+            if not v:
+                return None
+            try:
+                return ", ".join(sorted(fmt(x) for x in v))
+            except Exception:
+                return ", ".join(sorted(str(x) for x in v))
+        if not va:
+            estado = "solo_sap"
+        elif not vb:
+            estado = "solo_fisico"
+        elif clave in POR_CLASE and not ({x[0] for x in va} & {x[0] for x in vb}):
+            estado = "incomparable"
+        elif fn(va, vb):
+            estado = "difiere"
+        else:
+            estado = "coincide"
+        out.append({"nombre": nombre, "fisico": pinta(va), "sap": pinta(vb),
+                    "estado": estado})
+    return out
 
 
 # ---------------------------------------------------------------- descripción

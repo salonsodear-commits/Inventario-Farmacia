@@ -5,9 +5,13 @@ El universo base son los inventarios físicos. SAP entra como contraparte a
 verificar, no como universo.
 
     A · Identificado en SAP            -> mantener, no dar de alta
-    B · Sin correspondencia en SAP     -> candidato a ALTA de material nuevo
+    B · Sin correspondencia con stock  -> verificar primero en el maestro de SAP
     C · SAP sin correspondencia física -> candidato a BAJA en SAP
     D · Requiere revisión              -> no se resuelve automáticamente
+
+La contraparte de SAP es la bajada de STOCK, no el maestro completo. Por eso la
+clase B no afirma que el material no exista en SAP: afirma que no está entre los
+que hoy tienen stock. Confirmarlo contra el maestro queda fuera de alcance.
 
 Nada de esto ejecuta nada sobre SAP: son propuestas sujetas a revisión y
 aprobación.
@@ -16,13 +20,13 @@ import collections
 import fuentes
 
 A_IDENT   = "A · Identificado en SAP"
-B_ALTA    = "B · Candidato a alta"
+B_ALTA    = "B · Sin correspondencia con stock"
 C_BAJA    = "C · Candidato a baja"
 D_REVISAR = "D · Requiere revisión"
 E_FUERA   = "E · Fuera del alcance"
 
 ACC_MANTENER = "Mantener identificación"
-ACC_ALTA     = "Proponer alta de material nuevo"
+ACC_ALTA     = "Verificar en el maestro completo de SAP"
 ACC_BAJA     = "Proponer baja en SAP"
 ACC_REVISAR  = "Revisar y decidir"
 ACC_NADA     = "No concluir · fuera del alcance"
@@ -41,8 +45,13 @@ MAP = {
     "Requiere revisión":          (D_REVISAR, ACC_REVISAR),
 }
 
-# Qué información hace falta para poder dar de alta un material en SAP
-CAMPOS_ALTA = ["Denominación normalizada", "Tipo (medicamento / descartable)",
+# Qué hace falta antes de dar de alta un material en SAP. El primer punto es el
+# que no se puede saltear: la bajada que tenemos son los materiales CON STOCK, así
+# que el material podría existir ya en el maestro con existencia cero.
+CAMPOS_ALTA = ["Confirmar en el maestro completo de SAP que el material no exista "
+               "ya sin stock (fuera del alcance de este trabajo)",
+               "Si existe sin stock: decidir si se reutiliza o se da de baja y se crea de nuevo",
+               "Denominación normalizada", "Tipo (medicamento / descartable)",
                "Presentación y unidad de comercialización", "Unidad de medida base",
                "Grupo de artículos", "Precio de última compra"]
 

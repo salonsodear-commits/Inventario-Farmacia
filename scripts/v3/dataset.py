@@ -42,10 +42,10 @@ def _meta(fis, sap, casos):
     return {
         "generado": datetime.date.today().isoformat(),
         "criterio": ("El universo del análisis son los ítems de los inventarios "
-                     "físicos. Cada uno se cruza contra SAP verificando que la "
-                     "nomenclatura Y la presentación se correspondan. SAP aporta "
-                     "además los materiales con stock que ningún inventario "
-                     "identificó, como candidatos a baja."),
+                     "físicos. Cada uno se cruza contra los materiales que HOY tienen "
+                     "stock en SAP, verificando que la nomenclatura Y la presentación "
+                     "se correspondan. Esa misma bajada aporta los materiales con "
+                     "stock que ningún inventario identificó, como candidatos a baja."),
         "fuentes": [
             {"base": b, "sistema": fuentes.FUENTE[b]["sistema"],
              "informe": fuentes.FUENTE[b]["informe"],
@@ -58,7 +58,17 @@ def _meta(fis, sap, casos):
         ],
         "sap": {"archivo": "Stock Centro SJ NQN y Salta 02.10.xlsx",
                 "corte": "02/10", "codigos_unicos": len(sap),
-                "pares_material_base": sum(len(d["bases"]) for d in sap.values())},
+                "pares_material_base": sum(len(d["bases"]) for d in sap.values()),
+                "es_maestro_completo": False,
+                "que_contiene": "Únicamente los materiales que HOY tienen stock en SAP.",
+                "limitacion": ("No es el maestro completo de materiales. Un material dado de "
+                               "alta en SAP con existencia cero no figura en este archivo. Por "
+                               "eso, que un ítem del inventario físico no se encuentre acá no "
+                               "prueba que no exista en SAP."),
+                "fuera_de_alcance": ("Verificar contra el maestro completo de SAP si los ítems "
+                                     "no identificados ya existen sin stock, y decidir en ese "
+                                     "caso si se reutiliza el código o se da de baja y se crea "
+                                     "de nuevo.")},
         "valorizacion": {
             "criterio": "Precio de última compra",
             "disponible": False,
