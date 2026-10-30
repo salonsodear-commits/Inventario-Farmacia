@@ -171,3 +171,91 @@ python3 verificar.py       # controles de integridad
 python3 validar_ooxml.py   # control estructural del .xlsx (lo que valida Excel)
 python3 calibrar.py        # calibración contra la homologación
 ```
+
+---
+
+# Segunda etapa · universo = inventarios físicos (2026-10-30)
+
+## Hallazgo bloqueante: no existe el precio de última compra
+
+El criterio de valorización pedido es **precio de última compra**. Ese dato **no está en
+ningún archivo recibido**. Verificado campo por campo:
+
+| Archivo | Qué tiene | Qué no tiene |
+|---|---|---|
+| `Stock Centro SJ NQN y Salta 02.10.xlsx` | 20 columnas: `Valor libre util.` (valorización contable) y `VU` (ese valor ÷ unidades) | precio de compra, fecha, proveedor, documento |
+| `Homologacion_Farmacia_AVAIN_con_SAP.xlsx` | homologación de nomenclaturas | declara literalmente que «los campos de costo quedan fuera de este trabajo» |
+| Los 3 PDF de inventario físico | stock por lote y vencimiento | **0 menciones** de precio o compra (búsqueda sobre las 104 páginas) |
+
+Consecuencia: los 1.991 casos quedan **pendientes de valorización**. No se estimó ningún
+precio. Se expone en paralelo la valorización de stock de SAP, siempre rotulada, y queda
+definido el formato para cargar el dato cuando exista.
+
+## Corrección de procedencia: Neuquén no es AVAIN
+
+El trabajo anterior etiquetaba las tres bases como AVAIN. Los encabezados de los PDF
+muestran que son dos sistemas distintos:
+
+- **San Juan y Salta** → AVAIN, informe «Stock en Almacén».
+- **Neuquén** → informe «Inventario completo de Farmacia» de IHSA, documento
+  `IHSA-REP-2026-834809`, usuario `grupoihsa`. Es el que en la operación se llama
+  **Sistema Nico**.
+
+Los formatos son distintos y se procesan por separado. El etiquetado quedó corregido en
+las tres piezas.
+
+## 410 materiales de SAP que nunca iban a aparecer en el recuento
+
+De los 1.038 códigos de SAP, 311 no son de Farmacia: `ZUNI` indumentaria (304), `ZEQI`
+equipamiento (5), `ZERS` repuestos y seguridad (2). Suman 410 combinaciones
+material-base.
+
+Tratarlos como candidatos a baja por no figurar en un inventario **de Farmacia** sería
+una conclusión falsa. Se apartaron en una clasificación propia (**E · Fuera del
+alcance**) cuya acción explícita es *no concluir nada*.
+
+## 48 ítems con existencia física y sin stock en SAP en su base
+
+Están correctamente identificados —el código existe y la presentación coincide— pero SAP
+no registra stock de ese material en el centro donde se contó. Reparto: San Juan 16,
+Neuquén 9, Salta 23.
+
+**No son altas.** El código ya existe. Lo que falta es registrar la existencia en ese
+centro, o ubicar en qué centro está cargada. Es una categoría de trabajo que el análisis
+anterior no distinguía.
+
+## 156 candidatos a baja dependen de un caso todavía en revisión
+
+Figuran como posible equivalencia de un ítem físico sin resolver. Si el caso se resuelve
+a favor, dejan de ser candidatos a baja. **La lista de bajas es provisional mientras
+queden casos en revisión**, y el sistema pide confirmación antes de dejar aprobar una.
+
+## Falsos positivos que el criterio estricto evitó
+
+Casos que un cruce por similitud de nombre habría resuelto mal, y que acá quedaron
+correctamente separados:
+
+| Ítem físico | Lo que un cruce por nombre elegía | Por qué está mal | Resultado |
+|---|---|---|---|
+| `Sonda nasogástrica K 30` | `SONDA NASOGASTRICA K-10` | K30 ≠ K10 | va a `SONDA NASOGASTRICA K-30 KOLLER` |
+| `Agujas 16/5` | `JERINGA DE 1ML C AGUJA 25G` | es una jeringa, no una aguja | va a `AGUJA HIPODERMICA 25G x ⅝ - 16/5` |
+| `Succinilcolina Amp x 2 ml` | `SUCCINILCOLINA 100 mg` | uno declara volumen, el otro masa: nada verificado | a revisión |
+| `Pinza de Magill 20cm` | `PINZA MAGILL PEDIATRICA` | adulto vs pediátrico sin confirmar | a revisión |
+| `CLARITROMICINA` | `CLARITROMICINA 500 COMPRIMIDOS` | «500» puede ser mg o envase | a revisión |
+| `Aciclovir crema 5,0% x10gr` | `ACICLOVIR 400 MG COMPRIMIDOS` | crema vs comprimido y 5% vs 400 mg | sin correspondencia |
+
+## Por qué el 59% queda en revisión
+
+402 de 687 ítems requieren decisión humana. No es una falla del cruce: es la
+consecuencia directa del criterio pedido. Los motivos:
+
+| Motivo | Casos | Qué hay que hacer |
+|---|---|---|
+| Coincidencia parcial de denominación | 160 | confirmar si el candidato es el material |
+| Falta un atributo para confirmar la presentación | 146 | completar la presentación en SAP o en el inventario |
+| Varios códigos SAP posibles | 68 | elegir entre candidatos concretos |
+| Conflicto de presentación | 19 | verificar si falta en SAP el material con la presentación correcta |
+| Nomenclatura insuficiente | 8 | precisar la nomenclatura |
+
+Cada caso llega con el candidato más probable y el motivo exacto, así que la revisión es
+de confirmar o descartar, no de investigar desde cero.
