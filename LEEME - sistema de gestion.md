@@ -52,11 +52,33 @@ para decidir: la cantidad contada, la presentación detectada, por qué el caso 
 los candidatos de SAP con **en qué coincide cada uno**. Debajo, los descartados con el
 motivo.
 
-Atajos: <kbd>1</kbd>…<kbd>9</kbd> elegir un candidato · <kbd>A</kbd> aprobar o confirmar ·
-<kbd>R</kbd> rechazar · <kbd>N</kbd> ninguno corresponde · <kbd>X</kbd> no puedo decidirlo
-ahora · <kbd>→</kbd> saltear · <kbd>F</kbd> ver la ficha completa.
+Atajos: <kbd>1</kbd>…<kbd>9</kbd> marcar un código · <kbd>Enter</kbd> confirmar lo marcado ·
+<kbd>A</kbd> aprobar · <kbd>R</kbd> rechazar · <kbd>N</kbd> ninguno corresponde ·
+<kbd>X</kbd> no puedo decidirlo ahora · <kbd>→</kbd> saltear · <kbd>F</kbd> ver la ficha
+completa.
 
 Después de cada decisión pasa solo al siguiente. Una tanda de 50 casos lleva pocos minutos.
+
+### Varios códigos SAP para un mismo producto
+
+Pasa seguido: el depósito tiene **una** nomenclatura y SAP tiene el mismo producto abierto
+en **varios** códigos —marcas distintas, un código viejo y otro nuevo, uno discontinuado—.
+
+Para eso, en el modo revisión **se puede marcar más de un candidato**. Al marcar el
+segundo, aparece un campo con la **nomenclatura unificada**, precargado con el nombre que
+usa el depósito, y el botón pasa a decir «Agrupar los N códigos».
+
+Qué pasa cuando agrupás:
+
+- El ítem queda identificado con **todos** esos códigos, no con uno solo.
+- Los códigos agrupados **dejan de ser candidatos a baja en esa base**, porque alguien los
+  identificó. El contador del grupo 5 baja solo.
+- La agrupación queda listada en Inicio, en el Excel (hoja «Nomenclaturas unificadas» y dos
+  columnas en «Casos») y en el PDF.
+
+Importante: la liberación es **por base**. Si agrupás un código en San Juan, su stock en
+Salta sigue siendo candidato a baja — identificar un material no es haber contado su stock
+en otro centro.
 
 ### El orden de los grupos
 

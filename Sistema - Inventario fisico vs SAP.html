@@ -13,310 +13,343 @@
 <title>Inventario físico vs SAP · gestión</title>
 <style>
 /* Sistema de gestión · Inventario físico vs SAP
-   Paleta validada con el verificador de contraste y daltonismo en ambos modos.
-   Regla de relieve: ninguna clase se distingue sólo por color — siempre lleva
-   su etiqueta y su número a la vista. */
+   Paleta validada contra daltonismo y contraste en modo claro y oscuro.
+   Regla de relieve: ninguna clasificación se distingue sólo por color — siempre
+   lleva su letra y su nombre escritos. */
 :root{
   color-scheme: light;
-  --bg:#f6f6f4; --sup:#ffffff; --sup2:#fafaf8; --linea:#e2e1dc; --linea2:#d3d2cc;
-  --tinta:#0b0b0b; --tinta2:#52514e; --tinta3:#86857f;
-  --acento:#1F4E78; --acento2:#2a78d6;
+  --bg:#f5f5f3; --sup:#ffffff; --sup2:#f7f7f4; --sup3:#eeeeea;
+  --linea:#e6e5e0; --linea2:#d5d4ce;
+  --tinta:#13120f; --tinta2:#55534d; --tinta3:#8b8980;
+  --acento:#1F4E78; --acento2:#2a78d6; --acentoSuave:#eaf1fa;
   --cA:#1baf7a; --cB:#2a78d6; --cC:#eb6834; --cD:#6250d6; --cE:#9b9a94;
-  --cA-f:#e7f7f1; --cB-f:#e8f1fc; --cC-f:#fdeee7; --cD-f:#eeecfb; --cE-f:#f0f0ee;
-  --ok:#0f7f58; --alerta:#b8431f; --sombra:0 1px 2px rgba(0,0,0,.06),0 4px 12px rgba(0,0,0,.04);
+  --cA-f:#e6f6f0; --cB-f:#e9f1fc; --cC-f:#fdeee7; --cD-f:#eeecfb; --cE-f:#f0f0ed;
+  --ok:#0f7f58; --alerta:#b8431f;
+  --r:14px; --r2:10px;
+  --s1:0 1px 2px rgba(20,18,12,.05);
+  --s2:0 1px 3px rgba(20,18,12,.06), 0 8px 24px -12px rgba(20,18,12,.14);
+  --s3:0 24px 70px -18px rgba(20,18,12,.4);
 }
 @media (prefers-color-scheme: dark){
-  :root:where(:not([data-theme="light"])){
-    color-scheme: dark;
-    --bg:#121211; --sup:#1a1a19; --sup2:#212120; --linea:#36352f; --linea2:#45443d;
-    --tinta:#f0efec; --tinta2:#c3c2b7; --tinta3:#8c8b82;
-    --acento:#8ab4e8; --acento2:#3987e5;
+  :root:where(:not([data-theme="light"])){ color-scheme: dark;
+    --bg:#101010; --sup:#1a1a19; --sup2:#212120; --sup3:#2a2a28;
+    --linea:#32312c; --linea2:#45443d;
+    --tinta:#f3f2ef; --tinta2:#c3c2b7; --tinta3:#8c8b82;
+    --acento:#8ab4e8; --acento2:#3987e5; --acentoSuave:#17273a;
     --cA:#199e70; --cB:#3987e5; --cC:#d95926; --cD:#9085e9; --cE:#6f6e68;
-    --cA-f:#13302a; --cB-f:#13263a; --cC-f:#33200f; --cD-f:#242036; --cE-f:#26262a;
+    --cA-f:#12302a; --cB-f:#13263a; --cC-f:#331f0f; --cD-f:#232036; --cE-f:#26262a;
     --ok:#49c49a; --alerta:#f08359;
+    --s1:0 1px 2px rgba(0,0,0,.4); --s2:0 1px 3px rgba(0,0,0,.45),0 8px 24px -12px rgba(0,0,0,.6);
+    --s3:0 24px 70px -18px rgba(0,0,0,.8);
   }
 }
-:root[data-theme="dark"]{
-  color-scheme: dark;
-  --bg:#121211; --sup:#1a1a19; --sup2:#212120; --linea:#36352f; --linea2:#45443d;
-  --tinta:#f0efec; --tinta2:#c3c2b7; --tinta3:#8c8b82;
-  --acento:#8ab4e8; --acento2:#3987e5;
+:root[data-theme="dark"]{ color-scheme: dark;
+  --bg:#101010; --sup:#1a1a19; --sup2:#212120; --sup3:#2a2a28;
+  --linea:#32312c; --linea2:#45443d;
+  --tinta:#f3f2ef; --tinta2:#c3c2b7; --tinta3:#8c8b82;
+  --acento:#8ab4e8; --acento2:#3987e5; --acentoSuave:#17273a;
   --cA:#199e70; --cB:#3987e5; --cC:#d95926; --cD:#9085e9; --cE:#6f6e68;
-  --cA-f:#13302a; --cB-f:#13263a; --cC-f:#33200f; --cD-f:#242036; --cE-f:#26262a;
+  --cA-f:#12302a; --cB-f:#13263a; --cC-f:#331f0f; --cD-f:#232036; --cE-f:#26262a;
   --ok:#49c49a; --alerta:#f08359;
+  --s1:0 1px 2px rgba(0,0,0,.4); --s2:0 1px 3px rgba(0,0,0,.45),0 8px 24px -12px rgba(0,0,0,.6);
+  --s3:0 24px 70px -18px rgba(0,0,0,.8);
 }
 *{box-sizing:border-box}
-html,body{margin:0;padding:0}
-body{background:var(--bg);color:var(--tinta);
-  font:14px/1.5 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--tinta);
+  font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased}
 button,input,select,textarea{font:inherit;color:inherit}
-a{color:var(--acento2)}
+::selection{background:var(--acentoSuave)}
 
-/* ---------- estructura ---------- */
-.barra{position:sticky;top:0;z-index:50;background:var(--sup);
-  border-bottom:1px solid var(--linea);padding:10px 20px;
-  display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.marca{font-weight:750;letter-spacing:-.01em;font-size:15px;white-space:nowrap}
+/* ===================== barra superior ===================== */
+.barra{position:sticky;top:0;z-index:60;background:var(--sup);
+  border-bottom:1px solid var(--linea);padding:0 20px;min-height:60px;
+  display:flex;align-items:center;gap:18px}
+/* Debajo de este ancho la barra envuelve en dos filas en vez de apretar el menú. */
+@media (max-width:1320px){.marca small{display:none}}
+.marca{font-weight:700;font-size:15px;letter-spacing:-.01em;white-space:nowrap;line-height:1.15;
+  flex:none;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .marca small{display:block;font-weight:400;font-size:11px;color:var(--tinta3);letter-spacing:0}
-.nav{display:flex;gap:4px;margin-left:8px;flex-wrap:wrap}
-.nav button{background:none;border:1px solid transparent;border-radius:8px;
-  padding:6px 12px;cursor:pointer;color:var(--tinta2);font-size:13px}
+.nav{display:flex;gap:2px;flex:none}
+.nav button{background:none;border:0;border-radius:9px;padding:8px 13px;cursor:pointer;
+  color:var(--tinta2);font-size:14px;font-weight:500;white-space:nowrap;
+  transition:background .12s,color .12s}
 .nav button:hover{background:var(--sup2);color:var(--tinta)}
-.nav button[aria-current="page"]{background:var(--acento);color:#fff;font-weight:650}
-:root[data-theme="dark"] .nav button[aria-current="page"],
-@media (prefers-color-scheme: dark){:root:where(:not([data-theme="light"])) .nav button[aria-current="page"]{color:#0b0b0b}}
-.der{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-main{max-width:1500px;margin:0 auto;padding:20px}
-h1{font-size:21px;margin:0 0 3px;letter-spacing:-.02em}
-h2{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--tinta3);
-  margin:26px 0 10px;font-weight:650}
-.sub{color:var(--tinta2);font-size:13px;margin:0 0 4px}
+.nav button[aria-current="page"]{background:var(--acentoSuave);color:var(--acento);font-weight:650}
+.der{margin-left:auto;display:flex;gap:8px;align-items:center;flex:none}
+.rev{display:flex;align-items:center;gap:7px;background:var(--sup2);
+  border:1px solid var(--linea);border-radius:9px;padding:0 4px 0 11px;height:36px}
+.rev span{font-size:11.5px;color:var(--tinta3);white-space:nowrap}
+.rev input{background:none;border:0;outline:none;width:118px;font-size:13.5px;padding:7px 4px}
+@media (max-width:1150px){
+  .barra{height:auto;padding:10px 16px;flex-wrap:wrap}
+  .der{width:100%;margin-left:0}
+}
+main{max-width:1320px;margin:0 auto;padding:26px 22px 60px}
 
-/* ---------- botones ---------- */
-.btn{background:var(--sup);border:1px solid var(--linea2);border-radius:8px;
-  padding:7px 13px;cursor:pointer;font-size:13px;white-space:nowrap}
-.btn:hover{border-color:var(--acento2);color:var(--acento2)}
+/* ===================== tipografía ===================== */
+h1{font-size:27px;line-height:1.2;margin:0 0 6px;letter-spacing:-.025em;font-weight:700}
+h2{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--tinta3);
+  margin:34px 0 12px;font-weight:650}
+.sub{color:var(--tinta2);font-size:14.5px;margin:0;max-width:78ch}
+.mini{font-size:11.5px;color:var(--tinta3);line-height:1.45}
+.mini.ok{color:var(--ok)}
+.k{font-size:11px;color:var(--tinta3);letter-spacing:.02em}
+
+/* ===================== botones ===================== */
+.btn{background:var(--sup);border:1px solid var(--linea2);border-radius:9px;
+  padding:9px 15px;cursor:pointer;font-size:14px;font-weight:500;white-space:nowrap;
+  transition:border-color .12s,background .12s,color .12s;box-shadow:var(--s1)}
+.btn:hover{border-color:var(--tinta3)}
 .btn.pri{background:var(--acento);border-color:var(--acento);color:#fff;font-weight:650}
-.btn.pri:hover{opacity:.9;color:#fff}
-.btn.ok{border-color:var(--ok);color:var(--ok)}
-.btn.no{border-color:var(--alerta);color:var(--alerta)}
-.btn:disabled{opacity:.45;cursor:not-allowed}
-.btn.chico{padding:4px 9px;font-size:12px}
+.btn.pri:hover{filter:brightness(1.1)}
+.btn.ok{border-color:var(--cA);color:var(--ok)}
+.btn.ok:hover{background:var(--cA-f)}
+.btn.no{border-color:var(--cC);color:var(--alerta)}
+.btn.no:hover{background:var(--cC-f)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.chico{padding:6px 11px;font-size:13px}
+kbd{font:600 11px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  background:var(--sup3);border:1px solid var(--linea2);border-bottom-width:2px;
+  border-radius:5px;padding:1px 6px;color:var(--tinta2);white-space:nowrap}
+.btn.pri kbd{background:rgba(255,255,255,.17);border-color:rgba(255,255,255,.3);color:#fff}
 
-/* ---------- tarjetas de indicador ---------- */
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(176px,1fr));gap:11px}
-.kpi{background:var(--sup);border:1px solid var(--linea);border-radius:12px;
-  padding:14px 15px;cursor:pointer;text-align:left;border-left-width:4px;
-  box-shadow:var(--sombra);transition:transform .08s}
-.kpi:hover{transform:translateY(-1px);border-color:var(--acento2)}
-.kpi .t{font-size:11.5px;color:var(--tinta2);display:flex;align-items:center;gap:6px}
-.kpi .n{font-size:27px;font-weight:750;letter-spacing:-.02em;margin:5px 0 1px;
-  font-variant-numeric:tabular-nums}
-.kpi .d{font-size:11px;color:var(--tinta3)}
-.kpi.A{border-left-color:var(--cA)} .kpi.B{border-left-color:var(--cB)}
-.kpi.C{border-left-color:var(--cC)} .kpi.D{border-left-color:var(--cD)}
-.kpi.E{border-left-color:var(--cE)} .kpi.N{border-left-color:var(--acento)}
+/* ===================== cabecera de vista ===================== */
+.cabi{display:flex;gap:26px;align-items:flex-start;justify-content:space-between;
+  margin-bottom:24px;flex-wrap:wrap}
+.globo{background:var(--sup);border:1px solid var(--linea);border-radius:var(--r);
+  padding:15px 20px;min-width:220px;box-shadow:var(--s2)}
+.globo .k{text-transform:uppercase;letter-spacing:.07em}
+.globo .n{font-size:34px;font-weight:700;letter-spacing:-.03em;line-height:1.05;margin:2px 0}
+.globo .d{font-size:12px;color:var(--tinta3);margin-bottom:9px}
+.pbar{height:6px;background:var(--sup3);border-radius:99px;overflow:hidden}
+.pbar i{display:block;height:100%;background:var(--acento);border-radius:99px;
+  transition:width .3s}
+.prog{display:flex;align-items:center;gap:12px;grid-column:1/-1;margin-top:14px;
+  padding-top:13px;border-top:1px solid var(--linea)}
+.prog .pbar{flex:1}
+.prog span{font-size:11.5px;color:var(--tinta3);white-space:nowrap}
 
-/* ---------- distribución ---------- */
-.panelito{background:var(--sup);border:1px solid var(--linea);border-radius:12px;
-  padding:15px 17px;box-shadow:var(--sombra)}
-.pt{display:inline-block;width:9px;height:9px;border-radius:2px;flex:none}
-.fila-dist{margin-bottom:13px}
-.fila-dist:last-child{margin-bottom:0}
-.fila-dist .cab{display:flex;justify-content:space-between;font-size:12.5px;
-  margin-bottom:5px;color:var(--tinta2)}
-.fila-dist .cab b{color:var(--tinta)}
-.barr{display:flex;height:22px;border-radius:5px;overflow:hidden;gap:2px}
-.barr span{display:grid;place-items:center;font-size:10.5px;font-weight:700;color:#fff;
-  border-radius:3px;min-width:0;overflow:hidden;font-variant-numeric:tabular-nums}
-.leyenda{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--tinta2);
-  margin-top:11px;padding-top:11px;border-top:1px solid var(--linea)}
-.leyenda span{display:flex;align-items:center;gap:6px}
+/* ===================== colas de trabajo ===================== */
+.colas{display:flex;flex-direction:column;gap:12px}
+.cola{display:grid;grid-template-columns:40px 1fr 236px;gap:18px;align-items:start;
+  background:var(--sup);border:1px solid var(--linea);border-radius:var(--r);
+  padding:20px 22px;box-shadow:var(--s2);position:relative;overflow:hidden}
+.cola::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
+  background:var(--cc,var(--acento))}
+.cola.listo{opacity:.68}
+.cola.apagada{opacity:.75;margin-top:14px;grid-template-columns:40px 1fr 150px}
+.cola.apagada::before{background:var(--cE)}
+.cnum{width:32px;height:32px;border-radius:50%;background:var(--cc,var(--acento));color:#fff;
+  display:grid;place-items:center;font-weight:700;font-size:15px}
+.cola.listo .cnum{background:var(--ok)}
+.cola.apagada .cnum{background:var(--cE)}
+.ctit{font-size:17px;font-weight:650;letter-spacing:-.015em;margin-bottom:5px}
+.cdesc{font-size:13.5px;color:var(--tinta2);max-width:70ch;line-height:1.55}
+.chip-ok{font-size:10.5px;font-weight:700;background:var(--cA-f);color:var(--ok);
+  border:1px solid var(--cA);border-radius:99px;padding:2px 9px;vertical-align:middle;
+  margin-left:4px}
+.cnota{margin-top:11px;font-size:12.5px;color:var(--alerta);background:var(--cC-f);
+  border-radius:var(--r2);padding:9px 12px;line-height:1.5}
+.cnota.ok{color:var(--ok);background:var(--cA-f)}
+.submotivos{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
+.submot{background:var(--sup2);border:1px solid var(--linea);border-radius:99px;
+  padding:6px 13px;font-size:12.5px;cursor:pointer;color:var(--tinta2);
+  transition:border-color .12s,color .12s}
+.submot:hover{border-color:var(--acento2);color:var(--acento2)}
+.submot b{color:var(--tinta);font-weight:650;margin-right:3px}
+.cacc{display:flex;flex-direction:column;gap:8px}
+.cpend{font-size:30px;font-weight:700;text-align:center;line-height:1;
+  letter-spacing:-.03em;font-variant-numeric:tabular-nums;margin-bottom:2px}
+.cpend small{display:block;font-size:10.5px;font-weight:400;color:var(--tinta3);
+  letter-spacing:0;margin-top:3px}
+.cpend.ok{color:var(--ok)}
+@media (max-width:980px){.cola,.cola.apagada{grid-template-columns:36px 1fr}
+  .cacc{grid-column:1/-1;flex-direction:row;flex-wrap:wrap;align-items:center}
+  .cpend{margin-right:10px}}
 
-/* ---------- avisos ---------- */
-.aviso{background:var(--sup);border:1px solid var(--linea);border-left:4px solid var(--cC);
-  border-radius:10px;padding:12px 15px;margin-bottom:9px;font-size:13px}
-.aviso b{display:block;margin-bottom:2px}
+/* ===================== avisos y paneles ===================== */
+.panelito{background:var(--sup);border:1px solid var(--linea);border-radius:var(--r);
+  padding:18px 20px;box-shadow:var(--s2)}
+.pnota{font-size:13px;color:var(--tinta2);margin:0 0 12px;line-height:1.55}
+.aviso{background:var(--sup);border:1px solid var(--linea);border-left:3px solid var(--cC);
+  border-radius:var(--r2);padding:14px 17px;margin-bottom:10px;font-size:13.5px;
+  line-height:1.55;color:var(--tinta2);box-shadow:var(--s1)}
+.aviso b{display:block;margin-bottom:3px;color:var(--tinta);font-size:14px}
 .aviso.info{border-left-color:var(--cB)}
-.aviso.dato{border-left-color:var(--cD)}
 
-/* ---------- filtros ---------- */
-.filtros{background:var(--sup);border:1px solid var(--linea);border-radius:12px;
-  padding:12px 14px;margin-bottom:13px;display:flex;gap:9px;flex-wrap:wrap;
-  align-items:center;box-shadow:var(--sombra)}
-.filtros label{font-size:11px;color:var(--tinta3);display:flex;flex-direction:column;gap:3px}
+/* ===================== modo revisión ===================== */
+.tbarra{display:flex;gap:18px;align-items:center;margin-bottom:18px;flex-wrap:wrap}
+.tprog{flex:1;min-width:240px}
+.tprog b{font-size:13px;display:block;margin-bottom:5px;font-weight:600}
+.tprog span{font-size:11.5px;color:var(--tinta3)}
+.tprog .pbar{margin-bottom:4px}
+.tcaso{display:grid;grid-template-columns:1fr 340px;gap:18px;align-items:start}
+.tcaso:focus,.tcaso:focus-visible{outline:none}
+@media (max-width:1040px){.tcaso{grid-template-columns:1fr}}
+.tizq{background:var(--sup);border:1px solid var(--linea);border-radius:var(--r);
+  padding:24px 26px;box-shadow:var(--s2)}
+.tder{background:var(--sup);border:1px solid var(--linea);border-radius:var(--r);
+  padding:20px 22px;box-shadow:var(--s2);position:sticky;top:calc(var(--alto-barra,60px) + 18px)}
+.tcab{display:flex;gap:12px;align-items:center;margin-bottom:11px;flex-wrap:wrap}
+.tizq h1{font-size:28px;margin:0 0 18px;line-height:1.18}
+.tdatos{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:15px 22px;
+  padding:16px 0;border-top:1px solid var(--linea);border-bottom:1px solid var(--linea)}
+.td .k{margin-bottom:3px}
+.td .v{font-size:14.5px;font-weight:600;line-height:1.4}
+.tpor{margin-top:16px;font-size:13.5px;color:var(--tinta2);line-height:1.65;
+  background:var(--sup2);border-radius:var(--r2);padding:14px 16px}
+.tpor b{color:var(--tinta)}
+.th{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--tinta3);
+  margin:22px 0 10px;font-weight:650}
+.thnota{text-transform:none;letter-spacing:0;font-weight:400;color:var(--tinta3);
+  font-size:12px;margin-left:4px}
+
+/* candidatos marcables */
+.cands{display:flex;flex-direction:column;gap:8px}
+.cand{display:flex;gap:12px;align-items:flex-start;text-align:left;width:100%;
+  background:var(--sup2);border:1.5px solid var(--linea);border-radius:var(--r2);
+  padding:13px 15px;cursor:pointer;font-size:14px;transition:border-color .12s,background .12s}
+.cand:hover{border-color:var(--acento2)}
+.cand.marcado{border-color:var(--acento);background:var(--acentoSuave)}
+.cmarca{flex:none;width:21px;height:21px;border-radius:6px;border:1.5px solid var(--linea2);
+  background:var(--sup);display:grid;place-items:center;font-size:12px;font-weight:700;
+  color:#fff;margin-top:1px}
+.cand.marcado .cmarca{background:var(--acento);border-color:var(--acento)}
+.ckey{flex:none;width:21px;height:21px;border-radius:5px;background:var(--sup3);
+  color:var(--tinta3);display:grid;place-items:center;font-size:11.5px;font-weight:700;
+  margin-top:1px}
+.cand.marcado .ckey{background:rgba(31,78,120,.16);color:var(--acento)}
+.ctxt{flex:1;line-height:1.45}
+.ctxt b{margin-right:6px;font-variant-numeric:tabular-nums}
+.cok{display:block;font-size:12px;color:var(--ok);margin-top:3px}
+.cno{display:block;font-size:12px;color:var(--tinta3);margin-top:3px}
+
+/* barra de confirmación */
+.confbar{margin-top:12px;border:1.5px dashed var(--linea2);border-radius:var(--r2);
+  padding:13px 15px;display:flex;gap:13px;align-items:center;flex-wrap:wrap}
+.confbar.activa{border-style:solid;border-color:var(--acento);background:var(--acentoSuave)}
+.cbhint{font-size:13px;color:var(--tinta3);line-height:1.7}
+.cbtxt{font-size:13.5px;color:var(--tinta2);flex:1}
+.cbgrupo{flex:1;min-width:230px}
+.cbgrupo .cod{margin-top:8px}
+.cbchips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.cbchip{font:600 11.5px ui-monospace,Menlo,monospace;background:var(--sup);
+  border:1px solid var(--linea2);border-radius:6px;padding:3px 8px}
+.descart{margin-top:15px;font-size:12.5px;color:var(--tinta3);line-height:1.6}
+.tacc{display:flex;flex-direction:column;gap:8px}
+.btn.grande{display:flex;justify-content:space-between;align-items:center;gap:10px;
+  padding:13px 15px;font-size:14px;font-weight:600;width:100%;text-align:left}
+.tobs{margin-top:16px}
+.tobs .k{display:block;margin-bottom:5px}
+.tatajos{margin-top:16px;padding-top:14px;border-top:1px solid var(--linea);
+  font-size:11.5px;color:var(--tinta3)}
+.tatajos b{display:block;margin-bottom:6px;color:var(--tinta2);
+  text-transform:uppercase;letter-spacing:.08em;font-size:10px}
+.tatajos div{line-height:2.1}
+.finito{text-align:center;padding:80px 20px}
+.ficono{width:66px;height:66px;border-radius:50%;background:var(--cA-f);color:var(--ok);
+  border:2px solid var(--cA);display:grid;place-items:center;font-size:32px;margin:0 auto 20px}
+
+/* ===================== filtros y tabla ===================== */
+.filtros{background:var(--sup);border:1px solid var(--linea);border-radius:var(--r);
+  padding:14px 16px;margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap;
+  align-items:flex-end;box-shadow:var(--s2)}
+.filtros label{font-size:10.5px;color:var(--tinta3);display:flex;flex-direction:column;gap:4px;
+  text-transform:uppercase;letter-spacing:.05em;font-weight:600}
 .filtros select,.filtros input[type=text]{background:var(--sup2);border:1px solid var(--linea2);
-  border-radius:7px;padding:6px 9px;font-size:13px;min-width:132px}
-.filtros input[type=text]{min-width:260px}
-.chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
-.chip{border:1px solid var(--linea2);background:var(--sup2);border-radius:999px;
-  padding:4px 11px;font-size:12px;cursor:pointer}
-.chip[aria-pressed="true"]{background:var(--acento);border-color:var(--acento);
-  color:#fff;font-weight:650}
-
-/* ---------- tabla ---------- */
-.tablabox{background:var(--sup);border:1px solid var(--linea);border-radius:12px;
-  overflow:hidden;box-shadow:var(--sombra)}
-table{border-collapse:collapse;width:100%;font-size:13px}
-/* La barra superior puede cambiar de alto si envuelve, así que el encabezado de
-   la tabla se pega a la altura REAL medida en JS y las filas reservan ese margen
-   para que nunca queden tapadas al hacer clic. */
-thead th{position:sticky;top:var(--alto-barra,58px);background:var(--sup2);z-index:5;
-  font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--tinta3);
-  font-weight:650;text-align:left;padding:9px 11px;border-bottom:1.5px solid var(--linea);
+  border-radius:8px;padding:8px 10px;font-size:13.5px;min-width:136px;
+  text-transform:none;letter-spacing:0;font-weight:400;color:var(--tinta)}
+.filtros input[type=text]{min-width:300px;flex:1}
+.filtros select:focus,.filtros input:focus{outline:2px solid var(--acento2);outline-offset:-1px}
+.tablabox{background:var(--sup);border:1px solid var(--linea);border-radius:var(--r);
+  overflow:hidden;box-shadow:var(--s2)}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+thead th{position:sticky;top:var(--alto-barra,60px);background:var(--sup2);z-index:5;
+  font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--tinta3);
+  font-weight:650;text-align:left;padding:11px 13px;border-bottom:1px solid var(--linea);
   cursor:pointer;white-space:nowrap}
 thead th:hover{color:var(--tinta)}
-tbody td{padding:9px 11px;border-bottom:1px solid var(--linea);vertical-align:top}
-tbody tr{cursor:pointer;scroll-margin-top:calc(var(--alto-barra,58px) + 46px)}
+tbody td{padding:11px 13px;border-bottom:1px solid var(--linea);vertical-align:top}
+tbody tr{cursor:pointer;scroll-margin-top:calc(var(--alto-barra,60px) + 50px)}
 tbody tr:hover{background:var(--sup2)}
+tbody tr:last-child td{border-bottom:none}
 td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-.vacio{padding:36px;text-align:center;color:var(--tinta3)}
+.vacio{padding:44px;text-align:center;color:var(--tinta3)}
+th.chk,td.chk{width:38px;text-align:center;padding-left:11px;padding-right:0}
+tr.selec td{background:var(--acentoSuave)}
+.pager{display:flex;gap:10px;align-items:center;justify-content:center;
+  padding:15px;color:var(--tinta2);font-size:13.5px;flex-wrap:wrap;border-top:1px solid var(--linea)}
 
-/* ---------- etiquetas de clase y estado ---------- */
-.et{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:650;
-  padding:3px 9px;border-radius:999px;white-space:nowrap;border:1px solid transparent}
+/* ===================== etiquetas ===================== */
+.et{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:650;
+  padding:3px 10px;border-radius:99px;white-space:nowrap;border:1px solid transparent}
 .et.A{background:var(--cA-f);color:var(--ok);border-color:var(--cA)}
 .et.B{background:var(--cB-f);color:var(--cB);border-color:var(--cB)}
 .et.C{background:var(--cC-f);color:var(--alerta);border-color:var(--cC)}
 .et.D{background:var(--cD-f);color:var(--cD);border-color:var(--cD)}
 .et.E{background:var(--cE-f);color:var(--tinta2);border-color:var(--cE)}
-.et .pt{width:7px;height:7px;border-radius:50%}
-.mini{font-size:11px;color:var(--tinta3)}
-.estado{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--linea2);
-  background:var(--sup2);white-space:nowrap}
-.estado.ap{border-color:var(--ok);color:var(--ok)}
-.estado.re{border-color:var(--alerta);color:var(--alerta)}
-.estado.pv{border-color:var(--cD);color:var(--cD)}
-.estado.list{border-color:var(--cB);color:var(--cB)}
+.pt{display:inline-block;width:7px;height:7px;border-radius:50%;flex:none}
+.estado{font-size:11.5px;padding:3px 9px;border-radius:99px;border:1px solid var(--linea2);
+  background:var(--sup2);white-space:nowrap;display:inline-block}
+.estado.ap{border-color:var(--cA);color:var(--ok);background:var(--cA-f)}
+.estado.re{border-color:var(--cC);color:var(--alerta);background:var(--cC-f)}
 
-/* ---------- ficha ---------- */
-.ficha{display:grid;grid-template-columns:1fr 360px;gap:15px;align-items:start}
-@media (max-width:1050px){.ficha{grid-template-columns:1fr}}
-.bloque{background:var(--sup);border:1px solid var(--linea);border-radius:12px;
-  padding:16px 18px;margin-bottom:13px;box-shadow:var(--sombra)}
-.bloque h3{font-size:11px;letter-spacing:.08em;text-transform:uppercase;
-  color:var(--tinta3);margin:0 0 11px;font-weight:650}
-.campos{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px 18px}
-.campo .k{font-size:11px;color:var(--tinta3);margin-bottom:2px}
-.campo .v{font-size:13.5px;word-break:break-word}
-.campo .v.g{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums}
-.just{background:var(--sup2);border:1px solid var(--linea);border-radius:9px;
-  padding:12px 14px;font-size:13px;color:var(--tinta2);line-height:1.6}
+/* ===================== ficha ===================== */
+.ficha{display:grid;grid-template-columns:1fr 360px;gap:16px;align-items:start}
+@media (max-width:1060px){.ficha{grid-template-columns:1fr}}
+.bloque{background:var(--sup);border:1px solid var(--linea);border-radius:var(--r);
+  padding:20px 22px;margin-bottom:14px;box-shadow:var(--s2)}
+.bloque h3{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--tinta3);
+  margin:0 0 13px;font-weight:650}
+.campos{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px 20px}
+.campo .k{margin-bottom:3px}
+.campo .v{font-size:14px;word-break:break-word;line-height:1.45}
+.campo .v.g{font-size:18px;font-weight:650;letter-spacing:-.01em}
+.just{background:var(--sup2);border-radius:var(--r2);padding:14px 16px;font-size:13.5px;
+  color:var(--tinta2);line-height:1.65}
 .just b{color:var(--tinta)}
-.acciones{display:flex;flex-direction:column;gap:7px}
-.acciones .grupo{display:flex;gap:6px;flex-wrap:wrap}
-textarea{width:100%;min-height:74px;background:var(--sup2);border:1px solid var(--linea2);
-  border-radius:8px;padding:9px;font-size:13px;resize:vertical}
-input[type=text].cod{background:var(--sup2);border:1px solid var(--linea2);
-  border-radius:8px;padding:7px 9px;font-size:13px;width:100%}
-.hist{font-size:12px;color:var(--tinta2);border-left:2px solid var(--linea2);
-  padding:5px 0 5px 11px;margin-bottom:7px}
-.hist b{color:var(--tinta);display:block}
+.acciones{display:flex;flex-direction:column;gap:9px}
+.acciones .grupo{display:flex;gap:7px;flex-wrap:wrap}
+textarea{width:100%;min-height:78px;background:var(--sup2);border:1px solid var(--linea2);
+  border-radius:9px;padding:10px 12px;font-size:13.5px;resize:vertical;color:var(--tinta)}
+textarea:focus{outline:2px solid var(--acento2);outline-offset:-1px}
+input[type=text].cod{background:var(--sup);border:1px solid var(--linea2);border-radius:9px;
+  padding:9px 11px;font-size:13.5px;width:100%;color:var(--tinta)}
+input[type=text].cod:focus{outline:2px solid var(--acento2);outline-offset:-1px}
+.hist{font-size:12.5px;color:var(--tinta2);border-left:2px solid var(--linea2);
+  padding:6px 0 6px 13px;margin-bottom:9px;line-height:1.5}
+.hist b{color:var(--tinta);display:block;font-weight:600}
 .hist .cuando{font-size:11px;color:var(--tinta3)}
-.listalotes{font-size:12px;width:100%}
-.listalotes td{padding:4px 8px;border-bottom:1px solid var(--linea)}
-.pager{display:flex;gap:8px;align-items:center;justify-content:center;
-  padding:13px;color:var(--tinta2);font-size:13px;flex-wrap:wrap}
-.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
-  background:var(--acento);color:#fff;padding:11px 20px;border-radius:9px;
-  font-size:13.5px;z-index:200;box-shadow:0 6px 24px rgba(0,0,0,.25)}
-.oculto{display:none !important}
+.listalotes{font-size:12.5px;width:100%}
+.listalotes th{position:static;padding:7px 9px}
+.listalotes td{padding:7px 9px;border-bottom:1px solid var(--linea)}
 
-/* ===================== flujo de trabajo ===================== */
-.cabi{display:flex;gap:20px;align-items:flex-start;justify-content:space-between;
-  margin-bottom:20px;flex-wrap:wrap}
-.globo{background:var(--sup);border:1px solid var(--linea);border-radius:12px;
-  padding:13px 18px;min-width:210px;box-shadow:var(--sombra)}
-.globo .k{font-size:11px;color:var(--tinta3);text-transform:uppercase;letter-spacing:.05em}
-.globo .n{font-size:30px;font-weight:750;letter-spacing:-.02em;line-height:1.1}
-.globo .d{font-size:11.5px;color:var(--tinta3);margin-bottom:7px}
-.pbar{height:7px;background:var(--sup2);border:1px solid var(--linea);border-radius:99px;
-  overflow:hidden}
-.pbar i{display:block;height:100%;background:var(--acento);border-radius:99px}
-.pbar.grande{height:9px}
-.prog{display:flex;align-items:center;gap:10px;grid-column:1/-1;margin-top:11px;
-  padding-top:11px;border-top:1px solid var(--linea)}
-.prog .pbar{flex:1}
-.prog span{font-size:11.5px;color:var(--tinta3);white-space:nowrap}
-
-.colas{display:flex;flex-direction:column;gap:11px}
-.cola{display:grid;grid-template-columns:44px 1fr 230px;gap:16px;align-items:start;
-  background:var(--sup);border:1px solid var(--linea);border-left:4px solid var(--cc,var(--acento));
-  border-radius:12px;padding:16px 18px;box-shadow:var(--sombra)}
-.cola.listo{opacity:.72}
-.cola.apagada{border-left-color:var(--cE);opacity:.8;margin-top:11px;
-  grid-template-columns:44px 1fr 150px}
-.cnum{width:34px;height:34px;border-radius:50%;background:var(--cc,var(--acento));color:#fff;
-  display:grid;place-items:center;font-weight:750;font-size:16px}
-.cola.listo .cnum{background:var(--ok)}
-.cola.apagada .cnum{background:var(--cE);font-size:18px}
-.ctit{font-size:16.5px;font-weight:700;letter-spacing:-.01em;margin-bottom:4px}
-.cdesc{font-size:13px;color:var(--tinta2);max-width:72ch}
-.chip-ok{font-size:10.5px;font-weight:700;background:var(--cA-f);color:var(--ok);
-  border:1px solid var(--cA);border-radius:99px;padding:2px 9px;vertical-align:middle}
-.cnota{margin-top:9px;font-size:12.5px;color:var(--alerta);background:var(--cC-f);
-  border-radius:8px;padding:8px 11px}
-.submotivos{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-.submot{background:var(--sup2);border:1px solid var(--linea2);border-radius:99px;
-  padding:5px 12px;font-size:12px;cursor:pointer;color:var(--tinta2)}
-.submot:hover{border-color:var(--acento2);color:var(--acento2)}
-.submot b{color:var(--tinta);font-size:13px}
-.cacc{display:flex;flex-direction:column;gap:7px;align-items:stretch}
-.cpend{font-size:25px;font-weight:750;text-align:center;line-height:1.05;
-  font-variant-numeric:tabular-nums}
-.cpend small{display:block;font-size:10.5px;font-weight:400;color:var(--tinta3)}
-.cpend.ok{color:var(--ok)}
-@media (max-width:900px){.cola,.cola.apagada{grid-template-columns:40px 1fr}
-  .cacc{grid-column:1/-1;flex-direction:row;flex-wrap:wrap;align-items:center}}
-
-/* ---------- modo revisión ---------- */
-.tbarra{display:flex;gap:14px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
-.tprog{flex:1;min-width:230px}
-.tprog b{font-size:12.5px;display:block;margin-bottom:4px}
-.tprog span{font-size:11.5px;color:var(--tinta3)}
-.tprog .pbar{margin-bottom:3px}
-.tcaso{display:grid;grid-template-columns:1fr 330px;gap:16px;align-items:start}
-@media (max-width:1000px){.tcaso{grid-template-columns:1fr}}
-.tizq,.tder{background:var(--sup);border:1px solid var(--linea);border-radius:12px;
-  padding:19px 21px;box-shadow:var(--sombra)}
-.tcab{display:flex;gap:11px;align-items:center;margin-bottom:9px;flex-wrap:wrap}
-.tizq h1{font-size:25px;margin:0 0 15px;letter-spacing:-.02em;line-height:1.2}
-.tdatos{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:12px 18px;
-  padding:13px 0;border-top:1px solid var(--linea);border-bottom:1px solid var(--linea)}
-.td .k{font-size:11px;color:var(--tinta3);margin-bottom:1px}
-.td .v{font-size:14px;font-weight:600}
-.tpor{margin-top:13px;font-size:13.5px;color:var(--tinta2);line-height:1.6;
-  background:var(--sup2);border-radius:9px;padding:12px 14px}
-.tpor b{color:var(--tinta)}
-.th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--tinta3);
-  margin:19px 0 9px;font-weight:650}
-.cands{display:flex;flex-direction:column;gap:7px}
-.cand{display:flex;gap:11px;align-items:flex-start;text-align:left;width:100%;
-  background:var(--sup2);border:1px solid var(--linea2);border-radius:10px;
-  padding:11px 13px;cursor:pointer;font-size:13.5px}
-.cand:hover{border-color:var(--acento2);background:var(--cB-f)}
-.ckey{flex:none;width:23px;height:23px;border-radius:6px;background:var(--acento);color:#fff;
-  display:grid;place-items:center;font-size:12px;font-weight:700}
-.ctxt{flex:1}
-.ctxt b{margin-right:5px}
-.cok{display:block;font-size:11.5px;color:var(--ok);margin-top:3px}
-.cno{display:block;font-size:11.5px;color:var(--tinta3);margin-top:3px}
-.descart{margin-top:13px;font-size:12px;color:var(--tinta3);line-height:1.6}
-.tacc{display:flex;flex-direction:column;gap:7px}
-.btn.grande{display:flex;justify-content:space-between;align-items:center;gap:9px;
-  padding:12px 14px;font-size:14px;font-weight:600;width:100%;text-align:left}
-kbd{font:600 11px ui-monospace,Menlo,Consolas,monospace;background:var(--sup2);
-  border:1px solid var(--linea2);border-bottom-width:2px;border-radius:5px;padding:1px 6px;
-  color:var(--tinta2)}
-.tobs{margin-top:14px}
-.tobs .k{font-size:11px;color:var(--tinta3);display:block;margin-bottom:4px}
-.tatajos{margin-top:14px;font-size:11.5px;color:var(--tinta3);line-height:2}
-.finito{text-align:center;padding:70px 20px}
-.ficono{width:62px;height:62px;border-radius:50%;background:var(--cA-f);color:var(--ok);
-  border:2px solid var(--cA);display:grid;place-items:center;font-size:30px;margin:0 auto 18px}
-
-/* ---------- lote y selección ---------- */
-.modalfondo{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;
-  display:grid;place-items:center;padding:20px}
-.modal{background:var(--sup);border:1px solid var(--linea);border-radius:14px;
-  padding:24px 26px;max-width:580px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3)}
-.modal h2{margin:0 0 4px;font-size:19px;text-transform:none;letter-spacing:-.01em;color:var(--tinta)}
-.lotebases{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}
-.lb{display:flex;gap:7px;align-items:center;background:var(--sup2);
-  border:1px solid var(--linea2);border-radius:9px;padding:9px 13px;font-size:13.5px;cursor:pointer}
+/* ===================== lote y selección ===================== */
+.modalfondo{position:fixed;inset:0;background:rgba(10,8,4,.5);z-index:300;
+  display:grid;place-items:center;padding:22px;backdrop-filter:blur(2px)}
+.modal{background:var(--sup);border:1px solid var(--linea);border-radius:18px;
+  padding:26px 28px;max-width:600px;width:100%;box-shadow:var(--s3)}
+.modal h2{margin:0 0 6px;font-size:21px;text-transform:none;letter-spacing:-.02em;
+  color:var(--tinta);font-weight:700}
+.lotebases{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.lb{display:flex;gap:9px;align-items:center;background:var(--sup2);
+  border:1px solid var(--linea2);border-radius:var(--r2);padding:10px 15px;
+  font-size:14px;cursor:pointer}
+.lb:has(input:checked){border-color:var(--acento);background:var(--acentoSuave)}
 .lb b{font-variant-numeric:tabular-nums}
-.modalacc{display:flex;gap:8px;align-items:center;margin-top:18px;flex-wrap:wrap}
+.modalacc{display:flex;gap:9px;align-items:center;margin-top:20px;flex-wrap:wrap}
 .modalacc .mini{flex:1}
-.selbarra{position:sticky;bottom:0;display:flex;gap:9px;align-items:center;flex-wrap:wrap;
-  background:var(--sup);border:1px solid var(--acento);border-radius:11px;
-  padding:11px 15px;margin-top:11px;box-shadow:0 -4px 20px rgba(0,0,0,.09);z-index:20}
-th.chk,td.chk{width:34px;text-align:center;padding-left:9px;padding-right:0}
-tr.selec td{background:var(--cB-f)}
+.selbarra{position:sticky;bottom:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+  background:var(--sup);border:1.5px solid var(--acento);border-radius:var(--r);
+  padding:13px 17px;margin-top:14px;box-shadow:var(--s3);z-index:20}
 
-/* El contenedor del caso recibe el foco sólo para que anden los atajos: no es
-   un control, así que no muestra anillo. Los botones de adentro siguen siendo
-   navegables con Tab y sí lo muestran. */
-.tcaso:focus,.tcaso:focus-visible{outline:none}
+/* ===================== varios ===================== */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  background:var(--tinta);color:var(--bg);padding:12px 22px;border-radius:10px;
+  font-size:14px;font-weight:500;z-index:400;box-shadow:var(--s3);max-width:90vw}
+.oculto{display:none !important}
 
 </style>
 </head>
@@ -333,9 +366,8 @@ tr.selec td{background:var(--cB-f)}
     <button data-vista="ayuda">Cómo se usa</button>
   </nav>
   <div class="der">
-    <label class="mini" style="display:flex;gap:6px;align-items:center">Revisor
-      <input type="text" id="revisor" class="cod" style="width:130px" placeholder="tu nombre">
-    </label>
+    <div class="rev"><span>Revisor</span>
+      <input type="text" id="revisor" placeholder="tu nombre"></div>
     <button class="btn" id="bExcel">Descargar Excel</button>
     <button class="btn" id="bPdf">Descargar PDF</button>
     <button class="btn chico" id="bTema" title="Cambiar tema">◐</button>
@@ -679,7 +711,8 @@ var App = (function () {
     { id: "bajas", titulo: "Aprobar las bajas propuestas",
       desc: "Material con stock en SAP que ningún inventario físico identificó en esa base. " +
             "Aprobar significa proponer la baja, no ejecutarla.",
-      pred: function (c) { return L(c) === "C"; }, lote: true, color: "C" },
+      pred: function (c) { return L(c) === "C" && !resueltoPorAgrupacion(c); },
+      lote: true, color: "C" },
   ];
 
   var estado = {
@@ -689,7 +722,7 @@ var App = (function () {
     orden: { campo: "n", desc: false },
     pagina: 1, porPagina: 50,
     fichaId: null, volverA: "casos",
-    cola: null, motivo: null, triage: [], tIdx: 0,
+    cola: null, motivo: null, triage: [], tIdx: 0, selCand: {}, unif: "",
     sel: {},
   };
   var decisiones = {}, revisor = "";
@@ -717,7 +750,7 @@ var App = (function () {
                        que: descripcion, antes: antes, despues: cambios });
     d.revisor = revisor || "(sin identificar)";
     d.actualizado = new Date().toISOString();
-    decisiones[id] = d; guardar();
+    decisiones[id] = d; guardar(); invalidar();
   }
 
   // ------------------------------------------------------------- derivados
@@ -725,18 +758,60 @@ var App = (function () {
     for (var i = 0; i < D.casos.length; i++) if (D.casos[i].id === id) return D.casos[i];
     return null;
   }
+  /* Un ítem físico puede corresponder a VARIOS códigos de SAP: el depósito usa una
+     nomenclatura unificada y SAP tiene el mismo producto abierto en varios códigos.
+     Por eso la decisión guarda una lista, no un código suelto. */
   function efectivo(c) {
     var d = dec(c.id) || {};
+    var mats = d.materiales ||
+               (d.material_corregido ? [d.material_corregido] : null) ||
+               (c.material_sap ? [c.material_sap] : []);
     return {
       estado_revision: d.estado_revision || c.estado_revision,
       aprobacion: d.aprobacion || c.aprobacion,
-      material: d.material_corregido !== undefined && d.material_corregido !== null
-                ? d.material_corregido : c.material_sap,
-      corregido: d.material_corregido !== undefined && d.material_corregido !== null,
+      materiales: mats,
+      material: mats[0] || null,
+      agrupado: mats.length > 1,
+      unificada: d.nomenclatura_unificada || "",
+      corregido: !!(d.materiales || d.material_corregido),
       observaciones: d.observaciones || c.observaciones || "",
       revisor: d.revisor || "", actualizado: d.actualizado || "",
       historial: d.historial || [],
     };
+  }
+
+  /* Códigos que quedaron asignados a algún ítem físico, por base. Un material que
+     fue agrupado deja de ser candidato a baja: alguien lo identificó. */
+  var CACHE_ASIG = null;
+  function invalidar() { CACHE_ASIG = null; }
+  function asignados() {
+    if (CACHE_ASIG) return CACHE_ASIG;
+    var m = {};
+    D.casos.forEach(function (c) {
+      if (c.origen !== "Inventario físico") return;
+      var e = efectivo(c);
+      if (e.aprobacion === "Sin decidir" || e.aprobacion === "Rechazado") return;
+      e.materiales.forEach(function (x) { (m[c.base] = m[c.base] || {})[x] = c.id; });
+    });
+    CACHE_ASIG = m;
+    return m;
+  }
+  /* Un candidato a baja que quedó identificado por una agrupación posterior. */
+  function resueltoPorAgrupacion(c) {
+    if (L(c) !== "C" || !c.material_sap) return null;
+    var a = asignados()[c.base];
+    return a && a[c.material_sap] ? a[c.material_sap] : null;
+  }
+  function grupos() {
+    var g = [];
+    D.casos.forEach(function (c) {
+      var e = efectivo(c);
+      if (e.materiales.length > 1) {
+        g.push({ caso: c, nombre: e.unificada || c.nombre_fisico,
+                 materiales: e.materiales, base: c.base, revisor: e.revisor });
+      }
+    });
+    return g;
   }
   function pendiente(c) { return efectivo(c).aprobacion === "Sin decidir"; }
   function deCola(id) {
@@ -803,7 +878,7 @@ var App = (function () {
     estado.triage = deCola(id).filter(function (c) {
       return pendiente(c) && (!motivo || c.motivo === motivo);
     });
-    estado.tIdx = 0;
+    estado.tIdx = 0; estado.selCand = {}; estado.unif = "";
     if (!estado.triage.length) { aviso("No quedan casos pendientes en este grupo."); return; }
     ir("revisar");
   }
@@ -885,6 +960,27 @@ var App = (function () {
       'ninguna baja.</div></div><div class="cacc">' +
       '<button class="btn chico" data-lista="fuera">Ver listado</button></div></div>';
 
+    var gs = grupos();
+    var liberadas = D.casos.filter(function (c) { return resueltoPorAgrupacion(c); }).length;
+    if (gs.length || liberadas) {
+      h += '<h2>Nomenclaturas unificadas</h2><div class="panelito">';
+      h += '<p class="pnota">Cuando un mismo producto está abierto en varios códigos de SAP, ' +
+        "se los agrupa bajo la nomenclatura del inventario físico. Los códigos agrupados " +
+        "dejan de ser candidatos a baja.</p>";
+      if (liberadas) h += '<div class="cnota ok">✓ ' + num(liberadas) +
+        (liberadas === 1 ? " candidato a baja quedó resuelto" : " candidatos a baja quedaron resueltos") +
+        " por una agrupación.</div>";
+      if (gs.length) {
+        h += '<table class="listalotes"><thead><tr><th>Nomenclatura unificada</th>' +
+          "<th>Base</th><th>Códigos SAP</th><th>Quién</th></tr></thead><tbody>" +
+          gs.map(function (g) {
+            return "<tr><td><b>" + esc(g.nombre) + "</b></td><td>" + esc(g.base) + "</td><td>" +
+              g.materiales.map(esc).join(" · ") + "</td><td>" + esc(g.revisor) + "</td></tr>";
+          }).join("") + "</tbody></table>";
+      }
+      h += "</div>";
+    }
+
     h += '<h2>Antes de cerrar, dos cosas</h2>';
     h += '<div class="aviso"><b>No hay precio de última compra en los archivos recibidos.</b>' +
       'Se revisaron la bajada de SAP (tiene valor de stock, no precio de compra), la ' +
@@ -963,19 +1059,44 @@ var App = (function () {
     // candidatos elegibles: el corazón del modo revisión
     var limpios = (c.candidatos || []).filter(function (x) { return !x.conflictos.length; });
     var sucios = (c.candidatos || []).filter(function (x) { return x.conflictos.length; });
-    if (L(c) === "D" && limpios.length) {
+    if (limpios.length) {
+      var nSel = Object.keys(estado.selCand).length;
       h += '<h3 class="th">' + (limpios.length === 1
-        ? "¿Es este? Hacé clic para confirmarlo"
-        : "¿Cuál corresponde? Hacé clic en el correcto") + '</h3><div class="cands">';
+        ? "El candidato de SAP"
+        : "Los candidatos de SAP") +
+        ' <span class="thnota">podés marcar más de uno si el mismo producto está ' +
+        'abierto en varios códigos</span></h3><div class="cands">';
       limpios.forEach(function (x, i) {
-        h += '<button class="cand" data-mat="' + esc(x.material) + '">' +
+        var m = estado.selCand[x.material];
+        h += '<button class="cand' + (m ? " marcado" : "") + '" data-mat="' + esc(x.material) + '">' +
+          '<span class="cmarca">' + (m ? "✓" : "") + "</span>" +
           '<span class="ckey">' + (i + 1) + "</span>" +
           '<span class="ctxt"><b>' + esc(x.material) + "</b> " + esc(x.texto) +
           (x.coinciden.length
-            ? '<span class="cok">✓ coincide en ' + esc(x.coinciden.join(", ")) + "</span>"
+            ? '<span class="cok">coincide en ' + esc(x.coinciden.join(", ")) + "</span>"
             : '<span class="cno">sin ninguna característica verificada</span>') +
           "</span></button>";
       });
+      h += "</div>";
+
+      h += '<div class="confbar' + (nSel ? " activa" : "") + '">';
+      if (!nSel) {
+        h += '<span class="cbhint">Marcá el código que corresponde — con <kbd>1</kbd>…<kbd>' +
+          Math.min(limpios.length, 9) + "</kbd> o haciendo clic — y confirmá con <kbd>Enter</kbd>.</span>";
+      } else if (nSel === 1) {
+        h += '<span class="cbtxt">Se va a asignar <b>' + esc(Object.keys(estado.selCand)[0]) +
+          "</b></span>" +
+          '<button class="btn pri" data-acc="confirmar">Confirmar <kbd>Enter</kbd></button>';
+      } else {
+        h += '<div class="cbgrupo"><div class="cbtxt"><b>' + nSel + " códigos marcados.</b> " +
+          "Se van a agrupar como un mismo producto bajo esta nomenclatura unificada:</div>" +
+          '<input type="text" id="unifNom" class="cod" value="' +
+          esc(estado.unif || c.nombre_fisico || "") + '" placeholder="nomenclatura unificada">' +
+          '<div class="cbchips">' + Object.keys(estado.selCand).map(function (m) {
+            return '<span class="cbchip">' + esc(m) + "</span>"; }).join("") + "</div></div>" +
+          '<button class="btn pri" data-acc="confirmar">Agrupar los ' + nSel +
+          " códigos <kbd>Enter</kbd></button>";
+      }
       h += "</div>";
     }
     if (sucios.length) {
@@ -1007,9 +1128,10 @@ var App = (function () {
     h += "</div>";
     h += '<div class="tobs"><label class="k">Observación (opcional)</label>' +
       '<textarea id="tObs" placeholder="Por qué…">' + esc(e.observaciones) + "</textarea></div>";
-    h += '<div class="tatajos"><b>Atajos:</b> <kbd>1</kbd>…<kbd>9</kbd> elegir candidato · ' +
-      "<kbd>A</kbd> aprobar · <kbd>R</kbd> rechazar · <kbd>→</kbd> saltear · " +
-      "<kbd>F</kbd> ver la ficha completa</div>";
+    h += '<div class="tatajos"><b>Atajos</b><div><kbd>1</kbd>…<kbd>9</kbd> marcar un código · ' +
+      "<kbd>Enter</kbd> confirmar lo marcado · <kbd>A</kbd> aprobar · <kbd>R</kbd> rechazar · " +
+      "<kbd>N</kbd> ninguno · <kbd>X</kbd> no puedo · <kbd>→</kbd> saltear · " +
+      "<kbd>F</kbd> ficha completa</div></div>";
     h += '<button class="btn chico" id="tFicha">Ver la ficha completa</button>';
     if (c.bloqueado_por_revision) {
       h += '<div class="cnota" style="margin-top:11px">⚠ Este material figura como posible ' +
@@ -1028,7 +1150,9 @@ var App = (function () {
     el.querySelector("#tFicha").addEventListener("click", function () {
       estado.volverA = "revisar"; ir("ficha", c.id); });
     el.querySelectorAll(".cand").forEach(function (b) {
-      b.addEventListener("click", function () { elegirCandidato(c, b.dataset.mat); }); });
+      b.addEventListener("click", function () { marcar(c, b.dataset.mat); }); });
+    var un = el.querySelector("#unifNom");
+    if (un) un.addEventListener("input", function () { estado.unif = un.value; });
     el.querySelectorAll("[data-acc]").forEach(function (b) {
       b.addEventListener("click", function () { accionTriage(c, b.dataset.acc); }); });
   }
@@ -1049,15 +1173,43 @@ var App = (function () {
     if (o) cambios.observaciones = o;
     return cambios;
   }
-  function avanzar() { estado.tIdx++; pintarTriage(); }
+  function avanzar() { estado.tIdx++; estado.selCand = {}; estado.unif = ""; pintarTriage(); }
 
-  function elegirCandidato(c, mat) {
-    decidir(c.id, conObs({ material_corregido: mat, estado_revision: "Revisado",
-                           aprobacion: "Correspondencia confirmada" }),
-            "Se eligió el código SAP " + mat + " entre los candidatos");
-    aviso("Asignado " + mat + "."); avanzar();
+  function marcar(c, mat) {
+    if (estado.selCand[mat]) delete estado.selCand[mat];
+    else estado.selCand[mat] = 1;
+    if (Object.keys(estado.selCand).length > 1 && !estado.unif)
+      estado.unif = c.nombre_fisico || "";
+    pintarTriage();
+  }
+  function confirmarSeleccion(c) {
+    var mats = Object.keys(estado.selCand);
+    if (!mats.length) return aviso("Marcá al menos un código.");
+    var nom = "";
+    if (mats.length > 1) {
+      var el = document.getElementById("unifNom");
+      nom = (el ? el.value : estado.unif || "").trim();
+      if (!nom) return aviso("Poné un nombre para la nomenclatura unificada.");
+    }
+    var cam = conObs({ materiales: mats, estado_revision: "Revisado",
+                       aprobacion: "Correspondencia confirmada" });
+    if (mats.length > 1) cam.nomenclatura_unificada = nom;
+    decidir(c.id, cam, mats.length > 1
+      ? "Se agruparon " + mats.length + " códigos SAP (" + mats.join(", ") +
+        ") bajo la nomenclatura unificada «" + nom + "»"
+      : "Se asignó el código SAP " + mats[0]);
+    var liberadas = mats.filter(function (m) {
+      return D.casos.some(function (x) {
+        return x.base === c.base && x.material_sap === m && L(x) === "C"; });
+    }).length;
+    aviso(mats.length > 1
+      ? "Agrupados " + mats.length + " códigos." + (liberadas
+          ? " " + liberadas + (liberadas === 1 ? " deja" : " dejan") + " de ser candidato a baja." : "")
+      : "Asignado " + mats[0] + "." + (liberadas ? " Deja de ser candidato a baja." : ""));
+    avanzar();
   }
   function accionTriage(c, a) {
+    if (a === "confirmar") return confirmarSeleccion(c);
     if (a === "s") return avanzar();
     if (a === "x") {
       decidir(c.id, conObs({ estado_revision: "Pendiente de validación" }),
@@ -1095,6 +1247,11 @@ var App = (function () {
     if (/^[1-9]$/.test(k)) {
       var b = document.querySelectorAll(".cand")[parseInt(k, 10) - 1];
       if (b) { ev.preventDefault(); b.click(); }
+      return;
+    }
+    if (k === "enter") {
+      var cf = document.querySelector('[data-acc="confirmar"]');
+      if (cf) { ev.preventDefault(); cf.click(); }
       return;
     }
     var mapa = { a: "a", r: "r", n: "n", x: "x", s: "s", arrowright: "s" };
@@ -1273,8 +1430,12 @@ var App = (function () {
         "<td><b>" + esc(c.nombre_fisico || c.texto_sap) + "</b>" +
           (c.nombre_fisico && c.texto_sap ? '<div class="mini">SAP: ' + esc(c.texto_sap) + "</div>" : "") +
           "</td>" +
-        "<td>" + (e.material ? esc(e.material) + (e.corregido ? '<div class="mini">corregido</div>' : "")
-                 : (c.material_sugerido ? '<span class="mini">sug. ' + esc(c.material_sugerido) + "</span>" : "—")) + "</td>" +
+        "<td>" + (e.materiales.length
+                 ? e.materiales.map(esc).join(" · ") +
+                   (e.agrupado ? '<div class="mini">agrupados como «' + esc(e.unificada) + "»</div>"
+                    : e.corregido ? '<div class="mini">asignado a mano</div>' : "")
+                 : (c.material_sugerido ? '<span class="mini">sug. ' + esc(c.material_sugerido) + "</span>" : "—")) +
+          (resueltoPorAgrupacion(c) ? '<div class="mini ok">ya identificado en una agrupación</div>' : "") + "</td>" +
         '<td class="num">' + num(cant) + "</td>" +
         "<td><span class=\"estado " + (e.aprobacion === "Aprobado" || e.aprobacion === "Correspondencia confirmada" ? "ap" :
             e.aprobacion === "Rechazado" ? "re" : "") + '">' + esc(e.aprobacion) + "</span>" +
@@ -1396,8 +1557,11 @@ var App = (function () {
       campo("Cantidad física", c.origen === "Inventario físico"
             ? num(c.cantidad_fisica) + " unidades" : "—", true) + "</div></div>";
     h += '<div class="bloque"><h3>Correspondencia con SAP</h3><div class="campos">' +
-      campo("Código SAP", e.material || (c.material_sugerido
-            ? c.material_sugerido + " (sugerido, sin confirmar)" : "Sin asignar"), true) +
+      campo(e.materiales.length > 1 ? "Códigos SAP agrupados" : "Código SAP",
+            e.materiales.length ? e.materiales.join(" · ")
+            : (c.material_sugerido ? c.material_sugerido + " (sugerido, sin confirmar)"
+               : "Sin asignar"), true) +
+      (e.agrupado ? campo("Nomenclatura unificada", e.unificada) : "") +
       campo("Descripción en SAP", c.texto_sap || "—") +
       campo("Atributos verificados", (c.atributos_verificados || []).join(", ") || "ninguno") +
       campo("Confianza del cruce", c.confianza || "—") +
@@ -1407,7 +1571,10 @@ var App = (function () {
                  ? ". Sí lo tiene en " + c.stock_sap_otras_bases.join(", ") + "." : ".")) : "") +
       (c.identificado_en_otras_bases && c.identificado_en_otras_bases.length
         ? campo("Identificado en otras bases", c.identificado_en_otras_bases.join(", ")) : "") +
-      "</div>";
+      (resueltoPorAgrupacion(c)
+        ? campo("Ya no es candidato a baja",
+                "Este material quedó identificado al agruparlo con un ítem del inventario físico.")
+        : "") + "</div>";
     if (c.candidatos && c.candidatos.length) {
       h += '<h3 style="margin-top:15px">Candidatos evaluados</h3><table class="listalotes"><thead><tr>' +
         "<th>Código</th><th>Descripción en SAP</th><th>Coincide en</th><th>Contradice en</th></tr></thead><tbody>";
@@ -1981,6 +2148,21 @@ var Informe = (function () {
       ], ["", "n"]) +
       (dec === 0 ? '<p class="nota">Todavía no se registró ninguna decisión: lo que figura en el ' +
         'detalle es el resultado del análisis automático, pendiente de revisión humana.</p>' : "") + `
+      <h4>Nomenclaturas unificadas</h4>
+      <p>Cuando un mismo producto del inventario físico corresponde a varios códigos de SAP
+      —porque el depósito usa una nomenclatura unificada y SAP lo tiene abierto en más de un
+      código— se agrupan bajo el nombre del depósito. Los códigos agrupados dejan de ser
+      candidatos a baja en esa base.</p>` +
+      (function () {
+        var gs = d.casos.filter(function (c) { return ef(c).materiales.length > 1; });
+        if (!gs.length) return '<p class="nota">Todavía no se agrupó ningún caso.</p>';
+        return tabla(["Nomenclatura unificada", "Base", "Códigos SAP", "Revisor"],
+          gs.slice(0, 20).map(function (c) {
+            var e = ef(c);
+            return [esc(e.unificada || c.nombre_fisico), esc(c.base),
+                    esc(e.materiales.join(" · ")), esc(e.revisor)];
+          }));
+      })() + `
       <h4>Observaciones registradas</h4>` +
       (function () {
         var con = d.casos.filter(function (c) { return !!ef(c).observaciones; });
@@ -2347,8 +2529,8 @@ var Exportar = (function () {
     ["Código en inventario físico", 16], ["Nomenclatura del inventario físico", 42],
     ["Presentación detectada", 34], ["Cantidad física · UNIDADES", 13],
     ["Stock SAP en la base · UNIDADES", 14], ["Cantidad a valorizar · UNIDADES", 14],
-    ["Nº de lotes", 9], ["Código SAP · análisis", 13], ["Código SAP · vigente", 13],
-    ["¿Código corregido a mano?", 11], ["Descripción en SAP", 42],
+    ["Nº de lotes", 9], ["Código SAP · análisis", 13], ["Códigos SAP asignados", 22],
+    ["¿Asignado o corregido a mano?", 12], ["Descripción en SAP", 42],
     ["Atributos verificados", 30], ["Confianza del cruce", 11],
     ["Justificación de la correspondencia", 70],
     ["Estado de valorización", 20], ["Precio de última compra · $", 14],
@@ -2357,6 +2539,7 @@ var Exportar = (function () {
     ["Valor de referencia SAP · $", 16], ["Estado de revisión", 16],
     ["Decisión registrada", 20], ["Revisor", 16], ["Fecha de la decisión", 13],
     ["Observaciones", 48],
+    ["Nomenclatura unificada", 44], ["¿Agrupa varios códigos SAP?", 13],
   ];
 
   function filaCaso(c, r) {
@@ -2373,7 +2556,7 @@ var Exportar = (function () {
       // fórmula real: la cantidad que se valoriza depende del origen del registro
       { f: 'IF(C' + r + '="Inventario físico",O' + r + ",P" + r + ")", s: E.ENTERO },
       { v: c.n_lotes || 0, s: E.ENTERO },
-      { v: c.material_sap || "" }, { v: e.material || "" },
+      { v: c.material_sap || "" }, { v: e.materiales.join(" · ") },
       { v: e.corregido ? "Sí" : "No" },
       { v: c.texto_sap || "", s: E.TEXTO },
       { v: (c.atributos_verificados || []).join(", "), s: E.TEXTO },
@@ -2392,6 +2575,7 @@ var Exportar = (function () {
       { v: e.estado_revision }, { v: e.aprobacion },
       { v: e.revisor || "" }, { v: fechaCorta(d.actualizado) },
       { v: e.observaciones || "", s: E.TEXTO },
+      { v: e.unificada || "", s: E.TEXTO }, { v: e.agrupado ? "Sí" : "No" },
     ];
   }
 
@@ -2423,6 +2607,7 @@ var Exportar = (function () {
     ["Nomenclatura del inventario físico", 42], ["Presentación", 30],
     ["Cantidad física · UNIDADES", 13], ["Stock SAP · UNIDADES", 13],
     ["Atributos verificados", 26], ["Confianza", 10], ["Justificación", 64],
+    ["Nomenclatura unificada", 40],
     ["Estado de valorización", 19], ["VU de referencia SAP · $", 14],
     ["Valor de referencia SAP · $", 16], ["Estado de revisión", 16],
     ["Decisión registrada", 20], ["Revisor", 15], ["Observaciones", 44]];
@@ -2434,7 +2619,7 @@ var Exportar = (function () {
     casos.forEach(function (c, i) {
       var r = i + 5, e = ef(c);
       filas.push([
-        { v: c.n }, { v: c.base }, { v: c.tipo }, { v: e.material || "" },
+        { v: c.n }, { v: c.base }, { v: c.tipo }, { v: e.materiales.join(" · ") },
         { v: c.texto_sap || "", s: E.TEXTO }, { v: c.codigo_fisico || "" },
         { v: c.nombre_fisico || "", s: E.TEXTO }, { v: c.presentacion || "", s: E.TEXTO },
         { v: c.cantidad_fisica || 0, s: E.ENTERO },
@@ -2442,6 +2627,7 @@ var Exportar = (function () {
              : (c.stock_sap_en_base || 0), s: E.ENTERO },
         { v: (c.atributos_verificados || []).join(", "), s: E.TEXTO },
         { v: c.confianza || "" }, { v: c.justificacion || "", s: E.TEXTO },
+        { v: e.unificada || "", s: E.TEXTO },
         { v: c.estado_valorizacion },
         { v: c.vu_sap_referencia === null || c.vu_sap_referencia === undefined
              ? "" : c.vu_sap_referencia, s: E.IMPORTE },
@@ -2517,7 +2703,8 @@ var Exportar = (function () {
      ["Marcados como revisados", 'COUNTIF(Casos!AG:AG,"Revisado")'],
      ["Pendientes de validación", 'COUNTIF(Casos!AG:AG,"Pendiente de validación")'],
      ["Casos con observación", 'COUNTIF(Casos!AK:AK,"?*")'],
-     ["Códigos corregidos a mano", 'COUNTIF(Casos!U:U,"Sí")']
+     ["Códigos asignados o corregidos a mano", 'COUNTIF(Casos!U:U,"Sí")'],
+     ["Ítems con varios códigos SAP agrupados", 'COUNTIF(Casos!AM:AM,"Sí")']
     ].forEach(function (p) { f.push([{ v: p[0] }, { f: p[1], s: E.ENTERO }]); });
     f.push([]);
     f.push([{ v: "VALORIZACIÓN POR PRECIO DE ÚLTIMA COMPRA", s: E.SUBTITULO }]);
@@ -2586,6 +2773,33 @@ var Exportar = (function () {
     if (!n) f.push([{ v: "Todavía no se registró ninguna decisión en el sistema.", s: E.TENUE }]);
     return { nombre: "Decisiones", filas: f, anchos: [17, 18, 8, 15, 11, 44, 54],
              congelar: "A5", autofiltro: "A4:G" + Math.max(f.length, 5) };
+  }
+
+  function hojaUnificadas() {
+    var f = [[{ v: "Nomenclaturas unificadas", s: E.TITULO }],
+             [{ v: "Casos en los que un mismo producto del inventario físico corresponde a " +
+                   "VARIOS códigos de SAP. Se agrupan bajo la nomenclatura del depósito. " +
+                   "Los códigos agrupados dejan de ser candidatos a baja en esa base.", s: E.TENUE }], [],
+             [["Nomenclatura unificada", 46], ["Base", 12], ["Ítem del inventario físico", 40],
+              ["Códigos SAP agrupados", 30], ["Cuántos", 9], ["Cantidad física", 13],
+              ["Revisor", 18], ["Observaciones", 40]]
+             .map(function (c) { return { v: c[0], s: E.CAB }; })];
+    var n = 0;
+    D().casos.forEach(function (c) {
+      var e = ef(c);
+      if (e.materiales.length < 2) return;
+      n++;
+      f.push([{ v: e.unificada || c.nombre_fisico, s: E.TEXTO }, { v: c.base },
+              { v: c.nombre_fisico || "", s: E.TEXTO },
+              { v: e.materiales.join(" · "), s: E.TEXTO },
+              { v: e.materiales.length, s: E.ENTERO },
+              { v: c.cantidad_fisica || 0, s: E.ENTERO },
+              { v: e.revisor || "" }, { v: e.observaciones || "", s: E.TEXTO }]);
+    });
+    if (!n) f.push([{ v: "Todavía no se agrupó ningún caso.", s: E.TENUE }]);
+    return { nombre: "Nomenclaturas unificadas", filas: f,
+             anchos: [46, 12, 40, 30, 9, 13, 18, 40],
+             congelar: "A5", autofiltro: "A4:H" + Math.max(f.length, 5) };
   }
 
   function hojaControl() {
@@ -2698,7 +2912,7 @@ var Exportar = (function () {
         "Indumentaria, equipamiento y repuestos. El inventario relevado es de Farmacia: su " +
         "ausencia no permite concluir nada y no se propone ninguna baja.",
         function (c) { return L(c) === "E"; }),
-      hojaLotes(), hojaDecisiones(), hojaControl(), hojaMetodologia(),
+      hojaLotes(), hojaUnificadas(), hojaDecisiones(), hojaControl(), hojaMetodologia(),
     ];
     var blob = XLSXMin.construir(hojas, { titulo: "Inventario físico vs SAP" });
     descargar(blob, "Inventario fisico vs SAP - analisis " + hoy() + ".xlsx");

@@ -349,6 +349,21 @@ var Informe = (function () {
       ], ["", "n"]) +
       (dec === 0 ? '<p class="nota">Todavía no se registró ninguna decisión: lo que figura en el ' +
         'detalle es el resultado del análisis automático, pendiente de revisión humana.</p>' : "") + `
+      <h4>Nomenclaturas unificadas</h4>
+      <p>Cuando un mismo producto del inventario físico corresponde a varios códigos de SAP
+      —porque el depósito usa una nomenclatura unificada y SAP lo tiene abierto en más de un
+      código— se agrupan bajo el nombre del depósito. Los códigos agrupados dejan de ser
+      candidatos a baja en esa base.</p>` +
+      (function () {
+        var gs = d.casos.filter(function (c) { return ef(c).materiales.length > 1; });
+        if (!gs.length) return '<p class="nota">Todavía no se agrupó ningún caso.</p>';
+        return tabla(["Nomenclatura unificada", "Base", "Códigos SAP", "Revisor"],
+          gs.slice(0, 20).map(function (c) {
+            var e = ef(c);
+            return [esc(e.unificada || c.nombre_fisico), esc(c.base),
+                    esc(e.materiales.join(" · ")), esc(e.revisor)];
+          }));
+      })() + `
       <h4>Observaciones registradas</h4>` +
       (function () {
         var con = d.casos.filter(function (c) { return !!ef(c).observaciones; });

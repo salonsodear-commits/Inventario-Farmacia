@@ -515,3 +515,55 @@ sueltas. Se acotó a `.dp > b`.
 El guion pasó de 3.600 a 6.300 px de alto. El PNG se renderiza a escala 1,25
 (1600×7835) para no superar el límite de 8.000 px. **El HTML es la versión de
 máxima calidad** y es la que conviene proyectar.
+
+## Agrupación de códigos y rediseño (2026-10-30)
+
+### Varios códigos SAP para un mismo ítem físico
+
+Pedido: *«La revisión de los casos por nomenclatura deben poder seleccionarse más
+de una, haciendo referencia a una misma nomenclatura unificada en otro sistema.»*
+
+Antes, al revisar un caso se elegía **un** candidato y listo. Pero el caso real es
+el inverso del que ya habíamos documentado (varios nombres del depósito para un
+material de SAP): el depósito tiene **una** nomenclatura y SAP tiene el mismo
+producto abierto en **varios** códigos.
+
+Cambios:
+
+- El modelo de decisión pasa de `material_corregido` (un código) a `materiales`
+  (una lista) más `nomenclatura_unificada`.
+- En el modo revisión los candidatos son marcables. Con uno marcado el botón dice
+  «Confirmar 1001216»; con dos o más aparece el campo de nomenclatura unificada
+  —precargado con el nombre del depósito— y el botón pasa a «Agrupar los N
+  códigos». El teclado acompaña: los números marcan, `Enter` confirma.
+- **Consecuencia que el sistema calcula solo:** un código agrupado deja de ser
+  candidato a baja en esa base, porque quedó identificado. La cola de bajas se
+  descuenta y el inicio informa cuántas se liberaron.
+- La liberación es **por base**, y eso se verificó: al agrupar `1001216` en San
+  Juan, su candidato a baja en Salta siguió pendiente. Identificar un material no
+  es haber contado su stock en otro centro.
+- Llega al Excel (hoja «Nomenclaturas unificadas», columnas «Códigos SAP
+  asignados», «Nomenclatura unificada» y «¿Agrupa varios códigos SAP?») y al PDF.
+
+Al probarlo, el segundo caso que el sistema ofreció agrupar fue
+`Dexametasona 8mg Amp x 2 ml` → `1000094` + `1000478`, donde el segundo es
+«DEXAMETASONA 8MG/2ML AMP (DESCONTINUADO)». Es exactamente el patrón que el
+pedido describía.
+
+### Rediseño
+
+- **Barra superior en una sola fila**: el menú envolvía a tres líneas y rompía la
+  cabecera. Se le puso `white-space:nowrap`, se fijaron los anchos y el subtítulo
+  de la marca se oculta por debajo de 1320 px.
+- **Sistema de diseño**: tokens de sombra en tres niveles, radios consistentes
+  (14 px tarjetas, 10 px controles), escala tipográfica más marcada, y un acento
+  suave propio para los estados seleccionados en vez de reusar el relleno de las
+  clasificaciones.
+- **El panel de decisión del modo revisión quedó fijo** al hacer scroll, así que
+  los botones están siempre a mano en los casos largos.
+- **Candidatos rediseñados** como filas marcables con casilla, número de atajo y
+  el detalle de qué atributo coincide.
+- **Barra de confirmación** que cambia según lo marcado: pista cuando no hay nada,
+  «Confirmar X» con uno, y el formulario de agrupación con dos o más.
+- Correcciones menores: singular/plural en los contadores, y un valor de color del
+  modo oscuro que había quedado mal tipeado.

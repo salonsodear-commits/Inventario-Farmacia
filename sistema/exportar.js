@@ -20,8 +20,8 @@ var Exportar = (function () {
     ["Código en inventario físico", 16], ["Nomenclatura del inventario físico", 42],
     ["Presentación detectada", 34], ["Cantidad física · UNIDADES", 13],
     ["Stock SAP en la base · UNIDADES", 14], ["Cantidad a valorizar · UNIDADES", 14],
-    ["Nº de lotes", 9], ["Código SAP · análisis", 13], ["Código SAP · vigente", 13],
-    ["¿Código corregido a mano?", 11], ["Descripción en SAP", 42],
+    ["Nº de lotes", 9], ["Código SAP · análisis", 13], ["Códigos SAP asignados", 22],
+    ["¿Asignado o corregido a mano?", 12], ["Descripción en SAP", 42],
     ["Atributos verificados", 30], ["Confianza del cruce", 11],
     ["Justificación de la correspondencia", 70],
     ["Estado de valorización", 20], ["Precio de última compra · $", 14],
@@ -30,6 +30,7 @@ var Exportar = (function () {
     ["Valor de referencia SAP · $", 16], ["Estado de revisión", 16],
     ["Decisión registrada", 20], ["Revisor", 16], ["Fecha de la decisión", 13],
     ["Observaciones", 48],
+    ["Nomenclatura unificada", 44], ["¿Agrupa varios códigos SAP?", 13],
   ];
 
   function filaCaso(c, r) {
@@ -46,7 +47,7 @@ var Exportar = (function () {
       // fórmula real: la cantidad que se valoriza depende del origen del registro
       { f: 'IF(C' + r + '="Inventario físico",O' + r + ",P" + r + ")", s: E.ENTERO },
       { v: c.n_lotes || 0, s: E.ENTERO },
-      { v: c.material_sap || "" }, { v: e.material || "" },
+      { v: c.material_sap || "" }, { v: e.materiales.join(" · ") },
       { v: e.corregido ? "Sí" : "No" },
       { v: c.texto_sap || "", s: E.TEXTO },
       { v: (c.atributos_verificados || []).join(", "), s: E.TEXTO },
@@ -65,6 +66,7 @@ var Exportar = (function () {
       { v: e.estado_revision }, { v: e.aprobacion },
       { v: e.revisor || "" }, { v: fechaCorta(d.actualizado) },
       { v: e.observaciones || "", s: E.TEXTO },
+      { v: e.unificada || "", s: E.TEXTO }, { v: e.agrupado ? "Sí" : "No" },
     ];
   }
 
@@ -96,6 +98,7 @@ var Exportar = (function () {
     ["Nomenclatura del inventario físico", 42], ["Presentación", 30],
     ["Cantidad física · UNIDADES", 13], ["Stock SAP · UNIDADES", 13],
     ["Atributos verificados", 26], ["Confianza", 10], ["Justificación", 64],
+    ["Nomenclatura unificada", 40],
     ["Estado de valorización", 19], ["VU de referencia SAP · $", 14],
     ["Valor de referencia SAP · $", 16], ["Estado de revisión", 16],
     ["Decisión registrada", 20], ["Revisor", 15], ["Observaciones", 44]];
@@ -107,7 +110,7 @@ var Exportar = (function () {
     casos.forEach(function (c, i) {
       var r = i + 5, e = ef(c);
       filas.push([
-        { v: c.n }, { v: c.base }, { v: c.tipo }, { v: e.material || "" },
+        { v: c.n }, { v: c.base }, { v: c.tipo }, { v: e.materiales.join(" · ") },
         { v: c.texto_sap || "", s: E.TEXTO }, { v: c.codigo_fisico || "" },
         { v: c.nombre_fisico || "", s: E.TEXTO }, { v: c.presentacion || "", s: E.TEXTO },
         { v: c.cantidad_fisica || 0, s: E.ENTERO },
@@ -115,6 +118,7 @@ var Exportar = (function () {
              : (c.stock_sap_en_base || 0), s: E.ENTERO },
         { v: (c.atributos_verificados || []).join(", "), s: E.TEXTO },
         { v: c.confianza || "" }, { v: c.justificacion || "", s: E.TEXTO },
+        { v: e.unificada || "", s: E.TEXTO },
         { v: c.estado_valorizacion },
         { v: c.vu_sap_referencia === null || c.vu_sap_referencia === undefined
              ? "" : c.vu_sap_referencia, s: E.IMPORTE },
@@ -190,7 +194,8 @@ var Exportar = (function () {
      ["Marcados como revisados", 'COUNTIF(Casos!AG:AG,"Revisado")'],
      ["Pendientes de validación", 'COUNTIF(Casos!AG:AG,"Pendiente de validación")'],
      ["Casos con observación", 'COUNTIF(Casos!AK:AK,"?*")'],
-     ["Códigos corregidos a mano", 'COUNTIF(Casos!U:U,"Sí")']
+     ["Códigos asignados o corregidos a mano", 'COUNTIF(Casos!U:U,"Sí")'],
+     ["Ítems con varios códigos SAP agrupados", 'COUNTIF(Casos!AM:AM,"Sí")']
     ].forEach(function (p) { f.push([{ v: p[0] }, { f: p[1], s: E.ENTERO }]); });
     f.push([]);
     f.push([{ v: "VALORIZACIÓN POR PRECIO DE ÚLTIMA COMPRA", s: E.SUBTITULO }]);
@@ -259,6 +264,33 @@ var Exportar = (function () {
     if (!n) f.push([{ v: "Todavía no se registró ninguna decisión en el sistema.", s: E.TENUE }]);
     return { nombre: "Decisiones", filas: f, anchos: [17, 18, 8, 15, 11, 44, 54],
              congelar: "A5", autofiltro: "A4:G" + Math.max(f.length, 5) };
+  }
+
+  function hojaUnificadas() {
+    var f = [[{ v: "Nomenclaturas unificadas", s: E.TITULO }],
+             [{ v: "Casos en los que un mismo producto del inventario físico corresponde a " +
+                   "VARIOS códigos de SAP. Se agrupan bajo la nomenclatura del depósito. " +
+                   "Los códigos agrupados dejan de ser candidatos a baja en esa base.", s: E.TENUE }], [],
+             [["Nomenclatura unificada", 46], ["Base", 12], ["Ítem del inventario físico", 40],
+              ["Códigos SAP agrupados", 30], ["Cuántos", 9], ["Cantidad física", 13],
+              ["Revisor", 18], ["Observaciones", 40]]
+             .map(function (c) { return { v: c[0], s: E.CAB }; })];
+    var n = 0;
+    D().casos.forEach(function (c) {
+      var e = ef(c);
+      if (e.materiales.length < 2) return;
+      n++;
+      f.push([{ v: e.unificada || c.nombre_fisico, s: E.TEXTO }, { v: c.base },
+              { v: c.nombre_fisico || "", s: E.TEXTO },
+              { v: e.materiales.join(" · "), s: E.TEXTO },
+              { v: e.materiales.length, s: E.ENTERO },
+              { v: c.cantidad_fisica || 0, s: E.ENTERO },
+              { v: e.revisor || "" }, { v: e.observaciones || "", s: E.TEXTO }]);
+    });
+    if (!n) f.push([{ v: "Todavía no se agrupó ningún caso.", s: E.TENUE }]);
+    return { nombre: "Nomenclaturas unificadas", filas: f,
+             anchos: [46, 12, 40, 30, 9, 13, 18, 40],
+             congelar: "A5", autofiltro: "A4:H" + Math.max(f.length, 5) };
   }
 
   function hojaControl() {
@@ -371,7 +403,7 @@ var Exportar = (function () {
         "Indumentaria, equipamiento y repuestos. El inventario relevado es de Farmacia: su " +
         "ausencia no permite concluir nada y no se propone ninguna baja.",
         function (c) { return L(c) === "E"; }),
-      hojaLotes(), hojaDecisiones(), hojaControl(), hojaMetodologia(),
+      hojaLotes(), hojaUnificadas(), hojaDecisiones(), hojaControl(), hojaMetodologia(),
     ];
     var blob = XLSXMin.construir(hojas, { titulo: "Inventario físico vs SAP" });
     descargar(blob, "Inventario fisico vs SAP - analisis " + hoy() + ".xlsx");

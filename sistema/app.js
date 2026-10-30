@@ -42,7 +42,8 @@ var App = (function () {
     { id: "bajas", titulo: "Aprobar las bajas propuestas",
       desc: "Material con stock en SAP que ningún inventario físico identificó en esa base. " +
             "Aprobar significa proponer la baja, no ejecutarla.",
-      pred: function (c) { return L(c) === "C"; }, lote: true, color: "C" },
+      pred: function (c) { return L(c) === "C" && !resueltoPorAgrupacion(c); },
+      lote: true, color: "C" },
   ];
 
   var estado = {
@@ -52,7 +53,7 @@ var App = (function () {
     orden: { campo: "n", desc: false },
     pagina: 1, porPagina: 50,
     fichaId: null, volverA: "casos",
-    cola: null, motivo: null, triage: [], tIdx: 0,
+    cola: null, motivo: null, triage: [], tIdx: 0, selCand: {}, unif: "",
     sel: {},
   };
   var decisiones = {}, revisor = "";
@@ -80,7 +81,7 @@ var App = (function () {
                        que: descripcion, antes: antes, despues: cambios });
     d.revisor = revisor || "(sin identificar)";
     d.actualizado = new Date().toISOString();
-    decisiones[id] = d; guardar();
+    decisiones[id] = d; guardar(); invalidar();
   }
 
   // ------------------------------------------------------------- derivados
@@ -88,18 +89,60 @@ var App = (function () {
     for (var i = 0; i < D.casos.length; i++) if (D.casos[i].id === id) return D.casos[i];
     return null;
   }
+  /* Un ítem físico puede corresponder a VARIOS códigos de SAP: el depósito usa una
+     nomenclatura unificada y SAP tiene el mismo producto abierto en varios códigos.
+     Por eso la decisión guarda una lista, no un código suelto. */
   function efectivo(c) {
     var d = dec(c.id) || {};
+    var mats = d.materiales ||
+               (d.material_corregido ? [d.material_corregido] : null) ||
+               (c.material_sap ? [c.material_sap] : []);
     return {
       estado_revision: d.estado_revision || c.estado_revision,
       aprobacion: d.aprobacion || c.aprobacion,
-      material: d.material_corregido !== undefined && d.material_corregido !== null
-                ? d.material_corregido : c.material_sap,
-      corregido: d.material_corregido !== undefined && d.material_corregido !== null,
+      materiales: mats,
+      material: mats[0] || null,
+      agrupado: mats.length > 1,
+      unificada: d.nomenclatura_unificada || "",
+      corregido: !!(d.materiales || d.material_corregido),
       observaciones: d.observaciones || c.observaciones || "",
       revisor: d.revisor || "", actualizado: d.actualizado || "",
       historial: d.historial || [],
     };
+  }
+
+  /* Códigos que quedaron asignados a algún ítem físico, por base. Un material que
+     fue agrupado deja de ser candidato a baja: alguien lo identificó. */
+  var CACHE_ASIG = null;
+  function invalidar() { CACHE_ASIG = null; }
+  function asignados() {
+    if (CACHE_ASIG) return CACHE_ASIG;
+    var m = {};
+    D.casos.forEach(function (c) {
+      if (c.origen !== "Inventario físico") return;
+      var e = efectivo(c);
+      if (e.aprobacion === "Sin decidir" || e.aprobacion === "Rechazado") return;
+      e.materiales.forEach(function (x) { (m[c.base] = m[c.base] || {})[x] = c.id; });
+    });
+    CACHE_ASIG = m;
+    return m;
+  }
+  /* Un candidato a baja que quedó identificado por una agrupación posterior. */
+  function resueltoPorAgrupacion(c) {
+    if (L(c) !== "C" || !c.material_sap) return null;
+    var a = asignados()[c.base];
+    return a && a[c.material_sap] ? a[c.material_sap] : null;
+  }
+  function grupos() {
+    var g = [];
+    D.casos.forEach(function (c) {
+      var e = efectivo(c);
+      if (e.materiales.length > 1) {
+        g.push({ caso: c, nombre: e.unificada || c.nombre_fisico,
+                 materiales: e.materiales, base: c.base, revisor: e.revisor });
+      }
+    });
+    return g;
   }
   function pendiente(c) { return efectivo(c).aprobacion === "Sin decidir"; }
   function deCola(id) {
@@ -166,7 +209,7 @@ var App = (function () {
     estado.triage = deCola(id).filter(function (c) {
       return pendiente(c) && (!motivo || c.motivo === motivo);
     });
-    estado.tIdx = 0;
+    estado.tIdx = 0; estado.selCand = {}; estado.unif = "";
     if (!estado.triage.length) { aviso("No quedan casos pendientes en este grupo."); return; }
     ir("revisar");
   }
@@ -248,6 +291,27 @@ var App = (function () {
       'ninguna baja.</div></div><div class="cacc">' +
       '<button class="btn chico" data-lista="fuera">Ver listado</button></div></div>';
 
+    var gs = grupos();
+    var liberadas = D.casos.filter(function (c) { return resueltoPorAgrupacion(c); }).length;
+    if (gs.length || liberadas) {
+      h += '<h2>Nomenclaturas unificadas</h2><div class="panelito">';
+      h += '<p class="pnota">Cuando un mismo producto está abierto en varios códigos de SAP, ' +
+        "se los agrupa bajo la nomenclatura del inventario físico. Los códigos agrupados " +
+        "dejan de ser candidatos a baja.</p>";
+      if (liberadas) h += '<div class="cnota ok">✓ ' + num(liberadas) +
+        (liberadas === 1 ? " candidato a baja quedó resuelto" : " candidatos a baja quedaron resueltos") +
+        " por una agrupación.</div>";
+      if (gs.length) {
+        h += '<table class="listalotes"><thead><tr><th>Nomenclatura unificada</th>' +
+          "<th>Base</th><th>Códigos SAP</th><th>Quién</th></tr></thead><tbody>" +
+          gs.map(function (g) {
+            return "<tr><td><b>" + esc(g.nombre) + "</b></td><td>" + esc(g.base) + "</td><td>" +
+              g.materiales.map(esc).join(" · ") + "</td><td>" + esc(g.revisor) + "</td></tr>";
+          }).join("") + "</tbody></table>";
+      }
+      h += "</div>";
+    }
+
     h += '<h2>Antes de cerrar, dos cosas</h2>';
     h += '<div class="aviso"><b>No hay precio de última compra en los archivos recibidos.</b>' +
       'Se revisaron la bajada de SAP (tiene valor de stock, no precio de compra), la ' +
@@ -326,19 +390,44 @@ var App = (function () {
     // candidatos elegibles: el corazón del modo revisión
     var limpios = (c.candidatos || []).filter(function (x) { return !x.conflictos.length; });
     var sucios = (c.candidatos || []).filter(function (x) { return x.conflictos.length; });
-    if (L(c) === "D" && limpios.length) {
+    if (limpios.length) {
+      var nSel = Object.keys(estado.selCand).length;
       h += '<h3 class="th">' + (limpios.length === 1
-        ? "¿Es este? Hacé clic para confirmarlo"
-        : "¿Cuál corresponde? Hacé clic en el correcto") + '</h3><div class="cands">';
+        ? "El candidato de SAP"
+        : "Los candidatos de SAP") +
+        ' <span class="thnota">podés marcar más de uno si el mismo producto está ' +
+        'abierto en varios códigos</span></h3><div class="cands">';
       limpios.forEach(function (x, i) {
-        h += '<button class="cand" data-mat="' + esc(x.material) + '">' +
+        var m = estado.selCand[x.material];
+        h += '<button class="cand' + (m ? " marcado" : "") + '" data-mat="' + esc(x.material) + '">' +
+          '<span class="cmarca">' + (m ? "✓" : "") + "</span>" +
           '<span class="ckey">' + (i + 1) + "</span>" +
           '<span class="ctxt"><b>' + esc(x.material) + "</b> " + esc(x.texto) +
           (x.coinciden.length
-            ? '<span class="cok">✓ coincide en ' + esc(x.coinciden.join(", ")) + "</span>"
+            ? '<span class="cok">coincide en ' + esc(x.coinciden.join(", ")) + "</span>"
             : '<span class="cno">sin ninguna característica verificada</span>') +
           "</span></button>";
       });
+      h += "</div>";
+
+      h += '<div class="confbar' + (nSel ? " activa" : "") + '">';
+      if (!nSel) {
+        h += '<span class="cbhint">Marcá el código que corresponde — con <kbd>1</kbd>…<kbd>' +
+          Math.min(limpios.length, 9) + "</kbd> o haciendo clic — y confirmá con <kbd>Enter</kbd>.</span>";
+      } else if (nSel === 1) {
+        h += '<span class="cbtxt">Se va a asignar <b>' + esc(Object.keys(estado.selCand)[0]) +
+          "</b></span>" +
+          '<button class="btn pri" data-acc="confirmar">Confirmar <kbd>Enter</kbd></button>';
+      } else {
+        h += '<div class="cbgrupo"><div class="cbtxt"><b>' + nSel + " códigos marcados.</b> " +
+          "Se van a agrupar como un mismo producto bajo esta nomenclatura unificada:</div>" +
+          '<input type="text" id="unifNom" class="cod" value="' +
+          esc(estado.unif || c.nombre_fisico || "") + '" placeholder="nomenclatura unificada">' +
+          '<div class="cbchips">' + Object.keys(estado.selCand).map(function (m) {
+            return '<span class="cbchip">' + esc(m) + "</span>"; }).join("") + "</div></div>" +
+          '<button class="btn pri" data-acc="confirmar">Agrupar los ' + nSel +
+          " códigos <kbd>Enter</kbd></button>";
+      }
       h += "</div>";
     }
     if (sucios.length) {
@@ -370,9 +459,10 @@ var App = (function () {
     h += "</div>";
     h += '<div class="tobs"><label class="k">Observación (opcional)</label>' +
       '<textarea id="tObs" placeholder="Por qué…">' + esc(e.observaciones) + "</textarea></div>";
-    h += '<div class="tatajos"><b>Atajos:</b> <kbd>1</kbd>…<kbd>9</kbd> elegir candidato · ' +
-      "<kbd>A</kbd> aprobar · <kbd>R</kbd> rechazar · <kbd>→</kbd> saltear · " +
-      "<kbd>F</kbd> ver la ficha completa</div>";
+    h += '<div class="tatajos"><b>Atajos</b><div><kbd>1</kbd>…<kbd>9</kbd> marcar un código · ' +
+      "<kbd>Enter</kbd> confirmar lo marcado · <kbd>A</kbd> aprobar · <kbd>R</kbd> rechazar · " +
+      "<kbd>N</kbd> ninguno · <kbd>X</kbd> no puedo · <kbd>→</kbd> saltear · " +
+      "<kbd>F</kbd> ficha completa</div></div>";
     h += '<button class="btn chico" id="tFicha">Ver la ficha completa</button>';
     if (c.bloqueado_por_revision) {
       h += '<div class="cnota" style="margin-top:11px">⚠ Este material figura como posible ' +
@@ -391,7 +481,9 @@ var App = (function () {
     el.querySelector("#tFicha").addEventListener("click", function () {
       estado.volverA = "revisar"; ir("ficha", c.id); });
     el.querySelectorAll(".cand").forEach(function (b) {
-      b.addEventListener("click", function () { elegirCandidato(c, b.dataset.mat); }); });
+      b.addEventListener("click", function () { marcar(c, b.dataset.mat); }); });
+    var un = el.querySelector("#unifNom");
+    if (un) un.addEventListener("input", function () { estado.unif = un.value; });
     el.querySelectorAll("[data-acc]").forEach(function (b) {
       b.addEventListener("click", function () { accionTriage(c, b.dataset.acc); }); });
   }
@@ -412,15 +504,43 @@ var App = (function () {
     if (o) cambios.observaciones = o;
     return cambios;
   }
-  function avanzar() { estado.tIdx++; pintarTriage(); }
+  function avanzar() { estado.tIdx++; estado.selCand = {}; estado.unif = ""; pintarTriage(); }
 
-  function elegirCandidato(c, mat) {
-    decidir(c.id, conObs({ material_corregido: mat, estado_revision: "Revisado",
-                           aprobacion: "Correspondencia confirmada" }),
-            "Se eligió el código SAP " + mat + " entre los candidatos");
-    aviso("Asignado " + mat + "."); avanzar();
+  function marcar(c, mat) {
+    if (estado.selCand[mat]) delete estado.selCand[mat];
+    else estado.selCand[mat] = 1;
+    if (Object.keys(estado.selCand).length > 1 && !estado.unif)
+      estado.unif = c.nombre_fisico || "";
+    pintarTriage();
+  }
+  function confirmarSeleccion(c) {
+    var mats = Object.keys(estado.selCand);
+    if (!mats.length) return aviso("Marcá al menos un código.");
+    var nom = "";
+    if (mats.length > 1) {
+      var el = document.getElementById("unifNom");
+      nom = (el ? el.value : estado.unif || "").trim();
+      if (!nom) return aviso("Poné un nombre para la nomenclatura unificada.");
+    }
+    var cam = conObs({ materiales: mats, estado_revision: "Revisado",
+                       aprobacion: "Correspondencia confirmada" });
+    if (mats.length > 1) cam.nomenclatura_unificada = nom;
+    decidir(c.id, cam, mats.length > 1
+      ? "Se agruparon " + mats.length + " códigos SAP (" + mats.join(", ") +
+        ") bajo la nomenclatura unificada «" + nom + "»"
+      : "Se asignó el código SAP " + mats[0]);
+    var liberadas = mats.filter(function (m) {
+      return D.casos.some(function (x) {
+        return x.base === c.base && x.material_sap === m && L(x) === "C"; });
+    }).length;
+    aviso(mats.length > 1
+      ? "Agrupados " + mats.length + " códigos." + (liberadas
+          ? " " + liberadas + (liberadas === 1 ? " deja" : " dejan") + " de ser candidato a baja." : "")
+      : "Asignado " + mats[0] + "." + (liberadas ? " Deja de ser candidato a baja." : ""));
+    avanzar();
   }
   function accionTriage(c, a) {
+    if (a === "confirmar") return confirmarSeleccion(c);
     if (a === "s") return avanzar();
     if (a === "x") {
       decidir(c.id, conObs({ estado_revision: "Pendiente de validación" }),
@@ -458,6 +578,11 @@ var App = (function () {
     if (/^[1-9]$/.test(k)) {
       var b = document.querySelectorAll(".cand")[parseInt(k, 10) - 1];
       if (b) { ev.preventDefault(); b.click(); }
+      return;
+    }
+    if (k === "enter") {
+      var cf = document.querySelector('[data-acc="confirmar"]');
+      if (cf) { ev.preventDefault(); cf.click(); }
       return;
     }
     var mapa = { a: "a", r: "r", n: "n", x: "x", s: "s", arrowright: "s" };
@@ -636,8 +761,12 @@ var App = (function () {
         "<td><b>" + esc(c.nombre_fisico || c.texto_sap) + "</b>" +
           (c.nombre_fisico && c.texto_sap ? '<div class="mini">SAP: ' + esc(c.texto_sap) + "</div>" : "") +
           "</td>" +
-        "<td>" + (e.material ? esc(e.material) + (e.corregido ? '<div class="mini">corregido</div>' : "")
-                 : (c.material_sugerido ? '<span class="mini">sug. ' + esc(c.material_sugerido) + "</span>" : "—")) + "</td>" +
+        "<td>" + (e.materiales.length
+                 ? e.materiales.map(esc).join(" · ") +
+                   (e.agrupado ? '<div class="mini">agrupados como «' + esc(e.unificada) + "»</div>"
+                    : e.corregido ? '<div class="mini">asignado a mano</div>' : "")
+                 : (c.material_sugerido ? '<span class="mini">sug. ' + esc(c.material_sugerido) + "</span>" : "—")) +
+          (resueltoPorAgrupacion(c) ? '<div class="mini ok">ya identificado en una agrupación</div>' : "") + "</td>" +
         '<td class="num">' + num(cant) + "</td>" +
         "<td><span class=\"estado " + (e.aprobacion === "Aprobado" || e.aprobacion === "Correspondencia confirmada" ? "ap" :
             e.aprobacion === "Rechazado" ? "re" : "") + '">' + esc(e.aprobacion) + "</span>" +
@@ -759,8 +888,11 @@ var App = (function () {
       campo("Cantidad física", c.origen === "Inventario físico"
             ? num(c.cantidad_fisica) + " unidades" : "—", true) + "</div></div>";
     h += '<div class="bloque"><h3>Correspondencia con SAP</h3><div class="campos">' +
-      campo("Código SAP", e.material || (c.material_sugerido
-            ? c.material_sugerido + " (sugerido, sin confirmar)" : "Sin asignar"), true) +
+      campo(e.materiales.length > 1 ? "Códigos SAP agrupados" : "Código SAP",
+            e.materiales.length ? e.materiales.join(" · ")
+            : (c.material_sugerido ? c.material_sugerido + " (sugerido, sin confirmar)"
+               : "Sin asignar"), true) +
+      (e.agrupado ? campo("Nomenclatura unificada", e.unificada) : "") +
       campo("Descripción en SAP", c.texto_sap || "—") +
       campo("Atributos verificados", (c.atributos_verificados || []).join(", ") || "ninguno") +
       campo("Confianza del cruce", c.confianza || "—") +
@@ -770,7 +902,10 @@ var App = (function () {
                  ? ". Sí lo tiene en " + c.stock_sap_otras_bases.join(", ") + "." : ".")) : "") +
       (c.identificado_en_otras_bases && c.identificado_en_otras_bases.length
         ? campo("Identificado en otras bases", c.identificado_en_otras_bases.join(", ")) : "") +
-      "</div>";
+      (resueltoPorAgrupacion(c)
+        ? campo("Ya no es candidato a baja",
+                "Este material quedó identificado al agruparlo con un ítem del inventario físico.")
+        : "") + "</div>";
     if (c.candidatos && c.candidatos.length) {
       h += '<h3 style="margin-top:15px">Candidatos evaluados</h3><table class="listalotes"><thead><tr>' +
         "<th>Código</th><th>Descripción en SAP</th><th>Coincide en</th><th>Contradice en</th></tr></thead><tbody>";
