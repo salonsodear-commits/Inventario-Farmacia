@@ -17,6 +17,11 @@ QUE ES ESTO Y QUE NO ES
 Es la aplicacion completa, funcionando, para que la veas y decidas.
 Tiene el analisis entero: los 1.991 casos de las tres bases.
 
+Se abre sola en http://localhost:8673/. Si ese puerto estuviera
+ocupado por otro programa, el sistema busca el siguiente libre y
+abre el que consiguio: fijate la direccion en la barra del
+navegador.
+
 NO pide usuario y contrasena. No es que falte: no se puede. El
 ingreso con la cuenta de Emergencias necesita que la aplicacion
 este publicada en una direccion web, porque Microsoft no acepta

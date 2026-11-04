@@ -20,7 +20,7 @@ Para ver que anda antes de pedir nada a nadie:
 INVSAP_AUTH=off node servidor/servidor.js
 ```
 
-y abrir **http://localhost:8080/**. Todo funciona y las decisiones se guardan,
+y abrir **http://localhost:8673/**. Todo funciona y las decisiones se guardan,
 pero **sin login**: por eso sólo acepta conexiones de la propia máquina y firma
 todo como «Modo desarrollo». No sirve para usar en serio.
 
@@ -78,7 +78,7 @@ docker compose -f servidor/instalar/compose.yaml up -d
 ## 4. Comprobar que quedó bien
 
 ```bash
-curl -s -H 'x-invsap: 1' http://127.0.0.1:8080/api/salud
+curl -s -H 'x-invsap: 1' http://127.0.0.1:8673/api/salud
 ```
 
 Tiene que devolver `"ok": true` con la versión y el último respaldo.

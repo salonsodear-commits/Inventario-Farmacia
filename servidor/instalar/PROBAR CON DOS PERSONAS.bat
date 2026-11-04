@@ -32,20 +32,16 @@ if not exist "node\node.exe" (
   exit /b 1
 )
 
-echo   Arrancando los dos...
+echo   Arrancando los dos. Cada uno abre su ventana del navegador
+echo   cuando esta listo.
 echo.
 
-start "" "%~dp0_arrancar.bat" 8080 "Ana Perez"
-timeout /t 2 /nobreak >nul
-start "" "%~dp0_arrancar.bat" 8082 "Beto Gomez"
-
-timeout /t 5 /nobreak >nul
-start http://localhost:8080/
-timeout /t 2 /nobreak >nul
-start http://localhost:8082/
+start "" "%~dp0_arrancar.bat" 8673 "Ana Perez"
+timeout /t 3 /nobreak >nul
+start "" "%~dp0_arrancar.bat" 8674 "Beto Gomez"
 
 echo.
-echo   Listo. Ana Perez en el 8080, Beto Gomez en el 8082.
+echo   Ana Perez en el 8673, Beto Gomez en el 8674.
 echo.
 echo   PARA CERRAR: cerra las dos ventanas negras que se abrieron.
 echo.

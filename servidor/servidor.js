@@ -34,7 +34,16 @@ const cfg = {
   // En un hosting gestionado (Azure App Service, Fly, Render) el puerto lo
   // asigna la plataforma y llega en PORT; escuchar en otro deja la aplicación
   // andando pero inalcanzable.
-  puerto: Number(process.env.INVSAP_PUERTO || process.env.PORT || 8080),
+  /* 8673 y no 8080 a propósito. El 8080 es el puerto más usado del mundo para
+     desarrollo: la probabilidad de encontrarlo ocupado por otra cosa en la
+     máquina de cualquiera es alta, y hay un problema peor que el choque. Si lo
+     que estaba antes en localhost:8080 respondió alguna vez un redirect 301,
+     el navegador lo cachea de forma permanente para ese origen, y entonces ni
+     siquiera consulta a esta aplicación: redirige al sitio viejo. Un puerto
+     poco común evita las dos cosas. */
+  puerto: Number(process.env.INVSAP_PUERTO || process.env.PORT || 8673),
+  puertoFijo: !!(process.env.INVSAP_PUERTO || process.env.PORT),
+  abrirNavegador: (process.env.INVSAP_ABRIR || "").toLowerCase() === "si",
   host: process.env.INVSAP_HOST || (process.env.PORT ? "0.0.0.0" : "127.0.0.1"),
   base: process.env.INVSAP_DB || path.join(RAIZ, "datos", "inventario.db"),
   horasSesion: Number(process.env.INVSAP_HORAS_SESION || 10),
@@ -409,8 +418,21 @@ const servidor = http.createServer(async (req, res) => {
 
 setInterval(() => db.limpiarSesiones(), 15 * 60e3).unref();
 
-servidor.listen(cfg.puerto, cfg.host, () => {
-  const u = `http://${cfg.host}:${cfg.puerto}/`;
+/* Abrir el navegador es cosa del servidor, no de quien lo lanza: es el único
+   que sabe cuándo está realmente escuchando y en qué puerto terminó. El
+   lanzador que abría el navegador a los pocos segundos, a ciegas, mandaba a
+   la gente a lo que hubiera en ese puerto, que podía ser cualquier cosa. */
+function abrirEnNavegador(url) {
+  const { spawn } = require("node:child_process");
+  const [cmd, args] = process.platform === "win32"
+    ? ["cmd", ["/c", "start", "", url]]
+    : process.platform === "darwin" ? ["open", [url]] : ["xdg-open", [url]];
+  try { spawn(cmd, args, { detached: true, stdio: "ignore" }).unref(); }
+  catch (e) { reg.aviso("no_se_pudo_abrir_navegador", { motivo: e.message }); }
+}
+
+function anunciar() {
+  const u = `http://${cfg.host === "0.0.0.0" ? "localhost" : cfg.host}:${cfg.puerto}/`;
   console.log(`\n  Sistema de gestión · inventario físico vs SAP  v${VERSION}`);
   console.log(`  ${u}`);
   console.log(`  base de datos: ${cfg.base}`);
@@ -420,11 +442,33 @@ servidor.listen(cfg.puerto, cfg.host, () => {
     console.log(`  redirect URI registrada: ${cfg.entra.redirectUri}`);
   } else {
     console.log(`\n  *** SIN AUTENTICACIÓN (INVSAP_AUTH=off) ***`);
-    console.log(`  Modo de desarrollo. Las decisiones se firman como «Modo desarrollo».`);
+    console.log(`  Modo de prueba. Las decisiones se firman como «${USUARIO_DEV.nombre}».`);
     console.log(`  No usar así con datos reales ni fuera de esta máquina.`);
   }
   console.log("");
+  if (cfg.abrirNavegador) abrirEnNavegador(u);
+}
+
+/* Si el puerto está ocupado, en modo prueba se busca el siguiente libre: a
+   quien quiere ver cómo funciona no le sirve un error de red. Si el puerto lo
+   pidió alguien expresamente —o esto es un despliegue— no se cambia por las
+   suyas: se dice qué pasó y se termina. */
+let intentos = 0;
+servidor.on("error", (e) => {
+  if (e.code !== "EADDRINUSE") { reg.error("error_del_servidor", { motivo: e.message }); apagar(e.message, 1); return; }
+  const ocupado = cfg.puerto;
+  if (cfg.puertoFijo || cfg.auth === "on" || ++intentos > 20) {
+    console.error(`\n  El puerto ${ocupado} ya está ocupado por otro programa.`);
+    console.error(`  Probá con otro:  INVSAP_PUERTO=${ocupado + 1}\n`);
+    reg.error("puerto_ocupado", { puerto: ocupado });
+    apagar("puerto ocupado", 1);
+    return;
+  }
+  cfg.puerto = ocupado + 1;
+  console.log(`  El puerto ${ocupado} está ocupado; probando el ${cfg.puerto}…`);
+  servidor.listen(cfg.puerto, cfg.host);
 });
+servidor.listen(cfg.puerto, cfg.host, anunciar);
 
 /* Un error no capturado no puede dejar la base a medias ni el proceso colgado:
    se registra, se cierra ordenado y el supervisor —systemd o Docker— levanta

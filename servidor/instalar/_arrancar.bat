@@ -11,6 +11,7 @@ cd /d "%~dp0"
 set INVSAP_AUTH=off
 set INVSAP_PUERTO=%1
 set INVSAP_DEV_USUARIO=%~2
+set INVSAP_ABRIR=si
 title %~2 - puerto %1
 "node\node.exe" servidor\servidor.js
 echo.

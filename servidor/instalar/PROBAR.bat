@@ -2,6 +2,10 @@
 rem Arranca el sistema para probarlo. No instala nada: usa el Node que viene
 rem en la carpeta node\ de este mismo paquete.
 rem
+rem El navegador lo abre EL SERVIDOR cuando ya esta escuchando, no este
+rem archivo a los pocos segundos: asi nadie termina mirando lo que hubiera en
+rem ese puerto antes.
+rem
 rem Sin acentos a proposito: los .bat se leen con la codificacion de la consola
 rem y en algunas maquinas los acentos salen rotos.
 
@@ -17,8 +21,8 @@ echo.
 echo    Esto es una prueba en tu propia maquina:
 echo.
 echo      - NO pide usuario y contrasena. Para eso hace falta
-echo        publicarla, porque Microsoft no admite file:// ni una
-echo        maquina suelta como direccion de retorno.
+echo        publicarla, porque Microsoft no admite una maquina
+echo        suelta como direccion de retorno del login.
 echo      - Las decisiones se guardan en datos\inventario.db, aca
 echo        al lado. Son de prueba: no van a ningun lado.
 echo      - Para borrarlas y empezar de cero, borra esa carpeta.
@@ -35,21 +39,15 @@ set /p NOMBRE=  Con que nombre queres que queden tus decisiones?
 if "%NOMBRE%"=="" set NOMBRE=Prueba
 
 echo.
-echo   Arrancando...
-echo.
-
-set INVSAP_AUTH=off
-set INVSAP_PUERTO=8080
-set INVSAP_DEV_USUARIO=%NOMBRE%
-
-rem Se abre el navegador unos segundos despues, cuando el servidor ya responde.
-start "" /b cmd /c "timeout /t 4 /nobreak >nul & start http://localhost:8080/"
-
-echo   Se va a abrir el navegador solo en http://localhost:8080/
+echo   Arrancando. El navegador se abre solo cuando este listo.
 echo.
 echo   PARA CERRAR: cerra esta ventana.
 echo   ------------------------------------------------------------
 echo.
+
+set INVSAP_AUTH=off
+set INVSAP_DEV_USUARIO=%NOMBRE%
+set INVSAP_ABRIR=si
 
 "node\node.exe" servidor\servidor.js
 

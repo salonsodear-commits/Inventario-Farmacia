@@ -40,7 +40,7 @@ registro**. Esta es la pantalla «Registrar una aplicación»:
 | **Nombre** | `Inventario físico vs SAP` |
 | **Tipos de cuenta compatibles** | **Solo inquilino único: Emergencias** ← el valor que ya viene seleccionado |
 | **URI de redirección · plataforma** | **Web** (no «SPA»: el secreto vive en el servidor, no en el navegador) |
-| **URI de redirección · valor** | `http://localhost:8080/auth/callback` |
+| **URI de redirección · valor** | `http://localhost:8673/auth/callback` |
 
 Y **Registrar**.
 
@@ -127,12 +127,12 @@ perder nada.
 export INVSAP_TENANT_ID="…"          # Id. de directorio (inquilino)
 export INVSAP_CLIENT_ID="…"          # Id. de aplicación (cliente)
 export INVSAP_CLIENT_SECRET="…"      # el Valor del secreto de cliente
-export INVSAP_REDIRECT_URI="http://localhost:8080/auth/callback"
+export INVSAP_REDIRECT_URI="http://localhost:8673/auth/callback"
 
 node servidor/servidor.js
 ```
 
-Y abrir `http://localhost:8080/`.
+Y abrir `http://localhost:8673/`.
 
 ### Todas las variables
 
@@ -143,7 +143,7 @@ Y abrir `http://localhost:8080/`.
 | `INVSAP_CLIENT_SECRET` | — | Valor del secreto de cliente |
 | `INVSAP_REDIRECT_URI` | — | Tiene que coincidir exacto con la registrada en Azure |
 | `INVSAP_DOMINIO` | `emergencias.com.ar` | Dominio admitido |
-| `INVSAP_PUERTO` | `8080` | Puerto |
+| `INVSAP_PUERTO` | `8673` | Puerto |
 | `INVSAP_HOST` | `127.0.0.1` | `0.0.0.0` para aceptar desde la red |
 | `INVSAP_DB` | `datos/inventario.db` | Archivo de la base |
 | `INVSAP_HORAS_SESION` | `10` | Duración de la sesión |
@@ -221,7 +221,7 @@ El último respaldo figura en `/api/salud`, así que se puede monitorear.
 ### Cómo saber si está viva
 
 ```bash
-curl -s -H 'x-invsap: 1' http://127.0.0.1:8080/api/salud
+curl -s -H 'x-invsap: 1' http://127.0.0.1:8673/api/salud
 ```
 
 Devuelve la versión, hace cuánto está corriendo, el último respaldo y los
@@ -261,8 +261,8 @@ La aplicación está pensada para que varios revisen a la vez:
 Dos servidores con identidades distintas sobre la **misma base**:
 
 ```bash
-INVSAP_AUTH=off INVSAP_PUERTO=8080 INVSAP_DEV_USUARIO="Ana Perez"  node servidor/servidor.js &
-INVSAP_AUTH=off INVSAP_PUERTO=8082 INVSAP_DEV_USUARIO="Beto Gomez" node servidor/servidor.js &
+INVSAP_AUTH=off INVSAP_PUERTO=8673 INVSAP_DEV_USUARIO="Ana Perez"  node servidor/servidor.js &
+INVSAP_AUTH=off INVSAP_PUERTO=8674 INVSAP_DEV_USUARIO="Beto Gomez" node servidor/servidor.js &
 ```
 
 `INVSAP_DEV_USUARIO` sólo tiene efecto con `INVSAP_AUTH=off`, que ya exige

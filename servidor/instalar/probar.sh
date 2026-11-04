@@ -41,25 +41,15 @@ printf "  ¿Con qué nombre querés que queden tus decisiones? "
 read -r NOMBRE
 [[ -z "${NOMBRE:-}" ]] && NOMBRE="Prueba"
 
-PUERTO=${INVSAP_PUERTO:-8080}
 echo
-echo "  Arrancando en http://localhost:$PUERTO/"
+echo "  Arrancando. El navegador se abre solo cuando esté listo."
 echo "  PARA CERRAR: Ctrl+C acá."
 echo "  ------------------------------------------------------------"
 echo
 
-# Abre el navegador cuando el servidor ya responde.
-(
-  for _ in $(seq 1 25); do
-    sleep 1
-    if curl -fs -H 'x-invsap: 1' "http://127.0.0.1:$PUERTO/api/salud" >/dev/null 2>&1; then
-      if command -v open >/dev/null 2>&1; then open "http://localhost:$PUERTO/"
-      elif command -v xdg-open >/dev/null 2>&1; then xdg-open "http://localhost:$PUERTO/" >/dev/null 2>&1
-      fi
-      break
-    fi
-  done
-) &
-
-INVSAP_AUTH=off INVSAP_PUERTO="$PUERTO" INVSAP_DEV_USUARIO="$NOMBRE" \
+# El navegador lo abre el servidor, que es el único que sabe cuándo está
+# escuchando de verdad y en qué puerto terminó: si el elegido está ocupado,
+# prueba el siguiente. Abrirlo desde acá a los pocos segundos mandaba a la
+# gente a lo que hubiera en ese puerto, que podía ser cualquier cosa.
+INVSAP_AUTH=off INVSAP_ABRIR=si INVSAP_DEV_USUARIO="$NOMBRE" \
   exec node servidor/servidor.js
