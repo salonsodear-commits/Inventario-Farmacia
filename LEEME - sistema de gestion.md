@@ -333,7 +333,7 @@ el filtro aplicado**.
   originales: los 10 cierran.
 - Hay una auditoría reproducible en `scripts/v3/auditar.py`: compara el dataset contra lo
   que efectivamente quedó escrito en el Excel recalculado, en el texto del PDF y en el
-  HTML del sistema. Son 79 comprobaciones y pasan todas.
+  HTML del sistema. Son 87 comprobaciones y pasan todas.
 
 ## Los archivos originales no se tocaron
 
