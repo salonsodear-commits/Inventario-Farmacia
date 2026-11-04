@@ -14,7 +14,32 @@ Tres piezas que salen del **mismo análisis**, por eso las cifras coinciden entr
 
 ---
 
-## Cómo abrir el sistema
+## Dos formas de usarlo, y la diferencia importa
+
+| | Archivo único | Servidor |
+|---|---|---|
+| Cómo se abre | Doble clic en el `.html` | `http://…` en el navegador |
+| Quién sos | Un nombre que escribís a mano | **Tu cuenta @emergencias.com.ar** |
+| Dónde quedan las decisiones | En ese navegador, en esa computadora | **Base SQLite compartida** |
+| ¿Ves lo que decidieron otros? | No | Sí |
+| Para qué sirve | Mirar, mostrar, probar | **Trabajar de verdad** |
+
+Si varias personas van a revisar las mismas bases, **tiene que ser con el
+servidor**: es lo que hace que el registro de quién decidió qué sea confiable y
+que nadie pise el trabajo del otro. Las instrucciones están en
+[`servidor/README.md`](servidor/README.md), incluido qué completar en la
+pantalla de registro de Azure.
+
+El sistema detecta solo en cuál de los dos modos está y lo dice en la barra de
+arriba: con el servidor muestra tu nombre y si quedó algo sin guardar; sin
+servidor avisa «Sólo en este navegador».
+
+> **Por qué el archivo único no puede pedir usuario y contraseña.** Microsoft no
+> admite `file://` como dirección de retorno del login: exige `http://localhost`
+> o `https://`. No es una limitación del sistema, es de cómo funciona OAuth. Por
+> eso el login va de la mano de servir la aplicación.
+
+## Cómo abrir el sistema (modo archivo único)
 
 **Doble clic en `Sistema - Inventario fisico vs SAP.html`.**
 
@@ -37,6 +62,8 @@ El sistema está armado como un **flujo de trabajo**, no como un listado. No hay
 decidir por dónde empezar: la pantalla de inicio lo dice.
 
 1. Escribí tu nombre arriba, en **Revisor**. Queda registrado en cada decisión.
+   *Con el servidor este campo no aparece: tu nombre sale de la cuenta con la
+   que entraste, que es justamente la gracia de entrar con la cuenta.*
 2. **Inicio** muestra el trabajo en siete grupos, numerados por prioridad, cada uno con
    cuántos quedan pendientes y su barra de avance. Arriba a la derecha, el avance general.
 3. En cada grupo hay dos formas de trabajar:
@@ -173,14 +200,19 @@ descripción de los almacenes, sólo el código.
 
 ### Dónde quedan las decisiones
 
-En el almacenamiento local del navegador, **en esa computadora**. No se sincronizan.
-Dos consecuencias prácticas:
+**Con el servidor:** en una base SQLite compartida, firmadas con la cuenta con
+la que entraste. El botón **↻** de la barra trae lo que decidieron los demás sin
+recargar la página. Si una escritura falla, el indicador lo dice y se reintenta
+sola: nunca se da por guardado algo que no se guardó.
+
+**Con el archivo único:** en el almacenamiento del navegador, **en esa
+computadora**. No se sincronizan. Dos consecuencias prácticas:
 
 - Si trabajás desde otra máquina, no vas a ver las decisiones de la primera.
 - Si limpiás los datos del navegador, se borran.
 
-**Por eso conviene exportar el Excel al terminar cada sesión de trabajo**: es el
-respaldo y también la forma de compartir lo decidido. El Excel trae una hoja
+**En los dos casos conviene exportar el Excel al terminar cada sesión**: es el
+respaldo y la forma de compartir lo decidido. El Excel trae una hoja
 «Decisiones» con el historial completo: qué se cambió, quién y cuándo.
 
 ---

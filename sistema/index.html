@@ -20,8 +20,10 @@
     <button data-vista="ayuda">Cómo se usa</button>
   </nav>
   <div class="der">
-    <div class="rev"><span>Revisor</span>
+    <div class="sync" id="sync"></div>
+    <div class="rev" id="cajaRevisor"><span>Revisor</span>
       <input type="text" id="revisor" placeholder="tu nombre"></div>
+    <button class="btn chico" id="bActualizar" title="Traer lo que decidieron los demás">↻</button>
     <button class="btn" id="bExcel">Descargar Excel</button>
     <button class="btn" id="bPdf">Descargar PDF</button>
     <button class="btn chico" id="bTema" title="Cambiar tema">◐</button>
@@ -38,11 +40,17 @@
   <section id="v-ayuda" class="oculto"></section>
 </main>
 
+<script src="almacen.js"></script>
 <script src="datos.js"></script>
 <script src="xlsxmin.js"></script>
 <script src="app.js"></script>
 <script src="informe.js"></script>
 <script src="exportar.js"></script>
-<script>document.addEventListener('DOMContentLoaded', function(){ App.iniciar(); });</script>
+<script>document.addEventListener('DOMContentLoaded', function(){
+  /* Primero se resuelve dónde se guardan las decisiones y se traen las que ya
+     hay; recién entonces se dibuja, para que nadie vea un tablero en cero que
+     un segundo después cambia. */
+  Almacen.iniciar(function(){ App.iniciar(); });
+});</script>
 </body>
 </html>

@@ -544,3 +544,20 @@ input[type=text].cod:focus{outline:2px solid var(--acento2);outline-offset:-1px}
 .falta b{color:var(--tinta)}
 tr.clic{cursor:pointer}
 tr.clic:hover{background:var(--sup2)}
+
+/* ------------------------------------------------ estado del almacenamiento
+   Dice con qué identidad se está trabajando y si quedó algo sin guardar. No
+   se distingue sólo por color: cada estado lleva su palabra escrita. */
+.sync{display:flex;gap:8px;align-items:center;flex:none}
+.quien{font-size:12.5px;font-weight:600;color:var(--tinta2);white-space:nowrap;
+  max-width:170px;overflow:hidden;text-overflow:ellipsis}
+.sest{font-size:11px;padding:3px 9px;border-radius:99px;border:1px solid var(--linea2);
+  white-space:nowrap;color:var(--tinta3)}
+.sest.bien{border-color:var(--cA);color:var(--ok);background:var(--cA-f)}
+.sest.yendo{border-color:var(--cB);color:var(--cB);background:var(--cB-f)}
+.sest.mal{border-color:var(--cC);color:var(--alerta);background:var(--cC-f);font-weight:650}
+.sest.local{border-color:var(--cE);background:var(--cE-f)}
+.salir{font-size:12px;color:var(--tinta3);text-decoration:none;padding:3px 7px;
+  border-radius:7px;white-space:nowrap}
+.salir:hover{background:var(--sup2);color:var(--tinta)}
+@media (max-width:1150px){.quien{display:none}}

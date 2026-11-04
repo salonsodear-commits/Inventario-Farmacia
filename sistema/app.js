@@ -8,9 +8,11 @@ var App = (function () {
   "use strict";
 
   var D = window.DATOS;
-  var CLAVE = "invsap.decisiones.v1";
-  var CLAVE_DEP = "invsap.depuracion.v1";
-  var CLAVE_REV = "invsap.revisor";
+  /* Dónde se guardan las decisiones lo resuelve Almacen: base SQLite del
+     servidor cuando se entró con la cuenta de Emergencias, o almacenamiento
+     del navegador cuando se abrió el archivo único. Acá no se distingue. */
+  function decisiones() { return Almacen.todas(); }
+  function depuObj() { return Almacen.depuracion(); }
   var LETRA = { "A · Identificado en SAP": "A", "B · Sin correspondencia con stock": "B",
                 "C · Candidato a baja": "C", "D · Requiere revisión": "D",
                 "E · Fuera del alcance": "E", "F · En SAP sin stock": "F" };
@@ -91,49 +93,18 @@ var App = (function () {
     cola: null, motivo: null, triage: [], tIdx: 0, selCand: {}, unif: "",
     sel: {}, depFiltro: "",
   };
-  var decisiones = {}, revisor = "";
-  /* La depuración del maestro es una decisión de otra naturaleza: no es sobre un ítem
-     contado, es sobre el maestro de materiales. Por eso vive en su propio registro. */
-  var depu = { politica: null, materiales: {}, maestro: null, historial: [] };
+
 
   // ------------------------------------------------------------- persistencia
-  function cargar() {
-    try { decisiones = JSON.parse(localStorage.getItem(CLAVE) || "{}") || {}; }
-    catch (e) { decisiones = {}; }
-    try { revisor = localStorage.getItem(CLAVE_REV) || ""; } catch (e) { revisor = ""; }
-    try {
-      var dd = JSON.parse(localStorage.getItem(CLAVE_DEP) || "null");
-      if (dd) depu = { politica: dd.politica || null, materiales: dd.materiales || {},
-                       maestro: dd.maestro || null, historial: dd.historial || [] };
-    } catch (e) {}
-  }
-  function guardarDep() {
-    try { localStorage.setItem(CLAVE_DEP, JSON.stringify(depu)); }
-    catch (e) { aviso("No se pudo guardar: el navegador bloqueó el almacenamiento."); }
-  }
-  function anotarDep(que) {
-    depu.historial = depu.historial || [];
-    depu.historial.push({ cuando: new Date().toISOString(),
-                          quien: revisor || "(sin identificar)", que: que });
-  }
-  function guardar() {
-    try { localStorage.setItem(CLAVE, JSON.stringify(decisiones)); }
-    catch (e) { aviso("No se pudo guardar: el navegador bloqueó el almacenamiento."); }
-  }
-  function dec(id) { return decisiones[id] || null; }
+  function dec(id) { return decisiones()[id] || null; }
+  function revisorActual() { return Almacen.revisor(); }
 
-  /* Una decisión nunca pisa el dato original: se guarda aparte, con quién y cuándo. */
+  /* Una decisión nunca pisa el dato original: se guarda aparte, con quién y
+     cuándo. Quién sale de la sesión cuando se entró con Entra ID, así que en
+     ese modo no es un nombre escrito a mano. */
   function decidir(id, cambios, descripcion) {
-    var d = decisiones[id] || { historial: [] };
-    var antes = {};
-    Object.keys(cambios).forEach(function (k) { antes[k] = d[k] === undefined ? null : d[k]; });
-    Object.keys(cambios).forEach(function (k) { d[k] = cambios[k]; });
-    d.historial = d.historial || [];
-    d.historial.push({ cuando: new Date().toISOString(), quien: revisor || "(sin identificar)",
-                       que: descripcion, antes: antes, despues: cambios });
-    d.revisor = revisor || "(sin identificar)";
-    d.actualizado = new Date().toISOString();
-    decisiones[id] = d; guardar(); invalidar();
+    Almacen.decidir(id, cambios, descripcion);
+    invalidar();
   }
 
   // ------------------------------------------------------------- derivados
@@ -1661,7 +1632,8 @@ var App = (function () {
         aviso("Observación guardada."); break;
       case "deshacer":
         if (!confirm("Se descartan tus decisiones en esta ficha. ¿Seguir?")) return;
-        delete decisiones[c.id]; guardar(); aviso("Restituida al análisis original."); break;
+        Almacen.olvidar(c.id); invalidar();
+        aviso("Restituida al análisis original."); break;
     }
     pintarFicha();
   }
@@ -1688,6 +1660,7 @@ var App = (function () {
      con stock, así que éstos son los que aparecieron con existencia cero, no todos los
      que el maestro tiene en cero. */
   function universoDep() {
+    var depu = depuObj();
     var filas = [], visto = {};
     D.casos.forEach(function (c) {
       if (L(c) !== "F" || !c.material_sap || visto[c.material_sap]) return;
@@ -1722,6 +1695,7 @@ var App = (function () {
   }
   /* La acción que rige hoy sobre un material: la individual manda sobre la masiva. */
   function accionDep(cod) {
+    var depu = depuObj();
     var ind = depu.materiales[cod];
     if (ind && ind.accion) return { accion: ind.accion, motivo: ind.motivo || "",
                                     fuente: "individual", quien: ind.quien, cuando: ind.cuando,
@@ -1738,6 +1712,7 @@ var App = (function () {
   }
 
   function pintarDepurar() {
+    var depu = depuObj();
     var filas = universoDep(), lig = ligadosDep();
     var cuenta = { "": 0 }; DP_ACCIONES.forEach(function (a) { cuenta[a] = 0; });
     var exc = 0;
@@ -1929,16 +1904,14 @@ var App = (function () {
     var q = el.querySelector("#depQuitar");
     if (q) q.addEventListener("click", function () {
       if (!confirm("Se quita el maestro importado. Las decisiones ya tomadas se conservan. ¿Seguir?")) return;
-      depu.maestro = null; anotarDep("Se quitó el maestro importado");
-      guardarDep(); pintarDepurar();
+      Almacen.quitarMaestro(); pintarDepurar();
     });
     var bp = el.querySelector("#depPol");
     if (bp) bp.addEventListener("click", modalPolitica);
     var bn = el.querySelector("#depPolNo");
     if (bn) bn.addEventListener("click", function () {
       if (!confirm("Se quita la política masiva. Las decisiones individuales se conservan. ¿Seguir?")) return;
-      depu.politica = null; anotarDep("Se quitó la política masiva");
-      guardarDep(); aviso("Política quitada."); pintarDepurar();
+      Almacen.quitarPolitica(); aviso("Política quitada."); pintarDepurar();
     });
     el.querySelectorAll(".dbot").forEach(function (b) {
       b.addEventListener("click", function () { decidirMaterial(b.dataset.cod, b.dataset.acc); }); });
@@ -1955,17 +1928,17 @@ var App = (function () {
   }
 
   function decidirMaterial(cod, acc) {
+    var depu = depuObj();
     if (acc === "__pol") {
-      delete depu.materiales[cod];
-      anotarDep("El material " + cod + " vuelve a seguir la política masiva");
-      guardarDep(); pintarDepurar();
+      Almacen.decidirMaterial(cod, null, "",
+        "El material " + cod + " vuelve a seguir la política masiva");
+      pintarDepurar();
       return aviso(cod + " vuelve a la política masiva.");
     }
     var actual = depu.materiales[cod];
     if (actual && actual.accion === acc) {
-      delete depu.materiales[cod];
-      anotarDep("Se quitó la decisión individual sobre " + cod);
-      guardarDep(); pintarDepurar(); return;
+      Almacen.decidirMaterial(cod, null, "", "Se quitó la decisión individual sobre " + cod);
+      pintarDepurar(); return;
     }
     var esExc = depu.politica && acc !== depu.politica.accion;
     var motivo = "";
@@ -1976,16 +1949,14 @@ var App = (function () {
       motivo = motivo.trim();
       if (!motivo) return aviso("La excepción necesita un motivo escrito.");
     }
-    depu.materiales[cod] = { accion: acc, motivo: motivo,
-                             quien: revisor || "(sin identificar)",
-                             cuando: new Date().toISOString() };
-    anotarDep((esExc ? "Excepción · " : "") + cod + " → " + acc + (motivo ? " · " + motivo : ""));
-    guardarDep(); pintarDepurar();
+    Almacen.decidirMaterial(cod, acc, motivo,
+      (esExc ? "Excepción · " : "") + cod + " → " + acc + (motivo ? " · " + motivo : ""));
+    pintarDepurar();
     aviso(cod + " → " + acc + (esExc ? " (excepción registrada)" : ""));
   }
 
   function modalPolitica() {
-    var p = depu.politica || {};
+    var p = depuObj().politica || {};
     var h = '<div class="modalfondo"><div class="modal ancho">' +
       "<h2>Política masiva de depuración</h2>" +
       '<p class="sub">Una sola decisión para todos los materiales sin stock, con las ' +
@@ -2034,11 +2005,10 @@ var App = (function () {
       if (!r) return aviso("Elegí una acción.");
       var crit = modal.querySelector("#polCrit").value.trim();
       if (!crit) return aviso("Escribí el criterio: sin criterio la decisión no se puede defender.");
-      depu.politica = { accion: r.value, alcance: modal.querySelector("#polAlc").value,
-                        criterio: crit, quien: revisor || "(sin identificar)",
-                        cuando: new Date().toISOString() };
-      anotarDep("Política masiva: " + r.value + " · " + depu.politica.alcance + " · " + crit);
-      guardarDep(); cerrar(); aviso("Política masiva registrada."); pintarDepurar();
+      Almacen.fijarPolitica({ accion: r.value, alcance: modal.querySelector("#polAlc").value,
+                              criterio: crit, quien: revisorActual() || "(sin identificar)",
+                              cuando: new Date().toISOString() });
+      cerrar(); aviso("Política masiva registrada."); pintarDepurar();
     });
   }
 
@@ -2058,11 +2028,9 @@ var App = (function () {
           "material sin stock. " + r.nota;
         return;
       }
-      depu.maestro = { nombre: f.name, filas: r.filas, cuando: new Date().toISOString(),
-                       total: r.total, columnas: r.columnas };
-      anotarDep("Se importó el maestro «" + f.name + "»: " + r.total + " filas leídas, " +
-                r.filas.length + " materiales sin stock");
-      guardarDep();
+      Almacen.fijarMaestro({ nombre: f.name, filas: r.filas,
+                             cuando: new Date().toISOString(),
+                             total: r.total, columnas: r.columnas });
       aviso("Maestro importado: " + r.filas.length + " materiales sin stock.");
       pintarDepurar();
     };
@@ -2230,15 +2198,52 @@ var App = (function () {
       "--alto-barra", Math.ceil(b.getBoundingClientRect().height) + "px");
   }
 
+  /* La barra dice en qué modo se está trabajando y si quedó algo sin guardar.
+     Nunca se da por guardado algo que no salió: si una escritura falla, se
+     reintenta y mientras tanto el indicador lo dice. */
+  function pintarEstadoAlmacen(st) {
+    var caja = document.getElementById("sync");
+    if (!caja) return;
+    var h = "";
+    if (st.modo === "servidor") {
+      var u = st.usuario || {};
+      h += '<span class="quien" title="' + esc(u.upn || "") + '">' +
+           esc(u.nombre || "") + "</span>";
+      if (st.fallo) {
+        h += '<span class="sest mal" title="' + esc(st.fallo) + '">⚠ sin guardar</span>';
+      } else if (st.sincronizando) {
+        h += '<span class="sest yendo">guardando…</span>';
+      } else {
+        h += '<span class="sest bien" title="Las decisiones se guardan en la base compartida">✓ guardado</span>';
+      }
+      h += '<a class="salir" href="/auth/salir" title="Cerrar la sesión">Salir</a>';
+    } else {
+      h += '<span class="sest local" title="Sin servidor, las decisiones quedan en este navegador. ' +
+           'Exportá el Excel al terminar.">Sólo en este navegador</span>';
+      if (st.fallo) h += '<span class="sest mal" title="' + esc(st.fallo) + '">⚠</span>';
+    }
+    caja.innerHTML = h;
+    medirBarra();
+  }
+
   function iniciar() {
-    cargar(); medirBarra();
+    medirBarra();
     window.addEventListener("resize", medirBarra);
     document.addEventListener("keydown", teclas);
+    Almacen.alCambiar(pintarEstadoAlmacen);
+    pintarEstadoAlmacen(Almacen.estado());
+
+    /* En modo servidor la identidad la pone Entra ID: el campo deja de ser
+       texto libre, porque la gracia de entrar con la cuenta es justamente que
+       «quién decidió» no dependa de lo que cada uno escriba. */
+    var caja = document.getElementById("cajaRevisor");
     var inp = document.getElementById("revisor");
-    inp.value = revisor;
-    inp.addEventListener("input", function () {
-      revisor = inp.value;
-      try { localStorage.setItem(CLAVE_REV, revisor); } catch (e) {} });
+    if (Almacen.modo() === "servidor") {
+      if (caja) caja.classList.add("oculto");
+    } else if (inp) {
+      inp.value = Almacen.revisor();
+      inp.addEventListener("input", function () { Almacen.fijarRevisor(inp.value); });
+    }
     document.querySelectorAll("#nav button").forEach(function (b) {
       b.addEventListener("click", function () {
         if (b.dataset.vista === "revisar" && !estado.triage.length) return ir("inicio");
@@ -2251,15 +2256,27 @@ var App = (function () {
       Exportar.excel(); aviso("Excel generado con tus decisiones."); });
     document.getElementById("bPdf").addEventListener("click", function () {
       ir("informe"); setTimeout(function () { window.print(); }, 350); });
+    /* Con varias personas trabajando a la vez, hay que poder ver lo que
+       decidieron los demás sin recargar la página. */
+    var bAct = document.getElementById("bActualizar");
+    if (bAct) {
+      if (Almacen.modo() !== "servidor") bAct.classList.add("oculto");
+      else bAct.addEventListener("click", function () {
+        Almacen.recargar().then(function () {
+          invalidar(); ir(estado.vista); aviso("Actualizado con lo que decidieron los demás.");
+        }).catch(function (e) { aviso("No se pudo actualizar: " + e.message); });
+      });
+    }
     ir("inicio");
   }
 
   return { iniciar: iniciar, ir: ir, esc: esc, num: num, pesos: pesos, fecha: fecha,
            efectivo: efectivo, filtrados: filtrados, conteos: conteos,
-           depuracion: function () { return depu; }, universoDep: universoDep,
+           universoDep: universoDep,
            accionDep: accionDep, ligadosDep: ligadosDep, etapaB: etapaB,
            RB: { VERIF: RB_VERIF, CREAR: RB_CREAR, NO: VER_NO, REUSA: VER_REUSA, NUEVO: VER_NUEVO },
            DP: { MANT: DP_MANT, BLOQ: DP_BLOQ, BAJA: DP_BAJA, ACCIONES: DP_ACCIONES },
-           decisiones: function () { return decisiones; }, datos: function () { return D; },
-           revisor: function () { return revisor; }, LETRA: LETRA, CORTO: CORTO };
+           depuracion: depuObj, datos: function () { return D; },
+           decisiones: decisiones, revisor: revisorActual,
+           LETRA: LETRA, CORTO: CORTO };
 })();

@@ -3,3 +3,9 @@ data/
 salida/
 __pycache__/
 *.pyc
+
+# Base de datos del servidor: es el dato de trabajo, no del repositorio
+datos/
+*.db
+*.db-wal
+*.db-shm
