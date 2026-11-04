@@ -31,6 +31,16 @@ var Exportar = (function () {
     ["Decisión registrada", 20], ["Revisor", 16], ["Fecha de la decisión", 13],
     ["Observaciones", 48],
     ["Nomenclatura unificada", 44], ["¿Agrupa varios códigos SAP?", 13],
+    // Ubicación (AN–AS). El centro, col. H, es la base; el almacén es el depósito
+    // dentro de ella: son dos campos distintos y se informan por separado.
+    ["Almacén donde figura el stock", 18], ["Cantidad por almacén", 30],
+    ["Almacén esperado · PROPUESTA a validar", 18], ["Estado de la ubicación", 28],
+    ["Decisión sobre la ubicación", 40], ["Almacén propuesto por la decisión", 16],
+    // Clase B · las dos alternativas de trabajo (AT–AX)
+    ["Alternativa elegida (clase B)", 26],
+    ["Resultado de la verificación en el maestro", 44],
+    ["Código encontrado en el maestro", 16], ["Riesgo de código duplicado", 22],
+    ["Ligado a la depuración del maestro", 24],
   ];
 
   function filaCaso(c, r) {
@@ -67,6 +77,14 @@ var Exportar = (function () {
       { v: e.revisor || "" }, { v: fechaCorta(d.actualizado) },
       { v: e.observaciones || "", s: E.TEXTO },
       { v: e.unificada || "", s: E.TEXTO }, { v: e.agrupado ? "Sí" : "No" },
+      { v: (c.almacenes || []).map(function (x) { return x.almacen; }).join(" · ") },
+      { v: (c.almacenes || []).map(function (x) {
+              return x.almacen + ": " + x.stock; }).join(" · "), s: E.TEXTO },
+      { v: c.almacen_esperado || "" }, { v: c.almacen_estado || "" },
+      { v: e.almacen_decidido || "", s: E.TEXTO }, { v: e.almacen_propuesto || "" },
+      { v: e.ruta_b || "" }, { v: e.verificacion || "", s: E.TEXTO },
+      { v: e.codigo_maestro || "" }, { v: e.riesgo_duplicado || "" },
+      { v: e.depuracion || "" },
     ];
   }
 
@@ -75,6 +93,7 @@ var Exportar = (function () {
       [{ v: "Conciliación de inventarios físicos contra SAP · detalle completo", s: E.TITULO }],
       [{ v: "Una fila por caso. Los ítems de los inventarios físicos más los materiales de SAP " +
             "que ningún inventario identificó. Las columnas Q, AD y AF son fórmulas. " +
+            "Las columnas AN a AS son la ubicación del stock; las AT a AX, la clase B. " +
             "Exportado el " + new Date().toLocaleString("es-AR") +
             (App.revisor() ? " por " + App.revisor() : "") + ".", s: E.TENUE }],
       [],
@@ -101,7 +120,12 @@ var Exportar = (function () {
     ["Nomenclatura unificada", 40],
     ["Estado de valorización", 19], ["VU de referencia SAP · $", 14],
     ["Valor de referencia SAP · $", 16], ["Estado de revisión", 16],
-    ["Decisión registrada", 20], ["Revisor", 15], ["Observaciones", 44]];
+    ["Decisión registrada", 20], ["Revisor", 15], ["Observaciones", 44],
+    ["Almacén donde figura el stock", 18], ["Almacén esperado · PROPUESTA", 18],
+    ["Estado de la ubicación", 28], ["Decisión sobre la ubicación", 38],
+    ["Alternativa elegida (clase B)", 26], ["Verificación en el maestro", 42],
+    ["Código del maestro", 16], ["Riesgo de duplicado", 22],
+    ["Ligado a la depuración", 24]];
 
   function hojaOperativa(nombre, titulo, nota, pred) {
     var casos = D().casos.filter(pred);
@@ -125,6 +149,12 @@ var Exportar = (function () {
         { f: 'IF(O' + r + '="","",O' + r + "*MAX(I" + r + ",J" + r + "))", s: E.IMPORTE },
         { v: e.estado_revision }, { v: e.aprobacion }, { v: e.revisor || "" },
         { v: e.observaciones || "", s: E.TEXTO },
+        { v: (c.almacenes || []).map(function (x) { return x.almacen; }).join(" · ") },
+        { v: c.almacen_esperado || "" }, { v: c.almacen_estado || "" },
+        { v: e.almacen_decidido || "", s: E.TEXTO },
+        { v: e.ruta_b || "" }, { v: e.verificacion || "", s: E.TEXTO },
+        { v: e.codigo_maestro || "" }, { v: e.riesgo_duplicado || "" },
+        { v: e.depuracion || "" },
       ]);
     });
     var ult = Math.max(filas.length, 5);
@@ -197,6 +227,57 @@ var Exportar = (function () {
      ["Códigos asignados o corregidos a mano", 'COUNTIF(Casos!U:U,"Sí")'],
      ["Ítems con varios códigos SAP agrupados", 'COUNTIF(Casos!AM:AM,"Sí")']
     ].forEach(function (p) { f.push([{ v: p[0] }, { f: p[1], s: E.ENTERO }]); });
+    f.push([]);
+    f.push([{ v: "CLASE B · LAS DOS ALTERNATIVAS", s: E.SUBTITULO }]);
+    f.push([{ v: "Un ítem que no aparece entre los materiales con stock no está probado que " +
+                 "no exista en SAP. Por eso la clase B se trabaja eligiendo expresamente una " +
+                 "de dos alternativas.", s: E.TENUE }]);
+    [["Casos de clase B", 'COUNTIF(Casos!D:D,"B · Sin correspondencia con stock")'],
+     ["Sin alternativa elegida",
+      'COUNTIFS(Casos!D:D,"B · Sin correspondencia con stock",Casos!AT:AT,"")'],
+     ["Alternativa 1 · verificar antes de crear",
+      'COUNTIF(Casos!AT:AT,"Verificar antes de crear")'],
+     ["   de ésas, con la verificación ya cargada", 'COUNTIF(Casos!AU:AU,"?*")'],
+     ["Alternativa 2 · crear sin verificar el maestro",
+      'COUNTIF(Casos!AT:AT,"Crear sin verificar el maestro")'],
+     ["Con riesgo de código duplicado asumido", 'COUNTIF(Casos!AW:AW,"?*")'],
+     ["Ligados al plan de depuración del maestro", 'COUNTIF(Casos!AX:AX,"?*")']
+    ].forEach(function (p) { f.push([{ v: p[0] }, { f: p[1], s: E.ENTERO }]); });
+    f.push([]);
+    f.push([{ v: "UBICACIÓN DEL STOCK EN LOS ALMACENES", s: E.SUBTITULO }]);
+    f.push([{ v: "Una cosa es que el material esté bien identificado, otra que tenga stock, " +
+                 "y otra que ese stock esté en el almacén que corresponde. El almacén " +
+                 "esperado es una PROPUESTA a validar con cada base.", s: E.TENUE }]);
+    ["Almacén correcto", "Almacén a cambiar", "Material en múltiples almacenes",
+     "Almacén pendiente de validación", "Almacén no identificado"].forEach(function (x) {
+      f.push([{ v: x }, { f: 'COUNTIF(Casos!AQ:AQ,"' + x + '")', s: E.ENTERO }]);
+    });
+    f.push([{ v: "Ubicaciones con una decisión registrada" },
+            { f: 'COUNTIF(Casos!AR:AR,"?*")', s: E.ENTERO }]);
+    f.push([]);
+    f.push([{ v: "DEPURACIÓN DEL MAESTRO", s: E.SUBTITULO }]);
+    f.push([{ v: "Materiales con existencia CERO. No se dan de baja de stock: se decide qué " +
+                 "pasa con el registro. La bajada no es el maestro completo, así que esto es " +
+                 "la punta visible del universo a depurar.", s: E.TENUE }]);
+    (function () {
+      var dp = App.depuracion(), uni = App.universoDep();
+      var cu = { "": 0 }, exc = 0;
+      App.DP.ACCIONES.forEach(function (a) { cu[a] = 0; });
+      uni.forEach(function (u) {
+        var a = App.accionDep(u.codigo);
+        cu[a.accion] = (cu[a.accion] || 0) + 1;
+        if (a.excepcion) exc++;
+      });
+      f.push([{ v: "Materiales sin stock a la vista" }, { v: uni.length, s: E.ENTERO }]);
+      f.push([{ v: "Política masiva vigente" },
+              { v: dp.politica ? dp.politica.accion : "sin definir", s: E.TEXTO }]);
+      f.push([{ v: "Sin decidir" }, { v: cu[""] || 0, s: E.ENTERO }]);
+      App.DP.ACCIONES.forEach(function (a) {
+        f.push([{ v: a }, { v: cu[a] || 0, s: E.ENTERO }]); });
+      f.push([{ v: "Excepciones a la política masiva" }, { v: exc, s: E.ENTERO }]);
+      f.push([{ v: "Maestro completo importado" },
+              { v: dp.maestro ? dp.maestro.nombre : "no", s: E.TEXTO }]);
+    })();
     f.push([]);
     f.push([{ v: "VALORIZACIÓN POR PRECIO DE ÚLTIMA COMPRA", s: E.SUBTITULO }]);
     f.push([{ v: "Materiales valorizados" },
@@ -293,6 +374,180 @@ var Exportar = (function () {
              congelar: "A5", autofiltro: "A4:H" + Math.max(f.length, 5) };
   }
 
+
+  /* ---- Almacenes -------------------------------------------------------
+     Dos cosas distintas en la misma hoja, cada una rotulada como lo que es:
+     lo que está OBSERVADO en la bajada y lo que es una PROPUESTA a validar. */
+  function hojaAlmacenes() {
+    var m = D().meta.almacenes, k = D().kpis.almacen || {};
+    var f = [[{ v: "Ubicación del stock · centros y almacenes", s: E.TITULO }],
+             [{ v: "El CENTRO es la base; el ALMACÉN es el depósito dentro de esa base. Son " +
+                   "dos campos distintos de SAP. Una cosa es que el material esté bien " +
+                   "identificado, otra que tenga stock, y otra que ese stock esté en el " +
+                   "almacén que corresponde.", s: E.TENUE }], []];
+    f.push([{ v: "QUÉ ESTÁ OBSERVADO Y QUÉ ES UNA PROPUESTA", s: E.SUBTITULO }]);
+    f.push([{ v: "Observado en la bajada", s: E.TEXTO },
+            { v: "Cada código de almacén aparece bajo un único centro. Saber a qué base " +
+                 "pertenece un almacén NO es una suposición: está en el archivo.", s: E.TEXTO }]);
+    f.push([{ v: "Propuesta a validar", s: E.TEXTO },
+            { v: "Qué almacén DEBERÍA contener el stock de Farmacia en cada base no está en " +
+                 "ningún archivo. Se propone a partir de la composición observada de cada " +
+                 "almacén y hay que validarlo con cada base.", s: E.TEXTO }]);
+    f.push([{ v: "No se supuso por el nombre", s: E.TEXTO },
+            { v: "Ninguna correspondencia se dedujo por parecido de nombres o de códigos: " +
+                 "sale de qué materiales y cuántas unidades tiene cada almacén.", s: E.TEXTO }]);
+    f.push([]);
+    f.push([{ v: "ALMACÉN ESPERADO POR BASE Y TIPO · propuesta", s: E.SUBTITULO }]);
+    f.push([["Base", 14], ["Tipo de material", 16], ["Almacén propuesto", 15],
+            ["Confianza", 12], ["Por qué / reparo", 54],
+            ["Otros almacenes de la base con stock de ese tipo", 52],
+            ["¿Validado por la base?", 18]]
+           .map(function (c) { return { v: c[0], s: E.CAB }; }));
+    (m.propuesta || []).forEach(function (p) {
+      var otros = (p.alternativas || []).filter(function (a) { return a.almacen !== p.almacen; });
+      f.push([{ v: p.base }, { v: p.tipo }, { v: p.almacen || "" }, { v: p.confianza },
+              { v: p.nota || (p.confianza === "Clara"
+                   ? "Concentra la mayor parte de las unidades y de los materiales de ese tipo."
+                   : ""), s: E.TEXTO },
+              { v: otros.map(function (a) {
+                     return a.almacen + " (" + a.unidades + " un., " + a.materiales + " mat.)";
+                   }).join(" · ") || "—", s: E.TEXTO },
+              { v: "PENDIENTE" }]);
+    });
+    f.push([]);
+    f.push([{ v: "ALMACENES OBSERVADOS POR BASE", s: E.SUBTITULO }]);
+    f.push([["Base", 14], ["Almacenes que aparecen en la bajada", 70]]
+           .map(function (c) { return { v: c[0], s: E.CAB }; }));
+    Object.keys(m.por_base || {}).forEach(function (b) {
+      f.push([{ v: b }, { v: (m.por_base[b] || []).join(" · "), s: E.TEXTO }]);
+    });
+    f.push([]);
+    f.push([{ v: "ESTADO DE LA UBICACIÓN · recuento", s: E.SUBTITULO }]);
+    f.push([["Estado", 34], ["Casos", 10], ["Qué significa", 72]]
+           .map(function (c) { return { v: c[0], s: E.CAB }; }));
+    [["Almacén correcto", "El stock está en el almacén propuesto para esa base y tipo."],
+     ["Almacén a cambiar", "El stock figura en un almacén distinto del propuesto. Es un " +
+      "problema de ubicación, no de identificación: el material está bien, el lugar no."],
+     ["Material en múltiples almacenes", "El mismo material tiene stock en más de un " +
+      "almacén de la misma base. No se consolidó nada: se conservan las cantidades de cada uno."],
+     ["Almacén pendiente de validación", "No hay propuesta de almacén para esa base y tipo, " +
+      "así que no se puede concluir si está bien ubicado."],
+     ["Almacén no identificado", "La bajada no trae código de almacén para ese stock."],
+     ["Sin stock, sin almacén", "No hay stock, así que no hay ubicación que controlar."]]
+    .forEach(function (x) {
+      f.push([{ v: x[0] }, { v: k[x[0]] || 0, s: E.ENTERO }, { v: x[1], s: E.TEXTO }]);
+    });
+    f.push([]);
+    f.push([{ v: "QUÉ FALTA PARA CERRAR ESTA PARTE", s: E.SUBTITULO }]);
+    (m.falta || []).forEach(function (x) { f.push([{ v: "•" }, { v: x, s: E.TEXTO }]); });
+    f.push([]);
+    f.push([{ v: "El detalle material por material está en la hoja «Casos», columnas AN a AS.",
+             s: E.TENUE }]);
+    return { nombre: "Almacenes", filas: f, anchos: [20, 18, 16, 13, 54, 52, 18] };
+  }
+
+  /* ---- Depuración del maestro ------------------------------------------- */
+  function hojaDepuracion() {
+    var dp = App.depuracion(), uni = App.universoDep(), lig = App.ligadosDep();
+    var DP = App.DP;
+    var f = [[{ v: "Depuración del maestro de materiales", s: E.TITULO }],
+             [{ v: "Materiales que figuran en SAP con EXISTENCIA CERO. No son candidatos a " +
+                   "baja de stock —no hay stock que dar de baja— sino registros del maestro " +
+                   "sobre los que hay que decidir: mantener, bloquear o dar de baja. Todo es " +
+                   "propuesta: no ejecuta nada en SAP.", s: E.TENUE }], []];
+
+    f.push([{ v: "ALCANCE REAL DE ESTA DEPURACIÓN", s: E.SUBTITULO }]);
+    f.push([{ v: "Lo que se ve acá", s: E.TEXTO },
+            { v: uni.length + " materiales. Es la punta visible.", s: E.TEXTO }]);
+    f.push([{ v: "Lo que no se puede saber", s: E.TEXTO },
+            { v: "Cuántos materiales tiene el maestro completo con existencia cero. La " +
+                 "bajada recibida trae los materiales CON stock; éstos aparecieron igual en " +
+                 "cero. El maestro completo no está entre los archivos recibidos.", s: E.TEXTO }]);
+    f.push([{ v: "Maestro importado", s: E.TEXTO },
+            { v: dp.maestro ? dp.maestro.nombre + " · " + dp.maestro.filas.length +
+                 " materiales sin stock · " + fechaCorta(dp.maestro.cuando)
+                 : "No se importó ningún maestro completo.", s: E.TEXTO }]);
+    f.push([]);
+
+    f.push([{ v: "DECISIÓN MASIVA", s: E.SUBTITULO }]);
+    if (!dp.politica) {
+      f.push([{ v: "No hay política masiva definida: cada material se decide de a uno.",
+                s: E.TEXTO }]);
+    } else {
+      [["Acción", dp.politica.accion], ["Alcance", dp.politica.alcance],
+       ["Criterio", dp.politica.criterio], ["Quién la definió", dp.politica.quien],
+       ["Cuándo", new Date(dp.politica.cuando).toLocaleString("es-AR")]]
+      .forEach(function (x) { f.push([{ v: x[0] }, { v: x[1], s: E.TEXTO }]); });
+    }
+    f.push([]);
+
+    f.push([{ v: "MATERIAL POR MATERIAL", s: E.SUBTITULO }]);
+    f.push([["Código de material", 16], ["Descripción", 48], ["Tipo", 15], ["Base", 12],
+            ["De dónde sale", 36], ["Acción decidida", 24], ["De dónde viene la decisión", 18],
+            ["¿Es excepción a la masiva?", 14], ["Motivo de la excepción", 48],
+            ["Quién", 18], ["Cuándo", 17]]
+           .map(function (c) { return { v: c[0], s: E.CAB }; }));
+    var cab = f.length;
+    uni.forEach(function (u) {
+      var a = App.accionDep(u.codigo);
+      f.push([{ v: u.codigo }, { v: u.texto || "", s: E.TEXTO }, { v: u.tipo || "" },
+              { v: u.base || "" }, { v: u.origen, s: E.TEXTO },
+              { v: a.accion || "Sin decidir" },
+              { v: a.fuente === "individual" ? "Decisión individual"
+                   : a.fuente === "masiva" ? "Política masiva" : "—" },
+              { v: a.excepcion ? "Sí" : "No" }, { v: a.excepcion ? a.motivo : "", s: E.TEXTO },
+              { v: a.quien || "" },
+              { v: a.cuando ? new Date(a.cuando).toLocaleString("es-AR") : "" }]);
+    });
+    if (!uni.length) f.push([{ v: "No hay materiales sin stock en el universo visible.", s: E.TENUE }]);
+    var ult = f.length;
+    f.push([]);
+    f.push([{ v: "RECUENTO POR ACCIÓN", s: E.SUBTITULO }]);
+    ["Sin decidir"].concat(DP.ACCIONES).forEach(function (ac) {
+      f.push([{ v: ac }, { f: 'COUNTIF(F' + (cab + 1) + ":F" + ult + ',"' + ac + '")',
+                           s: E.ENTERO }]);
+    });
+    f.push([{ v: "Excepciones a la política masiva" },
+            { f: 'COUNTIF(H' + (cab + 1) + ":H" + ult + ',"Sí")', s: E.ENTERO }]);
+    f.push([]);
+
+    f.push([{ v: "LIGADO A LAS DECISIONES DE ALTA", s: E.SUBTITULO }]);
+    f.push([{ v: "Crear un código nuevo sin haber verificado el maestro puede dejar un " +
+                 "duplicado, y ese duplicado es exactamente lo que hay que depurar. Son las " +
+                 "dos caras de la misma decisión.", s: E.TENUE }]);
+    f.push([["Nº del caso", 9], ["Ítem del depósito", 48], ["Base", 12], ["Tipo", 14],
+            ["Qué se decidió", 40], ["Código a buscar en el maestro", 18],
+            ["Riesgo asumido", 22], ["Revisor", 18]]
+           .map(function (c) { return { v: c[0], s: E.CAB }; }));
+    lig.forEach(function (c) {
+      var e = ef(c);
+      f.push([{ v: c.n }, { v: c.nombre_fisico || c.texto_sap || "", s: E.TEXTO },
+              { v: c.base }, { v: c.tipo },
+              { v: e.verificacion || e.ruta_b || "", s: E.TEXTO },
+              { v: e.codigo_maestro || "" }, { v: e.riesgo_duplicado || "" },
+              { v: e.revisor || "" }]);
+    });
+    if (!lig.length) f.push([{ v: "Todavía no hay ninguna decisión de alta ligada a la depuración.",
+                               s: E.TENUE }]);
+    f.push([]);
+
+    f.push([{ v: "QUÉ FALTA PARA PODER EJECUTAR ESTO", s: E.SUBTITULO }]);
+    (D().meta.depuracion.falta || []).forEach(function (x) {
+      f.push([{ v: "•" }, { v: x, s: E.TEXTO }]); });
+    f.push([]);
+    if (dp.historial && dp.historial.length) {
+      f.push([{ v: "HISTORIAL DE LA DEPURACIÓN", s: E.SUBTITULO }]);
+      f.push([["Fecha y hora", 17], ["Quién", 18], ["Qué se decidió", 90]]
+             .map(function (c) { return { v: c[0], s: E.CAB }; }));
+      dp.historial.forEach(function (x) {
+        f.push([{ v: new Date(x.cuando).toLocaleString("es-AR") }, { v: x.quien },
+                { v: x.que, s: E.TEXTO }]);
+      });
+    }
+    return { nombre: "Depuración del maestro", filas: f,
+             anchos: [18, 48, 16, 13, 36, 24, 20, 15, 48, 18, 17] };
+  }
+
   function hojaControl() {
     var f = [[{ v: "Control de integridad contra las fuentes originales", s: E.TITULO }],
              [{ v: "La columna «En el sistema» se recalcula con fórmulas sobre la hoja «Casos». " +
@@ -317,6 +572,24 @@ var Exportar = (function () {
       f.push([{ v: c.control, s: E.TEXTO }, { v: c.fuente, s: E.ENTERO },
               { v: c.sistema, s: E.ENTERO }, { v: 0, s: E.ENTERO }, { v: "Informativo" },
               { v: c.detalle || "", s: E.TEXTO }]); r++;
+    });
+    // Controles sobre las dimensiones nuevas: ubicación y clase B.
+    [["Casos de clase B con alternativa 2 y sin riesgo registrado", 0,
+      'COUNTIFS(Casos!AT:AT,"Crear sin verificar el maestro",Casos!AW:AW,"")',
+      "La alternativa 2 siempre registra el riesgo asumido. Si no da 0, hay una decisión " +
+      "incompleta."],
+     ["Decisiones de ubicación sin almacén destino ni validación pendiente", 0,
+      'COUNTIFS(Casos!AR:AR,"?*",Casos!AS:AS,"")-COUNTIF(Casos!AR:AR,"Lo valida el responsable de la base")',
+      "Toda decisión de ubicación define un almacén destino, salvo la que deja la " +
+      "validación en manos de la base."],
+     ["Casos con stock en SAP y sin estado de ubicación", 0,
+      'COUNTIFS(Casos!P:P,">0",Casos!AQ:AQ,"")',
+      "Todo stock de SAP tiene que tener un estado de ubicación, aunque sea «no identificado»."]
+    ].forEach(function (x) {
+      f.push([{ v: x[0], s: E.TEXTO }, { v: x[1], s: E.ENTERO },
+              { f: x[2], s: E.ENTERO }, { f: "C" + r + "-B" + r, s: E.ENTERO },
+              { f: 'IF(D' + r + '=0,"Coincide","A REVISAR")' },
+              { v: x[3], s: E.TEXTO }]); r++;
     });
     return { nombre: "Control", filas: f, anchos: [56, 15, 15, 12, 14, 60] };
   }
@@ -385,6 +658,24 @@ var Exportar = (function () {
     return { nombre: "Metodología", filas: f, anchos: [40, 104] };
   }
 
+  /* Las fórmulas se escriben apuntando a la columna entera de «Casos» porque se lee
+     mejor, pero una columna entera incluye el encabezado y la fila de TOTAL, y las dos
+     son celdas que ensucian los COUNTIF: el encabezado es texto (cuenta como "?*") y
+     el TOTAL tiene números. Antes de armar el libro se acotan a las filas de datos. */
+  function acotar(hojas) {
+    var ult = 4 + D().casos.length;
+    var rx = /Casos!([A-Z]+):\1(?![0-9])/g;
+    hojas.forEach(function (h) {
+      h.filas.forEach(function (fila) {
+        (fila || []).forEach(function (c) {
+          if (c && c.f) c.f = c.f.replace(rx, function (_, col) {
+            return "Casos!" + col + "5:" + col + ult; });
+        });
+      });
+    });
+    return hojas;
+  }
+
   function excel() {
     var hojas = [
       hojaResumen(),
@@ -411,9 +702,15 @@ var Exportar = (function () {
         "Indumentaria, equipamiento y repuestos. El inventario relevado es de Farmacia: su " +
         "ausencia no permite concluir nada y no se propone ninguna baja.",
         function (c) { return L(c) === "E"; }),
+      hojaOperativa("F Maestro sin stock", "Materiales de SAP con existencia cero",
+        "Figuran en la bajada con stock CERO. No hay stock que dar de baja: lo que " +
+        "corresponde es decidir qué pasa con el registro en el maestro. Esa decisión está " +
+        "en la hoja «Depuración del maestro».",
+        function (c) { return L(c) === "F"; }),
+      hojaAlmacenes(), hojaDepuracion(),
       hojaLotes(), hojaUnificadas(), hojaDecisiones(), hojaControl(), hojaMetodologia(),
     ];
-    var blob = XLSXMin.construir(hojas, { titulo: "Inventario físico vs SAP" });
+    var blob = XLSXMin.construir(acotar(hojas), { titulo: "Inventario físico vs SAP" });
     descargar(blob, "Inventario fisico vs SAP - analisis " + hoy() + ".xlsx");
   }
 
