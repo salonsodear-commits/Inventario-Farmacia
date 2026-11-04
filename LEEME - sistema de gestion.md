@@ -6,7 +6,11 @@ Tres piezas que salen del **mismo análisis**, por eso las cifras coinciden entr
 |---|---|---|
 | **Sistema interactivo** | `Sistema - Inventario fisico vs SAP.html` | Revisar, decidir y registrar. Es la herramienta de trabajo. **Un solo archivo.** |
 | **Excel** | `Inventario fisico vs SAP - analisis.xlsx` | Analizar y seguir trabajando sobre los datos. Con fórmulas vivas. |
-| **PDF** | `Inventario fisico vs SAP - informe integral.pdf` | Explicar el caso y los resultados a quien no vio nada de esto. 85 páginas. |
+| **PDF** | `Inventario fisico vs SAP - informe integral.pdf` | Explicar el caso y los resultados a quien no vio nada de esto. 20 páginas. |
+
+> El PDF **no trae el listado de los 1.991 materiales**: es un informe ejecutivo. El
+> detalle individual está en el Excel y en el sistema, que es donde se puede filtrar,
+> ordenar y actualizar. La sección 15 del informe dice exactamente dónde buscar cada cosa.
 
 ---
 
@@ -33,7 +37,7 @@ El sistema está armado como un **flujo de trabajo**, no como un listado. No hay
 decidir por dónde empezar: la pantalla de inicio lo dice.
 
 1. Escribí tu nombre arriba, en **Revisor**. Queda registrado en cada decisión.
-2. **Inicio** muestra el trabajo en cinco grupos, numerados por prioridad, cada uno con
+2. **Inicio** muestra el trabajo en siete grupos, numerados por prioridad, cada uno con
    cuántos quedan pendientes y su barra de avance. Arriba a la derecha, el avance general.
 3. En cada grupo hay dos formas de trabajar:
    - **Revisar de a uno** → modo revisión: un caso por pantalla, con los candidatos
@@ -85,13 +89,87 @@ en otro centro.
 | | Grupo | Pendientes | Por qué va ahí |
 |---|---|---|---|
 | 1 | Resolver los casos en revisión | 402 | Es el trabajo real, y de él dependen otros grupos |
-| 2 | Verificar los que no aparecieron en SAP | 58 | Pocos y de alto impacto; requieren el maestro completo |
+| 2 | Verificar los que no aparecieron en SAP | 58 | Pocos y de alto impacto; se elige una de dos alternativas |
 | 3 | Registrar existencias que SAP no tiene | 48 | Hay stock físico sin respaldo en el sistema |
 | 4 | Confirmar las identificaciones | 179 | Rápido: ya están verificadas |
-| 5 | Aprobar las bajas propuestas | 894 | Último, porque 153 dependen del grupo 1 |
+| 5 | Corregir la ubicación en los almacenes | 363 | Problema de ubicación, no de identificación |
+| 6 | Depurar el maestro · materiales sin stock | 30 | Decisión sobre el registro, no sobre el stock |
+| 7 | Aprobar las bajas propuestas | 864 | Último, porque 153 dependen del grupo 1 |
 
 Las 153 bajas que dependen de un caso en revisión **quedan fuera del lote automáticamente**
 y el sistema avisa si intentás aprobarlas de a una.
+
+### El grupo 2: dos alternativas, no una
+
+Un ítem que no aparece entre los materiales con stock **no está probado que no exista en
+SAP**. Por eso el sistema no decide solo: pregunta expresamente cuál de los dos caminos
+se toma.
+
+| | Alternativa | Qué implica | Qué riesgo tiene |
+|---|---|---|---|
+| **1** | Verificar antes de crear | Se consulta el maestro completo antes de crear nada. Si ya existe con stock cero, se decide si se reutiliza el código o se da de baja y se crea de nuevo. | Ninguno sobre los datos. El costo es de tiempo: hace falta el maestro completo, que no tenemos. |
+| **2** | Crear igual, sin verificar | Se avanza con el alta aunque no se haya verificado el maestro. **El sistema no lo impide.** | **Código duplicado:** el mismo producto abierto dos veces, con el stock, los consumos y el histórico partidos. El código viejo sigue vivo hasta que alguien lo depure. |
+
+La alternativa 2 abre una pregunta expresa que explica el riesgo, **exige marcar que se
+entiende** antes de habilitar el botón, y registra quién lo decidió y por qué. Además liga
+el caso al plan de depuración del maestro, que es la contracara de esa decisión.
+
+El resultado de la alternativa 1 se carga después, cuando se tenga la respuesta del
+maestro: *no existe* (se propone el alta), *existe sin stock y se reutiliza el código*, o
+*existe sin stock, se da de baja y se crea de nuevo*.
+
+### La solapa «Maestro»: depuración de los materiales sin stock
+
+Los materiales que figuran en SAP con **existencia cero** no son candidatos a baja de
+stock —no hay stock que dar de baja— sino **registros del maestro** sobre los que hay que
+decidir: se **mantienen**, se **bloquean** o se **dan de baja**.
+
+- Se puede decidir **de a uno** o fijar una **política masiva** para todo el conjunto.
+- La decisión individual **manda sobre la masiva**: cuando difiere, el material queda
+  anotado como **excepción**, con su motivo escrito. Una limpieza masiva no borra los
+  casos que había que mirar de cerca.
+- **Lo que se ve no es todo el universo.** La bajada trae los materiales con stock; estos
+  30 aparecieron igual en cero y son la punta visible. Cuántos materiales tiene el maestro
+  completo en cero no se puede saber con los archivos recibidos.
+- Si se consigue el maestro completo, se puede **importar en CSV** desde esa misma
+  pantalla y el universo se completa solo. El archivo se lee en la computadora: no se
+  sube a ningún lado.
+
+### El grupo 5: ubicación, que no es identificación
+
+El **centro** es la base; el **almacén** es el depósito dentro de esa base. Son dos campos
+distintos de SAP. Hay tres cuestiones independientes y conviene no mezclarlas: si el
+material está bien **identificado**, si tiene **stock**, y si ese stock está en el
+**almacén que corresponde**.
+
+Un material perfectamente identificado puede figurar en el almacén equivocado. **Eso no lo
+convierte en candidato a alta ni a baja.**
+
+| Estado | Casos | Qué significa |
+|---|---|---|
+| Almacén correcto | 765 | El stock está en el almacén propuesto para esa base y tipo |
+| Almacén a cambiar | 137 | Figura en un almacén distinto del propuesto |
+| En varios almacenes | 226 | El mismo material repartido en más de un almacén de la base |
+| Pendiente de validar | 322 | No hay propuesta de almacén para esa base y tipo |
+
+**Qué está observado y qué es una propuesta.** A qué base pertenece cada almacén **está
+observado**: en la bajada, cada código de almacén aparece bajo un único centro. Qué almacén
+*debería* tener el stock de Farmacia **no está en ningún archivo**: se propone a partir de
+la composición observada de cada almacén —qué materiales y cuántas unidades concentra—,
+**nunca por parecido de nombres ni de códigos**, y hay que validarlo con cada base.
+
+| Base | Tipo | Almacén propuesto | Confianza |
+|---|---|---|---|
+| San Juan | Medicamento | 2021 | Clara |
+| San Juan | Descartable | 2021 | Clara |
+| Neuquén | Medicamento | 6021 | Clara |
+| Neuquén | Descartable | 6022 | **Ambigua** |
+| Salta | Medicamento | 3013 | Clara |
+| Salta | Descartable | 3014 | Clara |
+
+La de Neuquén · Descartables salió **ambigua** porque un segundo almacén también concentra
+volumen: ahí hace falta preguntarle a la base antes de concluir nada. Tampoco viene la
+descripción de los almacenes, sólo el código.
 
 ### Dónde quedan las decisiones
 
@@ -119,11 +197,18 @@ maestro»**.
 
 Esa verificación —y, si el material ya existe sin stock, la decisión de reutilizar el
 código o darlo de baja y crearlo de nuevo— **está fuera del alcance de este trabajo**.
-Es el paso previo obligatorio antes de proponer cualquier alta.
+
+Ahora bien: que esté fuera de alcance **no bloquea la decisión**. El sistema contempla las
+dos alternativas y pregunta cuál se toma: verificar primero, o crear igual asumiendo el
+riesgo de código duplicado. Lo que no hace es decidirlo solo ni esconder la consecuencia.
 
 Lo que sí se sostiene sin esa verificación: las identificaciones (grupo 4), las
-existencias sin stock en su base (grupo 3) y los candidatos a baja (grupo 5), porque esos
+existencias sin stock en su base (grupo 3) y los candidatos a baja (grupo 7), porque esos
 materiales **sí** están en el archivo con stock.
+
+La misma limitación explica el alcance de la depuración del maestro: los 30 materiales con
+existencia cero que están a la vista son los que la bajada dejó ver, **no todos los que el
+maestro tiene en cero**.
 
 ## Qué hace el análisis
 
@@ -151,19 +236,26 @@ Tres reglas:
 3. Sólo se identifica por el nombre un material que no declara ninguna característica
    de ningún lado (un otoscopio, un glucómetro, una llave de 3 vías).
 
-### Las cinco clasificaciones
+### Las seis clasificaciones
 
 | | Casos | Qué significa | Acción |
 |---|---|---|---|
 | **A** Identificado en SAP | 227 | Código verificado por nomenclatura y presentación | Mantener |
-| **B** Sin correspondencia | 58 | Existe físicamente, no está entre los materiales **con stock** | Verificar en el maestro |
-| **C** Candidato a baja | 894 | Stock en SAP que ningún inventario identificó en esa base | Proponer baja |
+| **B** Sin correspondencia | 58 | Existe físicamente, no está entre los materiales **con stock** | Elegir alternativa 1 o 2 |
+| **C** Candidato a baja | 864 | Stock en SAP que ningún inventario identificó en esa base | Proponer baja |
 | **D** Requiere revisión | 402 | No se resuelve solo | Revisar y decidir |
 | **E** Fuera del alcance | 410 | Indumentaria, equipos y repuestos | **No concluir nada** |
+| **F** En SAP sin stock | 30 | Material de Farmacia con existencia **cero** | Depurar el maestro |
 
-**Por qué existe la E:** el inventario relevado es de Farmacia. Los materiales que no son
-medicamentos ni descartables nunca iban a figurar en él, así que su ausencia no prueba
-nada. Tratarlos como candidatos a baja sería una conclusión falsa.
+**Por qué existen la E y la F:** las dos salen de la misma pregunta —¿qué significa que un
+material de SAP no aparezca en el inventario?— y en las dos proponer una baja sería una
+conclusión falsa.
+
+- **E.** El inventario relevado es de Farmacia. Los materiales que no son medicamentos ni
+  descartables nunca iban a figurar en él, así que su ausencia no prueba nada.
+- **F.** Figuran con existencia cero: **no hay stock que dar de baja**. Lo que corresponde
+  decidir es qué pasa con el *registro* en el maestro. Salieron de la clase C, donde
+  proponer una baja no tenía sentido.
 
 ---
 
@@ -213,10 +305,16 @@ sistema y están marcados en el Excel.
 
 ## El Excel
 
-Once hojas: `Resumen` (indicadores, todos fórmulas sobre `Casos`), `Casos` (el detalle
-completo, 37 columnas), las cinco hojas operativas `A` a `E`, `Lotes` (trazabilidad al
-lote original), `Decisiones` (historial), `Control` (integridad contra las fuentes, con
-fórmulas vivas) y `Metodología`.
+Quince hojas: `Resumen` (indicadores, todos fórmulas sobre `Casos`), `Casos` (el detalle
+completo, **50 columnas**), las seis hojas operativas `A` a `F`, `Almacenes` (la propuesta
+por base y tipo, con lo observado y lo que hay que validar), `Depuración del maestro`
+(política, excepciones y decisiones individuales), `Lotes` (trazabilidad al lote original),
+`Nomenclaturas unificadas`, `Decisiones` (historial), `Control` (integridad contra las
+fuentes, con fórmulas vivas) y `Metodología`.
+
+En la hoja `Casos`, las columnas **AN a AS** son la ubicación del stock y las **AT a AX**,
+la alternativa elegida en la clase B. Se agregaron al final a propósito, para no mover
+ninguna letra de las fórmulas que ya estaban.
 
 Tiene fórmulas reales —`COUNTIFS`, `SUMIFS`, `SUBTOTAL`—, formatos numéricos y de fecha,
 filtros, panel fijo y anchos de columna. Los totales usan `SUBTOTAL`, así que **respetan
@@ -228,10 +326,14 @@ el filtro aplicado**.
   navegador real, sin errores de JavaScript.
 - El Excel exportado se abrió y recalculó: los 1.991 casos y todos los cortes por base y
   por tipo coinciden con el sistema.
-- El PDF tiene 85 páginas; cada número de página impreso coincide con la página real y
-  cada entrada del índice cae en su sección.
+- El PDF tiene 20 páginas; cada número de página impreso coincide con la página real y
+  cada entrada del índice cae en su sección. Ninguna hoja se pasa de alto, lo que se
+  comprueba midiendo el contenido renderizado antes de imprimir.
 - Los controles de integridad comparan los totales del sistema contra los de los archivos
-  originales: los 7 cierran.
+  originales: los 10 cierran.
+- Hay una auditoría reproducible en `scripts/v3/auditar.py`: compara el dataset contra lo
+  que efectivamente quedó escrito en el Excel recalculado, en el texto del PDF y en el
+  HTML del sistema. Son 79 comprobaciones y pasan todas.
 
 ## Los archivos originales no se tocaron
 
