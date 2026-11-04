@@ -24,6 +24,12 @@ B_ALTA    = "B · Sin correspondencia con stock"
 C_BAJA    = "C · Candidato a baja"
 D_REVISAR = "D · Requiere revisión"
 E_FUERA   = "E · Fuera del alcance"
+# Materiales que la bajada trae con existencia CERO. No son candidatos a baja de
+# stock —no hay stock que dar de baja— sino registros del maestro sobre los que
+# hay que decidir. Son la punta visible del universo de depuración: el maestro
+# completo, donde estarían todos los materiales en cero, no está entre los
+# archivos recibidos.
+F_SIN_STOCK = "F · En SAP sin stock"
 
 ACC_MANTENER = "Mantener identificación"
 ACC_ALTA     = "Verificar en el maestro completo de SAP"
@@ -31,6 +37,7 @@ ACC_BAJA     = "Proponer baja en SAP"
 ACC_REVISAR  = "Revisar y decidir"
 ACC_NADA     = "No concluir · fuera del alcance"
 ACC_REGISTRAR= "Registrar existencia en SAP en esta base"
+ACC_DEPURAR  = "Revisar para depuración del maestro"
 
 # El inventario relevado es de Farmacia. Los materiales que no son medicamentos
 # ni descartables nunca iban a aparecer en él, así que su ausencia no prueba
@@ -169,8 +176,19 @@ def candidatos_baja(fichas, maestro):
                 continue
             en_revision = (m in sugeridos[base]) and not fuera
             en_otra = sorted(bb for bb in ident_por_base if m in ident_por_base[bb])
+            sin_stock = (b["stock"] or 0) <= 0
 
-            if fuera:
+            if sin_stock and not fuera:
+                just = ("Figura en la bajada de SAP con existencia CERO en esta base. "
+                        "No hay stock que dar de baja: lo que corresponde decidir es qué "
+                        "pasa con el REGISTRO en el maestro —se mantiene, se bloquea o se "
+                        "da de baja—. Atención con el alcance: la bajada recibida son los "
+                        "materiales con stock, así que éste es uno de los pocos materiales "
+                        "en cero que quedaron a la vista, no todos los que el maestro tiene "
+                        "en cero.")
+                if en_otra:
+                    just += (f" El código está en uso en {', '.join(en_otra)}.")
+            elif fuera:
                 just = (f"Es un material de tipo {nombre_tipo}. El inventario relevado "
                         "es de Farmacia, así que este material nunca iba a figurar en "
                         "él: su ausencia no permite concluir nada y no se propone "
@@ -199,11 +217,16 @@ def candidatos_baja(fichas, maestro):
                 "codigo_fisico": None, "nombre_fisico": None,
                 "cantidad_fisica": 0.0, "lotes": [], "n_lotes": b["filas"],
                 "tipo": nombre_tipo,
-                "clasificacion": E_FUERA if fuera else C_BAJA,
-                "accion": ACC_NADA if fuera else (ACC_REVISAR if en_revision else ACC_BAJA),
+                "clasificacion": (E_FUERA if fuera else
+                                  F_SIN_STOCK if sin_stock else C_BAJA),
+                "accion": (ACC_NADA if fuera else
+                           ACC_DEPURAR if sin_stock else
+                           ACC_REVISAR if en_revision else ACC_BAJA),
                 "motivo": (f"No es medicamento ni descartable: {nombre_tipo}" if fuera
+                           else "Existencia cero en SAP" if sin_stock
                            else ("Citado como posible equivalencia en un caso a revisar"
                                  if en_revision else None)),
+                "material_sin_stock": sin_stock,
                 "bloqueado_por_revision": en_revision,
                 "material_sap": m, "material_sugerido": None,
                 "texto_sap": d["texto"],
@@ -217,3 +240,54 @@ def candidatos_baja(fichas, maestro):
                 "observaciones": "",
             })
     return out
+
+
+def agregar_ubicacion(casos, det, prop):
+    """Agrega a cada caso dónde está registrado su stock y si esa ubicación
+    corresponde a la propuesta. No modifica ninguna asignación: sólo compara.
+
+    `det` es {(base, material): {almacen: stock}} y `prop` la propuesta de
+    almacén esperado por (base, tipo de material).
+
+    La identificación y la ubicación son dos cosas distintas: un material bien
+    identificado puede figurar en el almacén equivocado.
+    """
+    import almacenes as AL
+    for c in casos:
+        mats = [c["material_sap"]] if c.get("material_sap") else []
+        if not mats:
+            c.update(almacen_estado=None, almacenes=[], almacen_esperado=None,
+                     almacen_actual=None, almacen_propuesto=None,
+                     almacen_nota=("Sin código SAP asignado: no hay ubicación que "
+                                   "controlar."
+                                   if c["origen"] == "Inventario físico" else None))
+            continue
+        ubic = {}
+        for m in mats:
+            for a, u in det.get((c["base"], m), {}).items():
+                ubic[a] = ubic.get(a, 0) + u
+        esperado = prop.get((c["base"], c["tipo"]))
+        estado, esp, detalle = AL.clasificar_ubicacion(ubic, esperado)
+        actual = detalle[0]["almacen"] if len(detalle) == 1 else None
+        c.update(
+            almacen_estado=estado,
+            almacenes=detalle,
+            almacen_actual=actual,
+            almacen_esperado=esp,
+            almacen_nota={
+                AL.OK: "El stock está en el almacén propuesto para esta base y tipo.",
+                AL.A_CAMBIAR: ("El stock está en un almacén distinto del propuesto. Es un "
+                               "problema de ubicación, no de identificación: el material "
+                               "está bien, el lugar donde figura no. Evaluarlo con el "
+                               "responsable de la base."),
+                AL.VALIDAR: ("No hay una propuesta de almacén para esta base y tipo: hay "
+                             "que definirla antes de poder concluir nada."),
+                AL.MULTIPLE: ("El mismo material tiene stock en más de un almacén de la "
+                              "misma base. No se consolidó nada: se conservan las "
+                              "cantidades de cada ubicación."),
+                AL.NO_IDENT: "La bajada no trae código de almacén para este stock.",
+                AL.SIN_STOCK: "No hay stock, así que no hay ubicación que controlar.",
+            }.get(estado),
+            almacen_propuesto=None,          # lo completa una decisión del usuario
+        )
+    return casos

@@ -4,13 +4,13 @@
 Que los tres salgan de acá es lo que garantiza que las cifras coincidan.
 """
 import json, os, datetime, collections
-import fuentes, cruce_estricto as C, clasificar as K, valorizar as V
+import fuentes, cruce_estricto as C, clasificar as K, valorizar as V, almacenes as AL
 
 RAIZ = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SALIDA_JSON = os.path.join(RAIZ, "sistema", "datos.json")
 SALIDA_JS   = os.path.join(RAIZ, "sistema", "datos.js")
 
-CLASES = [K.A_IDENT, K.B_ALTA, K.C_BAJA, K.D_REVISAR, K.E_FUERA]
+CLASES = [K.A_IDENT, K.B_ALTA, K.C_BAJA, K.D_REVISAR, K.E_FUERA, K.F_SIN_STOCK]
 
 
 def construir():
@@ -25,21 +25,40 @@ def construir():
     casos = fichas + bajas
     for f in casos:
         V.valorizar(f, sap)
+    # ---- ubicación: centro y almacén son campos distintos y se tratan aparte
+    tipo_de = {m: K.NOMBRE_TIPO.get(d["tipo"], d["tipo"]) for m, d in sap.items()}
+    det, comp, por_tipo = AL.inventario(sap, lambda m: tipo_de.get(m, ""))
+    prop, filas_prop = AL.proponer(por_tipo, fuentes.BASES)
+    K.agregar_ubicacion(casos, det, prop)
+
     for i, f in enumerate(casos):
         f["n"] = i + 1
         f["candidatos"] = f.get("candidatos", [])[:5]
 
+    alm = {
+        "propuesta": filas_prop,
+        "observados": sorted({a for (_, a) in comp if a}),
+        "por_base": AL.almacenes_por_base(comp),
+        "falta": AL.FALTANTES,
+        "nota": ("A qué base pertenece cada almacén está OBSERVADO en la bajada: cada "
+                 "código de almacén aparece bajo un único centro. Qué almacén DEBERÍA "
+                 "tener el stock de Farmacia es una PROPUESTA deducida de la composición "
+                 "observada de cada almacén, y hay que validarla con cada base. Ninguna "
+                 "correspondencia se supuso por parecido de nombres ni de códigos."),
+    }
+
     control = _control(fis, sap, casos)
     return {
-        "meta": _meta(fis, sap, casos),
+        "meta": _meta(fis, sap, casos, alm),
         "casos": casos,
         "kpis": _kpis(casos),
         "control": control,
     }
 
 
-def _meta(fis, sap, casos):
+def _meta(fis, sap, casos, alm):
     return {
+        "almacenes": alm,
         "generado": datetime.date.today().isoformat(),
         "criterio": ("El universo del análisis son los ítems de los inventarios "
                      "físicos. Cada uno se cruza contra los materiales que HOY tienen "
@@ -81,6 +100,22 @@ def _meta(fis, sap, casos):
         "tipos": sorted({f["tipo"] for f in casos}),
         "motivos_revision": sorted({f["motivo"] for f in casos
                                     if f["clasificacion"] == K.D_REVISAR and f["motivo"]}),
+        "depuracion": {
+            "que_es": ("Materiales que figuran en SAP con existencia CERO. No son "
+                       "candidatos a baja de stock: son registros del maestro sobre los "
+                       "que hay que decidir si se mantienen, se bloquean o se dan de baja."),
+            "alcance": ("Lo que se ve es la punta visible. La bajada recibida trae los "
+                        "materiales CON stock; éstos aparecieron igual en cero. Cuántos "
+                        "materiales tiene el maestro completo en existencia cero no se "
+                        "puede saber con los archivos recibidos."),
+            "acciones": ["Mantener", "Bloquear", "Dar de baja del maestro"],
+            "falta": [
+                "El maestro completo de materiales de SAP.",
+                "La fecha del último movimiento de cada material.",
+                "Si el material está incluido en algún contrato, protocolo o vademécum vigente.",
+                "Quién autoriza la baja de un registro del maestro y con qué circuito.",
+            ],
+        },
     }
 
 
@@ -97,6 +132,8 @@ def _kpis(casos):
         "candidatos_baja": por_clase[K.C_BAJA],
         "en_revision": por_clase[K.D_REVISAR],
         "fuera_alcance": por_clase[K.E_FUERA],
+        "sin_stock_sap": por_clase[K.F_SIN_STOCK],
+        "almacen": AL.resumen(casos),
         "pendientes_valorizacion": cuenta(
             lambda f: f["estado_valorizacion"] == V.PENDIENTE),
         "valorizacion_total": None,
