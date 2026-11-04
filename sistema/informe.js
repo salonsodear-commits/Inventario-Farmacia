@@ -42,15 +42,8 @@ var Informe = (function () {
   function et(l) {
     return '<span class="eti ' + l + '">' + l + "</span>";
   }
-
-  /* Una tabla larga se registra como bloque y se reparte más tarde midiendo el
-     alto real de cada fila: las filas no miden todas lo mismo (unas llevan una
-     segunda línea, otras no), así que un número fijo por página desbordaría. */
-  function tablaPaginada(titulo, seccion, intro, cabeceras, filas, clases) {
-    paginas.push({ tabla: true, titulo: titulo, seccion: seccion, intro: intro,
-                   cabeceras: cabeceras, filas: filas, clases: clases,
-                   ancla: anclaPendiente });
-    anclaPendiente = null;
+  function alt(n) {
+    return '<span class="eti alt' + n + '">' + n + "</span>";
   }
 
   // ---------------------------------------------------------- construcción
@@ -156,26 +149,32 @@ var Informe = (function () {
 
     marcar("Clasificación y cursos de acción", 1);
     pagina("4 · Clasificación de los casos y cursos de acción", `
-      <p>Cada caso recibe una clasificación, un curso de acción sugerido y un estado de
-      revisión.</p>` +
+      <p>Cada caso recibe una clasificación, un curso de acción y un estado de revisión.</p>` +
       tabla(["", "Clasificación", "Qué significa", "Curso de acción"], [
         [et("A"), "Identificado en SAP", "Existe físicamente y se encontró un código cuya nomenclatura y presentación se corresponden.", "Mantener la identificación. No se propone alta."],
         [et("B"), "Sin correspondencia con stock", "Existe físicamente y no se encontró correspondencia entre los materiales que HOY tienen stock en SAP.", "Verificar primero en el maestro completo si ya existe sin stock. Recién después, proponer el alta."],
         [et("C"), "Candidato a baja", "Material con stock en SAP que ningún inventario físico identificó en esa base.", "Proponer la baja del stock de esa base."],
         [et("D"), "Requiere revisión", "Coincidencia parcial, diferencia de presentación, varios códigos posibles o nomenclatura insuficiente.", "Revisar y decidir. No se resuelve automáticamente."],
         [et("E"), "Fuera del alcance", "Indumentaria, equipamiento y repuestos.", "No concluir nada."],
+        [et("F"), "En SAP sin stock", "Material de Farmacia que figura en la bajada con existencia CERO.", "No hay stock que dar de baja: decidir qué pasa con el registro en el maestro."],
       ], ["eti-col"]) + `
-      <h4>Por qué existe la clasificación E</h4>
-      <p>De los materiales con stock en SAP, una parte no son medicamentos ni descartables: son
-      indumentaria, equipamiento y repuestos. El inventario relevado es <b>de Farmacia</b>, así
-      que esos materiales nunca iban a figurar en él. Tratar su ausencia como motivo de baja
-      sería una conclusión falsa, y por eso se apartan en una clase propia con la acción
-      explícita de no concluir nada.</p>
+      <h4>Por qué existen las clasificaciones E y F</h4>
+      <p>Las dos salen de la misma pregunta: ¿qué significa que un material de SAP no aparezca
+      en el inventario? Hay dos casos donde proponer una baja sería una conclusión falsa.</p>
+      <p><b>E.</b> De los materiales con stock en SAP, una parte no son medicamentos ni
+      descartables: son indumentaria, equipamiento y repuestos. El inventario relevado es
+      <b>de Farmacia</b>, así que esos materiales nunca iban a figurar en él. Tratar su
+      ausencia como motivo de baja sería una conclusión falsa, y por eso se apartan con la
+      acción explícita de no concluir nada.</p>
+      <p><b>F.</b> Otra parte figura en la bajada con <b>existencia cero</b>. Proponer su baja
+      no tiene sentido, porque no hay stock que dar de baja. Lo que corresponde decidir es qué
+      pasa con el <b>registro</b> en el maestro: se mantiene, se bloquea o se da de baja. Es
+      una decisión de otra naturaleza y tiene su propia sección en este informe.</p>
       <h4>Las propuestas no son acciones ejecutadas</h4>
-      <p>La propuesta de trabajo conversada —crear lo no encontrado y dar de baja lo restante—
-      se interpreta aquí como <b>criterio de clasificación, no como autorización</b>. Nada de
-      este trabajo modifica SAP. Las altas y las bajas figuran como propuestas sujetas a
-      revisión y aprobación, y el sistema registra quién aprueba o rechaza cada una.</p>
+      <p>Crear lo no encontrado y dar de baja lo restante se interpreta acá como <b>criterio de
+      clasificación, no como autorización</b>. Nada de este trabajo modifica SAP: las altas y
+      las bajas son propuestas sujetas a revisión, y el sistema registra quién decide cada
+      una.</p>
       <p class="aviso"><b>Dependencia a tener presente.</b> La lista de candidatos a baja es
       provisional mientras queden casos en revisión: si un caso se resuelve identificando un
       material, ese material deja de ser candidato a baja. Hoy hay
@@ -246,7 +245,8 @@ var Informe = (function () {
        ["B", t.B, "Pendientes de alta", "físicos sin correspondencia"],
        ["C", t.C, "Candidatos a baja", "material SAP sin identificar"],
        ["D", t.D, "En revisión", "no se resuelven solos"],
-       ["E", t.E, "Fuera del alcance", "no son de Farmacia"]]
+       ["E", t.E, "Fuera del alcance", "no son de Farmacia"],
+       ["F", t.F, "En SAP sin stock", "se depura el maestro"]]
       .map(function (x) {
         return '<div class="kpi ' + x[0] + '"><div class="n">' + num(x[1]) +
           '</div><div class="t">' + x[2] + '</div><div class="d">' + x[3] + "</div></div>";
@@ -270,6 +270,15 @@ var Informe = (function () {
         <li><b>` + num(k.sin_stock_en_base) + ` ítems están identificados pero SAP no registra
         stock de ese material en su base.</b> Hay existencia física y el código existe: no son
         altas, hay que registrar la existencia o revisar en qué centro está cargada.</li>
+        <li><b>` + num(t.F) + ` materiales figuran en SAP con existencia cero.</b> No son
+        candidatos a baja de stock: lo que hay que decidir es qué pasa con el registro en el
+        maestro. Son la punta visible de un universo de depuración que no se puede dimensionar
+        sin el maestro completo.</li>
+        <li><b>La ubicación es un problema aparte.</b> De los materiales con stock,
+        <b>` + num((k.almacen || {})["Almacén a cambiar"] || 0) + ` figuran en un almacén
+        distinto del propuesto</b> y <b>` + num((k.almacen || {})["Material en múltiples almacenes"] || 0) + `
+        están repartidos en varios</b>. Están bien identificados: lo que no coincide es el
+        lugar. No son altas ni bajas.</li>
         <li><b>No hay valorización</b>: el precio de última compra no está en los archivos
         recibidos. Los ` + num(k.pendientes_valorizacion) + ` casos están pendientes.</li>
       </ul>
@@ -316,8 +325,8 @@ var Informe = (function () {
       <b>` + num(k.confianza.Media || 0) + ` de confianza media</b>, que conviene repasar
       primero. El sistema permite filtrarlas.</p>`, "Parte 2");
 
-    marcar("Valorización y controles", 1);
-    pagina("9 · Resultados de la valorización y controles de integridad", `
+    marcar("Valorización", 1);
+    pagina("9 · Resultados de la valorización", `
       <h4>Valorización por precio de última compra</h4>` +
       tabla(["Concepto", "Resultado"], [
         ["Criterio aplicado", "<b>Precio de última compra</b>"],
@@ -334,20 +343,31 @@ var Informe = (function () {
         m.clases.map(function (cl) {
           return [esc(cl), pesos(k.referencia_sap[cl])];
         }), ["", "n"]) + `
-      <p class="nota">La clasificación B no tiene referencia porque esos ítems no tienen código
-      de SAP, y la D tampoco porque su material todavía no está confirmado.</p>
-      <h4>Controles de integridad contra las fuentes</h4>` +
+      <p class="nota">Las clasificaciones B y D no tienen referencia porque todavía no tienen
+      un código de SAP confirmado, y la F tampoco porque no tiene stock.</p>`, "Parte 2");
+
+    marcar("Controles de integridad", 1);
+    pagina("10 · Controles de integridad contra las fuentes", `
+      <p>Antes de mirar ningún resultado conviene saber si las cifras cierran. Estos controles
+      comparan lo que informa el sistema contra los totales de los archivos originales,
+      renglón por renglón.</p>` +
       tabla(["Control", "En la fuente", "En el sistema", "Estado"],
         d.control.map(function (c) {
           return [esc(c.control), num(c.fuente), num(c.sistema),
                   '<b class="' + (c.estado === "Coincide" ? "ok" : "") + '">' + esc(c.estado) + "</b>"];
         }), ["", "n", "n", ""]) + `
-      <p class="nota">Los controles comparan lo que informa el sistema contra los totales de los
-      archivos originales. En el Excel exportado son fórmulas vivas: si alguien corrige un dato
-      y deja de cerrar, el estado cambia solo.</p>`, "Parte 2");
+      <p class="nota">En el Excel exportado son fórmulas vivas: si alguien corrige un dato y
+      deja de cerrar, el estado cambia solo. Ahí se agregan además tres controles sobre las
+      decisiones nuevas: que toda alternativa 2 tenga su riesgo registrado, que toda decisión
+      de ubicación defina un almacén destino, y que todo stock de SAP tenga un estado de
+      ubicación.</p>
+      <p class="aviso"><b>Qué prueban y qué no.</b> Que los ítems y las unidades coincidan con
+      los PDF originales prueba que no se perdió ni se duplicó nada al leerlos. No prueba que
+      el recuento físico sea correcto: eso depende de cómo se hizo el inventario en cada base,
+      y queda fuera de este trabajo.</p>`, "Parte 2");
 
     marcar("Estado de la gestión", 1);
-    pagina("10 · Estado de la gestión de decisiones", `
+    pagina("11 · Estado de la gestión de decisiones", `
       <p>El sistema registra qué se decidió, quién lo decidió y cuándo. Este informe refleja el
       estado al momento de generarlo.</p>` +
       tabla(["Estado", "Casos"], [
@@ -396,84 +416,212 @@ var Informe = (function () {
       })(), "Parte 2");
 
     // ---- PARTE 3 · detalle
-    marcar("Parte 3 · Detalle y próximos pasos", 0);
-    var CAB = ["Nº", "Base", "Código SAP", "Ítem del inventario físico / material SAP",
-               "Cant.", "Estado", "Decisión"];
-    var CLS = ["n", "", "", "", "n", "", ""];
-    function filasDe(pred, mostrarSap) {
-      return d.casos.filter(pred).map(function (c) {
-        var e = ef(c);
-        var nom = esc(c.nombre_fisico || c.texto_sap);
-        if (mostrarSap && c.nombre_fisico && c.texto_sap)
-          nom += '<div class="sub2">SAP: ' + esc(c.texto_sap) + "</div>";
-        if (c.motivo) nom += '<div class="sub2">' + esc(c.motivo) + "</div>";
-        return [num(c.n), esc(c.base), esc(e.material || c.material_sugerido || "—"), nom,
-                num(c.origen === "Inventario físico" ? c.cantidad_fisica : c.stock_sap),
-                esc(e.estado_revision), esc(e.aprobacion)];
-      });
-    }
-    marcar("Detalle · identificados", 1);
-    tablaPaginada("11 · Detalle de los materiales identificados en SAP", "Parte 3",
-      "Ítems del inventario físico con un código de SAP verificado por nomenclatura y " +
-      "presentación. No requieren alta. La justificación completa de cada uno está en el " +
-      "sistema y en el Excel.",
-      CAB, filasDe(function (c) { return L(c) === "A"; }, true), CLS, 30);
+    // ---- PARTE 3 · las tres dimensiones que se deciden aparte
+    marcar("Parte 3 · Las decisiones", 0);
 
-    marcar("Detalle · propuestas de alta", 1);
-    tablaPaginada("12 · Detalle de los ítems sin correspondencia con stock", "Parte 3",
-      "Ítems que existen físicamente y para los que no se encontró en SAP ningún material " +
-      "cuya nomenclatura y presentación se correspondan. Son PROPUESTAS de alta, sujetas a " +
-      "revisión y aprobación.",
-      CAB, filasDe(function (c) { return L(c) === "B"; }, false), CLS, 30);
+    marcar("Ubicación del stock", 1);
+    var al = k.almacen || {}, am = m.almacenes;
+    pagina("12 · Ubicación del stock: centros y almacenes", `
+      <p>El <b>centro</b> es la base; el <b>almacén</b> es el depósito dentro de esa base.
+      Son dos campos distintos de SAP y hasta acá sólo se había mirado el centro. Hay tres
+      cuestiones independientes y conviene no mezclarlas: si el material está bien
+      <b>identificado</b>, si tiene <b>stock</b>, y si ese stock está en el <b>almacén que
+      corresponde</b>. Un material perfectamente identificado puede figurar en el almacén
+      equivocado, y eso no lo convierte en candidato a alta ni a baja.</p>
+      <h4>Cómo quedó la ubicación de los materiales con stock</h4>` +
+      tabla(["Estado", "Casos", "Qué significa"], [
+        ["Almacén correcto", num(al["Almacén correcto"] || 0), "El stock está en el almacén propuesto para esa base y tipo."],
+        ["Almacén a cambiar", num(al["Almacén a cambiar"] || 0), "Figura en un almacén distinto del propuesto. Hay que evaluar el cambio con la base."],
+        ["En varios almacenes", num(al["Material en múltiples almacenes"] || 0), "El mismo material tiene stock en más de un almacén de la misma base. No se consolidó nada."],
+        ["Pendiente de validar", num((al["Almacén pendiente de validación"] || 0) + (al["Almacén no identificado"] || 0)), "No hay propuesta de almacén para esa base y tipo, o la bajada no trae el código."],
+      ], ["", "n", ""]) + `
+      <h4>Almacén esperado por base y tipo · propuesta a validar</h4>` +
+      tabla(["Base", "Tipo", "Almacén", "Confianza", "Otros almacenes de la base con stock de ese tipo"],
+        (am.propuesta || []).map(function (p) {
+          var otros = (p.alternativas || []).filter(function (x) { return x.almacen !== p.almacen; });
+          return [esc(p.base), esc(p.tipo), "<b>" + esc(p.almacen || "—") + "</b>",
+                  esc(p.confianza),
+                  otros.length ? otros.map(function (x) {
+                    return esc(x.almacen) + " (" + num(x.unidades) + " un.)"; }).join(" · ") : "—"];
+        }), ["", "", "", "", ""]) + `
+      <p class="nota"><b>Clara</b> significa que el almacén propuesto concentra el grueso del
+      stock de ese tipo y los otros quedan muy por detrás. <b>Ambigua</b> significa que un
+      segundo almacén también concentra volumen y la propuesta <b>no es concluyente</b>: ahí
+      hace falta preguntarle a la base. Hoy la única ambigua es Neuquén · Descartables.</p>`,
+      "Parte 3");
 
-    marcar("Detalle · casos a revisar", 1);
-    tablaPaginada("13 · Detalle de los casos que requieren revisión", "Parte 3",
-      "No se resuelven automáticamente porque el criterio no admite asignar un código sin que " +
-      "la correspondencia esté justificada por las características. Cada fila indica el motivo " +
-      "y, cuando existe, el código candidato sin confirmar.",
-      CAB, filasDe(function (c) { return L(c) === "D"; }, true), CLS, 30);
+    pagina("12 · Ubicación del stock (continuación)", `
+      <h4>Qué está observado y qué es una propuesta</h4>
+      <p>La distinción es importante porque las dos cosas se parecen y no valen lo mismo.</p>
+      <p><b>Observado:</b> a qué base pertenece cada almacén. En la bajada, cada código de
+      almacén aparece bajo un único centro, así que eso <b>no es una suposición</b>: está en
+      el archivo. Los almacenes observados son <b>` + (am.observados || []).length + `</b>,
+      repartidos así:</p>` +
+      tabla(["Base", "Almacenes que aparecen en la bajada"],
+        Object.keys(am.por_base || {}).map(function (b) {
+          return [esc(b), esc((am.por_base[b] || []).join(" · "))]; })) + `
+      <p class="aviso"><b>Propuesta a validar:</b> qué almacén <i>debería</i> contener el
+      stock de Farmacia en cada base <b>no está en ningún archivo recibido</b>. Se propone a
+      partir de la composición observada de cada almacén —qué materiales y cuántas unidades
+      concentra—, <b>nunca por parecido de nombres ni de códigos</b>. Hay que validarla con
+      cada base antes de concluir nada.</p>
+      <h4>Qué falta para cerrar esta parte</h4>
+      <ul>` + (am.falta || []).map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + `</ul>
+      <p class="aviso"><b>Nada de esto mueve stock.</b> Una decisión de ubicación registrada
+      en el sistema es una propuesta de traslado, o una corrección del almacén esperado: la
+      ejecución en SAP es un paso posterior. El detalle material por material está en el
+      Excel, hoja «Casos», columnas AN a AS.</p>`, "Parte 3");
 
-    marcar("Detalle · propuestas de baja", 1);
-    tablaPaginada("14 · Detalle de los materiales propuestos para baja", "Parte 3",
-      "Materiales con stock en SAP que ningún inventario físico identificó en esa base. Son " +
-      "PROPUESTAS de baja, sujetas a revisión y aprobación, y provisionales mientras queden " +
-      "casos en revisión.",
-      CAB, filasDe(function (c) { return L(c) === "C"; }, false), CLS, 32);
+    marcar("Las dos alternativas de la clase B", 1);
+    var rb = { ruta: 0, verif: 0, crear: 0, cerrado: 0, no: 0 };
+    d.casos.forEach(function (c) {
+      if (L(c) !== "B") return;
+      var e = ef(c);
+      if (e.aprobacion === "Rechazado") { rb.no++; return; }
+      if (!e.ruta_b) { rb.ruta++; return; }
+      if (e.ruta_b === App.RB.CREAR) { rb.crear++; return; }
+      if (!e.verificacion) { rb.verif++; return; }
+      rb.cerrado++;
+    });
+    pagina("13 · Los ítems sin correspondencia: dos alternativas, no una", `
+      <p>Son <b>` + num(t.B) + ` ítems</b> que existen en el depósito y no aparecieron entre
+      los materiales que <b>hoy tienen stock</b> en SAP. Eso <b>no prueba que no existan en
+      SAP</b>: la bajada recibida no es el maestro completo, así que el material puede estar
+      dado de alta con existencia cero. Por eso el trabajo no es «dar de alta»: es elegir
+      expresamente cómo se trabaja cada caso, entre dos alternativas.</p>` +
+      tabla(["", "Alternativa", "Qué implica", "Qué riesgo tiene"], [
+        [alt(1), "<b>Verificar antes de crear</b>", "Se consulta el maestro completo antes de crear nada. Si el material ya existe con stock cero, se decide si se reutiliza el código o se da de baja y se crea de nuevo.", "Ninguno sobre los datos. El costo es de tiempo: hace falta el maestro completo, que no está entre los archivos recibidos, y el caso queda abierto hasta tenerlo."],
+        [alt(2), "<b>Crear igual, sin verificar</b>", "Se avanza con el alta aunque no se haya verificado el maestro. El sistema no lo impide: lo pregunta expresamente, exige confirmar que se entiende el riesgo y registra quién lo decidió.", "<b>Código duplicado.</b> Si el material ya existía con stock cero, queda el mismo producto abierto dos veces, con el stock, los consumos, los precios y el histórico partidos entre los dos códigos. El código viejo sigue vivo hasta que alguien lo depure."],
+      ], ["eti-col"]) + `
+      <h4>Cómo están hoy esos ` + num(t.B) + ` ítems</h4>` +
+      tabla(["Estado", "Casos"], [
+        ["Sin alternativa elegida", num(rb.ruta)],
+        ["Alternativa 1 · esperando el resultado de la consulta al maestro", num(rb.verif)],
+        ["Alternativa 1 · verificación ya cargada y caso cerrado", num(rb.cerrado)],
+        ["Alternativa 2 · crear sin verificar, con el riesgo asumido", num(rb.crear)],
+        ["Se decidió no darlos de alta", num(rb.no)],
+      ], ["", "n"]) + `
+      <p class="aviso"><b>La decisión de crear sin verificar y la de depurar el maestro están
+      ligadas.</b> Son las dos caras de lo mismo: si se crea un código nuevo sin haber mirado
+      el maestro, el código viejo —si existe— hay que encontrarlo y limpiarlo. Por eso cada
+      caso que toma la alternativa 2 queda anotado en el plan de depuración de la sección
+      siguiente.</p>`, "Parte 3");
+
+    marcar("Depuración del maestro", 1);
+    var uni = App.universoDep();
+    var cu = { "": 0 }, exc = 0;
+    App.DP.ACCIONES.forEach(function (x) { cu[x] = 0; });
+    uni.forEach(function (u) {
+      var acc = App.accionDep(u.codigo);
+      cu[acc.accion] = (cu[acc.accion] || 0) + 1;
+      if (acc.excepcion) exc++;
+    });
+    var pol = App.depuracion().politica;
+    pagina("14 · Depuración del maestro de materiales", `
+      <p>Al separar los candidatos a baja apareció un grupo que no era lo que parecía:
+      <b>` + num(t.F) + ` materiales que figuran en SAP con existencia CERO</b>. Proponer su
+      baja no tiene sentido, porque <b>no hay stock que dar de baja</b>. Lo que corresponde
+      decidir es otra cosa: qué pasa con el <b>registro</b> en el maestro.</p>` +
+      tabla(["Acción posible", "Qué hace", "Qué tan reversible es"], [
+        ["<b>Mantener</b>", "El registro queda como está.", "Lo más conservador: no se pierde histórico ni se rompe ninguna referencia, pero el maestro sigue creciendo."],
+        ["<b>Bloquear</b>", "El material no se puede usar en documentos nuevos; el registro y su histórico se conservan.", "El camino intermedio y el reversible: si hizo falta, se desbloquea."],
+        ["<b>Dar de baja del maestro</b>", "Se propone eliminar el registro.", "El más drástico y el más difícil de volver atrás: hay que estar seguro de que no queda ninguna referencia viva."],
+      ]) + `
+      <h4>El alcance real de esta depuración</h4>
+      <p class="aviso"><b>Lo que se ve no es todo el universo a depurar.</b> La bajada recibida
+      trae los materiales <b>con stock</b>; estos ` + num(t.F) + ` aparecieron igual con
+      existencia cero y son la <b>punta visible</b>. Cuántos materiales tiene el maestro
+      completo en cero <b>no se puede saber con los archivos recibidos</b>. El sistema permite
+      importar el maestro completo en CSV: con eso el universo se completa solo.</p>
+      <h4>Cómo está la depuración hoy</h4>` +
+      tabla(["", ""], [
+        ["Materiales sin stock a la vista", num(uni.length)],
+        ["Política masiva vigente", pol ? esc(pol.accion) + " · " + esc(pol.criterio) : "sin definir"],
+        ["Sin decidir", num(cu[""] || 0)],
+        ["Mantener", num(cu[App.DP.MANT] || 0)],
+        ["Bloquear", num(cu[App.DP.BLOQ] || 0)],
+        ["Dar de baja del maestro", num(cu[App.DP.BAJA] || 0)],
+        ["Excepciones registradas a la política masiva", num(exc)],
+      ], ["", "n"]) + `
+      <p>Se puede decidir material por material o fijar una <b>política masiva</b> para todo
+      el conjunto. La decisión individual <b>manda sobre la masiva</b>: cuando difiere, el
+      material queda anotado como <b>excepción</b>, con su motivo escrito. Así una limpieza
+      masiva no borra los casos que había que mirar de cerca.</p>
+      <h4>Qué falta para poder ejecutarla</h4>
+      <ul>` + (m.depuracion.falta || []).map(function (x) {
+        return "<li>" + esc(x) + "</li>"; }).join("") + `</ul>`, "Parte 3");
+
+    marcar("Dónde está el detalle", 1);
+    pagina("15 · Dónde está el detalle de cada caso", `
+      <p>Este informe <b>no lleva el listado de los ` + num(k.total_casos) + ` casos</b>.
+      Imprimir cada material uno por uno daría decenas de páginas que nadie lee y que quedan
+      desactualizadas apenas se toma la primera decisión. El detalle vive donde se puede
+      filtrar, ordenar y actualizar.</p>` +
+      tabla(["Si hace falta…", "Dónde está"], [
+        ["Ver un material puntual con toda su justificación", "En el <b>sistema</b>, solapa «Buscar»: filtra por base, tipo, clasificación, almacén, estado y texto libre. Cada ficha trae la comparación característica por característica."],
+        ["Trabajar una lista completa en Excel", "En el archivo <b>«Inventario fisico vs SAP - analisis.xlsx»</b>, hoja «Casos»: una fila por caso, " + num(50) + " columnas, con autofiltro y fórmulas vivas."],
+        ["Una lista por clasificación", "Mismo Excel, hojas «A Identificados», «B Verificar en el maestro», «C Propuestas de baja», «D A revisar», «E Fuera del alcance» y «F Maestro sin stock»."],
+        ["La ubicación de cada material", "Excel, hoja «Casos» columnas AN a AS, y hoja «Almacenes» para la propuesta por base y tipo."],
+        ["Qué alternativa se eligió en cada caso de clase B", "Excel, hoja «Casos» columnas AT a AX."],
+        ["El plan de depuración del maestro", "Excel, hoja «Depuración del maestro», y solapa «Maestro» del sistema."],
+        ["Quién decidió qué y cuándo", "Excel, hoja «Decisiones»: el historial completo, con nombre y fecha."],
+        ["Verificar que las cifras cierran contra las fuentes", "Excel, hoja «Control»: cada control se recalcula solo sobre la hoja «Casos»."],
+        ["Entender cómo se decidió una correspondencia", "Excel, hoja «Metodología», y las secciones 3 y 4 de este informe."],
+      ]) + `
+      <p class="aviso"><b>Los tres salen del mismo dato.</b> El sistema, el Excel y este
+      informe se arman a partir del mismo conjunto de casos y de las mismas decisiones
+      registradas. Por eso las cifras coinciden: si se decide algo en el sistema y se vuelve
+      a exportar, el Excel y el PDF lo reflejan.</p>`, "Parte 3");
 
     marcar("Próximos pasos", 1);
-    pagina("15 · Próximos pasos y decisiones que requieren validación", `
-      <h4>Próximos pasos recomendados, en orden</h4>
+    pagina("16 · Próximos pasos, en orden", `
+      <p>El orden importa: cada paso cambia los números del siguiente. Aprobar las bajas
+      primero sería el error más caro, porque la lista de bajas se achica a medida que se
+      resuelven los casos en revisión.</p>
       <ol>
-        <li><b>Conseguir el precio de última compra.</b> Es lo único que impide valorizar. Hace
-        falta una bajada por material con precio unitario, fecha y documento de respaldo. Con
-        eso, el sistema valoriza los ` + num(k.pendientes_valorizacion) + ` casos sin más
-        trabajo.</li>
-        <li><b>Resolver los ` + num(t.D) + ` casos en revisión.</b> Conviene empezar por los
-        ` + num(k.motivos["Varios códigos SAP posibles"] || 0) + ` de «varios códigos posibles»,
-        que se deciden eligiendo entre candidatos ya identificados, y seguir por los
-        ` + num(k.motivos["Conflicto de presentación"] || 0) + ` de «conflicto de presentación»,
-        que suelen revelar que falta el material con la presentación correcta en SAP.</li>
-        <li><b>Pedir el maestro completo de materiales de SAP</b> y cruzar contra él los
-        ` + num(t.B) + ` ítems sin correspondencia. Es el paso que hoy no se puede dar con los
-        archivos disponibles, y sin él no se puede afirmar que haya que crear ningún material.
-        Para los que ya existan sin stock habrá que decidir si se reutiliza el código o se da de
-        baja y se crea de nuevo.</li>
+        <li><b>Resolver los ` + num(t.D) + ` casos en revisión.</b> Es el trabajo principal y
+        el que destraba el resto. Conviene empezar por los
+        ` + num(k.motivos["Varios códigos SAP posibles"] || 0) + ` de «varios códigos
+        posibles», que se deciden eligiendo entre candidatos ya identificados, y seguir por
+        los ` + num(k.motivos["Conflicto de presentación"] || 0) + ` de «conflicto de
+        presentación», que suelen revelar que falta en SAP el material con la presentación
+        correcta.</li>
+        <li><b>Elegir la alternativa de los ` + num(t.B) + ` ítems sin correspondencia.</b>
+        Para cada uno: verificar primero el maestro completo, o decidir crearlo igual
+        asumiendo el riesgo de duplicado. Son dos caminos legítimos y la herramienta registra
+        cuál se eligió y por qué.</li>
+        <li><b>Pedir el maestro completo de materiales de SAP.</b> Es lo único que permite
+        cerrar la alternativa 1 y, de paso, dimensionar de verdad la depuración. Hoy no está
+        entre los archivos recibidos.</li>
+        <li><b>Validar la propuesta de almacén esperado con cada base.</b> Son seis
+        combinaciones de base y tipo; una, Neuquén · Descartables, quedó marcada como ambigua
+        y necesita respuesta antes de concluir nada. Recién con eso validado tienen sentido
+        las ` + num((k.almacen || {})["Almacén a cambiar"] || 0) + ` ubicaciones a cambiar.</li>
+        <li><b>Resolver los ` + num(k.sin_stock_en_base) + ` ítems con existencia física y sin
+        stock en SAP en su base.</b> No son altas: el código existe. Hay que registrar la
+        existencia o ubicar en qué centro está cargada.</li>
         <li><b>Revisar las ` + num(k.bajas_bloqueadas) + ` bajas que dependen de un caso en
         revisión</b> antes que el resto, porque pueden dejar de ser bajas.</li>
-        <li><b>Resolver los ` + num(k.sin_stock_en_base) + ` ítems con existencia física y sin
-        stock en SAP en su base.</b> No son altas: hay que registrar la existencia o ubicar en
-        qué centro está cargada.</li>
-        <li><b>Repasar las ` + num(k.confianza.Media || 0) + ` identificaciones de confianza
-        media</b>, que son las que se apoyan en menos características verificadas.</li>
+        <li><b>Definir la política de depuración del maestro</b> sobre los
+        ` + num(t.F) + ` materiales sin stock a la vista, con sus excepciones.</li>
+        <li><b>Conseguir el precio de última compra.</b> Es lo único que impide valorizar:
+        hace falta una bajada por material con precio unitario, fecha y documento. Con eso el
+        sistema valoriza los ` + num(k.pendientes_valorizacion) + ` casos sin más trabajo.</li>
         <li><b>Recién después, aprobar las ` + num(t.C) + ` bajas restantes</b> y elevar el
-        paquete de altas y bajas para su ejecución en SAP.</li>
-      </ol>
-      <h4>Decisiones que requieren validación antes de avanzar</h4>` +
+        paquete para su ejecución en SAP.</li>
+      </ol>`, "Parte 3");
+
+    pagina("17 · Decisiones que requieren validación", `
+      <p>Ninguna de éstas la puede tomar el análisis: dependen de un criterio de la
+      organización. Están listadas acá para que se definan antes de ejecutar nada.</p>` +
       tabla(["Decisión", "Por qué requiere validación"], [
         ["Alcance del recuento", "El inventario cubrió Farmacia. Hay que confirmar que los " + num(t.E) + " materiales de indumentaria, equipamiento y repuestos quedan definitivamente fuera y cómo se controlan."],
         ["Criterio de baja", "La propuesta de dar de baja todo lo no identificado afecta a " + num(t.C) + " combinaciones de material y base. Conviene validar que la ausencia en el recuento es motivo suficiente, o si se exige una verificación previa en depósito."],
-        ["Reutilizar o recrear un código", "Para los ítems que resulten existir en el maestro de SAP sin stock, hay que definir el criterio: se reutiliza el código existente, o se da de baja y se crea uno nuevo. La decisión afecta la trazabilidad histórica del material."],
-        ["Unidad de la baja", "Un material identificado en una base y no en otra: se da de baja sólo el stock de la base, no el material. Hay que confirmar que ese es el criterio."],
+        ["Crear sin verificar, o esperar el maestro", "Para los " + num(t.B) + " ítems sin correspondencia hay que definir si se admite crear sin verificar el maestro completo —asumiendo el riesgo de código duplicado— o si se espera. La herramienta permite las dos, registra cuál se eligió y liga la primera al plan de depuración."],
+        ["Reutilizar o recrear un código", "Para los ítems que resulten existir en el maestro sin stock: se reutiliza el código existente, o se da de baja y se crea uno nuevo. La decisión afecta la trazabilidad histórica del material."],
+        ["Almacén esperado por base y tipo", "La propuesta sale de la composición observada de cada almacén, no de los nombres ni de los códigos. Cada base tiene que confirmar cuál es el almacén de Farmacia, y si medicamentos y descartables van separados."],
+        ["Qué hacer con el maestro sin stock", "Mantener, bloquear o dar de baja. Puede definirse una política masiva con excepciones anotadas, pero el criterio y quién lo autoriza son una decisión de la organización."],
+        ["Unidad de la baja", "Un material identificado en una base y no en otra: se da de baja sólo el stock de la base, no el material. Hay que confirmar que ése es el criterio."],
         ["Fuente del precio", "Definir de qué reporte sale el precio de última compra y con qué corte, para que la valorización sea reproducible."],
         ["Responsable de la validación por base", "Las decisiones quedan registradas con nombre. Hay que definir quién valida cada base y quién cierra con Farmacia."],
       ]) + `
@@ -486,56 +634,24 @@ var Informe = (function () {
 
   // ---------------------------------------------------------- render
   var A4 = 297 * 96 / 25.4;        // alto de una A4 en px CSS
-  var RESERVA = 104;               // pie + relleno inferior + margen de la tabla, con holgura
+  var RESERVA = 104;               // pie + relleno inferior, con holgura
 
-  /* Reparte las filas de un bloque de tabla en hojas, agregándolas de a una y
-     midiendo: cuando la última no entra, se saca y empieza una hoja nueva. */
-  function repartirTabla(bloque, destino, crearHoja) {
-    var filas = bloque.filas;
-    if (!filas.length) {
-      var h0 = crearHoja(bloque.titulo, bloque.seccion);
-      h0.cuerpo.innerHTML = (bloque.intro ? "<p>" + bloque.intro + "</p>" : "") +
-        '<p class="vacio">No hay casos en este grupo.</p>';
-      destino.push(h0);
-      return;
-    }
-    var i = 0, parte = 0, hojas = [];
-    while (i < filas.length) {
-      parte++;
-      var h = crearHoja(parte === 1 ? bloque.titulo : bloque.titulo + " (cont.)", bloque.seccion);
-      var marcaIni = i;
-      h.cuerpo.innerHTML =
-        (parte === 1 && bloque.intro ? "<p>" + bloque.intro + "</p>" : "") +
-        '<p class="cont" data-cont></p>' +
-        '<table class="t"><thead><tr>' + bloque.cabeceras.map(function (c, j) {
-          return "<th" + (bloque.clases && bloque.clases[j] ? ' class="' + bloque.clases[j] + '"' : "") +
-                 ">" + esc(c) + "</th>";
-        }).join("") + "</tr></thead><tbody></tbody></table>";
-      destino.push(h);
-      hojas.push({ h: h, desde: i });
-      var tb = h.cuerpo.querySelector("tbody");
-      var tope = h.el.getBoundingClientRect().top;
-      while (i < filas.length) {
-        var tr = document.createElement("tr");
-        tr.innerHTML = filas[i].map(function (c, j) {
-          return "<td" + (bloque.clases && bloque.clases[j] ? ' class="' + bloque.clases[j] + '"' : "") +
-                 ">" + (c === null || c === undefined ? "" : c) + "</td>";
-        }).join("");
-        tb.appendChild(tr);
-        var alto = tr.getBoundingClientRect().bottom - tope;
-        if (alto > A4 - RESERVA && tb.children.length > 1) { tb.removeChild(tr); break; }
-        i++;
+  /* Una hoja que se pasa de alto no avisa: al imprimir larga una página extra y
+     la numeración del índice deja de cerrar. Esto lo detecta antes de generar el
+     PDF, midiendo el contenido real ya renderizado. */
+  function verificar() {
+    var malas = [];
+    document.querySelectorAll("#v-informe .hoja").forEach(function (h, i) {
+      var cu = h.querySelector(".cu");
+      if (!cu) return;
+      var alto = cu.getBoundingClientRect().bottom - h.getBoundingClientRect().top;
+      if (alto > A4 - RESERVA) {
+        var t = h.querySelector("h2");
+        malas.push({ hoja: i + 1, titulo: t ? t.textContent : "(sin título)",
+                     alto: Math.round(alto), tope: Math.round(A4 - RESERVA) });
       }
-      hojas[hojas.length - 1].hasta = i;
-      if (i === marcaIni) { i++; }      // salvaguarda: nunca quedarse en el lugar
-    }
-    hojas.forEach(function (x, j) {
-      var c = x.h.cuerpo.querySelector("[data-cont]");
-      if (!c) return;
-      if (hojas.length === 1) { c.remove(); return; }
-      c.textContent = bloque.titulo + " · parte " + (j + 1) + " de " + hojas.length +
-        " · casos " + (x.desde + 1) + " a " + x.hasta + " de " + filas.length;
     });
+    return malas;
   }
 
   function html() {
@@ -598,12 +714,9 @@ var Informe = (function () {
 
     r.paginas.forEach(function (p) {
       var antes = hojas.length;
-      if (p.tabla) { repartirTabla(p, hojas, crearHoja); }
-      else {
-        var h = crearHoja(p.titulo, p.seccion);
-        h.cuerpo.innerHTML = p.cuerpo;
-        hojas.push(h);
-      }
+      var h = crearHoja(p.titulo, p.seccion);
+      h.cuerpo.innerHTML = p.cuerpo;
+      hojas.push(h);
       if (p.ancla && hojas[antes]) hojas[antes].ancla = p.ancla;
     });
 
@@ -649,7 +762,7 @@ var Informe = (function () {
 
   var ESTILO = `<style>
   .informe{--ia:#1F4E78;--itx:#111;--itx2:#444;--itx3:#777;--ilin:#d8d7d2;
-    --iA:#0f7f58;--iB:#1d5fae;--iC:#b8431f;--iD:#4a3bb5;--iE:#777;
+    --iA:#0f7f58;--iB:#1d5fae;--iC:#b8431f;--iD:#4a3bb5;--iE:#777;--iF:#0e6b73;
     background:#e9e9e6;padding:16px 0;color:var(--itx)}
   .informe *{box-sizing:border-box}
   .hoja{width:210mm;min-height:297mm;background:#fff;margin:0 auto 14px;padding:18mm 16mm 16mm;
@@ -684,13 +797,16 @@ var Informe = (function () {
   .eti{display:inline-block;width:17px;height:17px;line-height:17px;text-align:center;
     border-radius:50%;color:#fff;font-weight:700;font-size:8.5pt}
   .eti.A{background:var(--iA)} .eti.B{background:var(--iB)} .eti.C{background:var(--iC)}
-  .eti.D{background:var(--iD)} .eti.E{background:var(--iE)}
+  .eti.D{background:var(--iD)} .eti.E{background:var(--iE)} .eti.F{background:var(--iF)}
+  /* Las dos alternativas de la clase B llevan el mismo verde y naranja que en el
+     sistema, y además el número escrito: nunca se distinguen sólo por el color. */
+  .eti.alt1{background:var(--iA)} .eti.alt2{background:var(--iC)}
   .kpifila{display:flex;gap:7px;margin:12px 0 14px}
   .kpifila .kpi{flex:1;border:1px solid var(--ilin);border-top:3px solid var(--ia);
     border-radius:5px;padding:9px 8px;text-align:center}
   .kpifila .kpi.A{border-top-color:var(--iA)} .kpifila .kpi.B{border-top-color:var(--iB)}
   .kpifila .kpi.C{border-top-color:var(--iC)} .kpifila .kpi.D{border-top-color:var(--iD)}
-  .kpifila .kpi.E{border-top-color:var(--iE)}
+  .kpifila .kpi.E{border-top-color:var(--iE)} .kpifila .kpi.F{border-top-color:var(--iF)}
   .kpifila .n{font-size:19pt;font-weight:700;line-height:1.1}
   .kpifila .t{font-size:8.4pt;font-weight:600;margin-top:2px}
   .kpifila .d{font-size:7.4pt;color:var(--itx3);margin-top:1px}
@@ -732,5 +848,5 @@ var Informe = (function () {
   }
   </style>`;
 
-  return { html: html };
+  return { html: html, verificar: verificar };
 })();
