@@ -162,7 +162,8 @@ kbd{font:600 11px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
 .aviso{background:var(--sup);border:1px solid var(--linea);border-left:3px solid var(--cC);
   border-radius:var(--r2);padding:14px 17px;margin-bottom:10px;font-size:13.5px;
   line-height:1.55;color:var(--tinta2);box-shadow:var(--s1)}
-.aviso b{display:block;margin-bottom:3px;color:var(--tinta);font-size:14px}
+.aviso b{color:var(--tinta)}
+.aviso>b:first-child{display:block;margin-bottom:3px;font-size:14px}
 .aviso.info{border-left-color:var(--cB)}
 
 /* ===================== modo revisión ===================== */
@@ -388,9 +389,13 @@ input[type=text].cod:focus{outline:2px solid var(--acento2);outline-offset:-1px}
 
 /* ===================== lote y selección ===================== */
 .modalfondo{position:fixed;inset:0;background:rgba(10,8,4,.5);z-index:300;
-  display:grid;place-items:center;padding:22px;backdrop-filter:blur(2px)}
+  display:grid;place-items:center;padding:22px;backdrop-filter:blur(2px);overflow:auto}
+/* Un modal largo (la pregunta expresa de la clase B, la política masiva) no puede
+   dejar los botones fuera de la pantalla: scrollea por dentro y la fila de acciones
+   queda pegada abajo, siempre a la vista. */
 .modal{background:var(--sup);border:1px solid var(--linea);border-radius:18px;
-  padding:26px 28px;max-width:600px;width:100%;box-shadow:var(--s3)}
+  padding:26px 28px;max-width:600px;width:100%;box-shadow:var(--s3);
+  max-height:calc(100vh - 44px);overflow-y:auto}
 .modal h2{margin:0 0 6px;font-size:21px;text-transform:none;letter-spacing:-.02em;
   color:var(--tinta);font-weight:700}
 .lotebases{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
@@ -399,7 +404,9 @@ input[type=text].cod:focus{outline:2px solid var(--acento2);outline-offset:-1px}
   font-size:14px;cursor:pointer}
 .lb:has(input:checked){border-color:var(--acento);background:var(--acentoSuave)}
 .lb b{font-variant-numeric:tabular-nums}
-.modalacc{display:flex;gap:9px;align-items:center;margin-top:20px;flex-wrap:wrap}
+.modalacc{display:flex;gap:9px;align-items:center;flex-wrap:wrap;
+  position:sticky;bottom:-27px;background:var(--sup);border-top:1px solid var(--linea);
+  margin:20px -28px -27px;padding:14px 28px 26px}
 .modalacc .mini{flex:1}
 .selbarra{position:sticky;bottom:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;
   background:var(--sup);border:1.5px solid var(--acento);border-radius:var(--r);
@@ -410,3 +417,130 @@ input[type=text].cod:focus{outline:2px solid var(--acento2);outline-offset:-1px}
   background:var(--tinta);color:var(--bg);padding:12px 22px;border-radius:10px;
   font-size:14px;font-weight:500;z-index:400;box-shadow:var(--s3);max-width:90vw}
 .oculto{display:none !important}
+
+/* ---------------------------------------------------------------- tarjetas KPI
+   Son botones: cada una filtra el listado por su estado. */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.kpi{text-align:left;background:var(--sup);border:1px solid var(--linea);
+  border-radius:var(--r);padding:15px 17px;cursor:pointer;box-shadow:var(--s1);
+  display:block;width:100%}
+.kpi:hover{border-color:var(--tinta3)}
+.kpi.activo{border-color:var(--acento);box-shadow:0 0 0 2px var(--acentoSuave)}
+.kpi .t{display:flex;gap:7px;align-items:center;font-size:12.5px;color:var(--tinta2);
+  font-weight:600;line-height:1.3}
+.kpi .n{font-size:28px;font-weight:700;letter-spacing:-.03em;line-height:1.1;margin:6px 0 1px;
+  font-variant-numeric:tabular-nums}
+.kpi .d{font-size:11.5px;color:var(--tinta3);line-height:1.4}
+
+/* ---------------------------------------------------- clase B · alternativas
+   Dos caminos explícitos, con el riesgo escrito en el que lo tiene. Nunca se
+   distinguen sólo por color: cada uno lleva su número y su título. */
+.rutas{margin-bottom:16px}
+.rpreg{font-size:13.5px;color:var(--tinta2);line-height:1.6;background:var(--cB-f);
+  border:1px solid var(--cB);border-radius:var(--r2);padding:13px 16px;margin-bottom:14px}
+.rpreg b{color:var(--tinta)}
+.rgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:stretch}
+@media (max-width:900px){.rgrid{grid-template-columns:1fr}}
+.ruta{display:flex;flex-direction:column;gap:10px;background:var(--sup2);
+  border:1px solid var(--linea2);border-radius:var(--r2);padding:16px 18px}
+.ruta.r1{border-left:3px solid var(--cA)}
+.ruta.r2{border-left:3px solid var(--cC)}
+.ruta .btn{margin-top:auto}
+.rtit{display:flex;gap:10px;align-items:center;font-size:15.5px;font-weight:650;
+  letter-spacing:-.015em;line-height:1.3}
+.rnum{flex:none;width:23px;height:23px;border-radius:50%;color:#fff;font-size:12.5px;
+  font-weight:700;display:flex;align-items:center;justify-content:center}
+.ruta.r1 .rnum{background:var(--cA)}
+.ruta.r2 .rnum{background:var(--cC)}
+.rtxt{margin:0;font-size:13px;color:var(--tinta2);line-height:1.6}
+.rtxt b,.rlista b{color:var(--tinta)}
+.rlista{margin:0;padding-left:17px;font-size:12.5px;color:var(--tinta2);line-height:1.6}
+.rlista li{margin-bottom:4px}
+.rriesgo{font-size:12.5px;color:var(--alerta);background:var(--cC-f);
+  border:1px solid var(--cC);border-radius:var(--r2);padding:11px 13px;line-height:1.6}
+.rriesgo b{color:var(--tinta)}
+.rriesgo>b:first-child{display:block;margin-bottom:3px;font-size:12px;color:inherit;
+  text-transform:uppercase;letter-spacing:.06em}
+.rriesgo.grande{font-size:13.5px;padding:15px 17px;margin-top:16px}
+.rok{font-size:13px;color:var(--ok);background:var(--cA-f);border:1px solid var(--cA);
+  border-radius:var(--r2);padding:11px 14px;margin-bottom:13px}
+.rok b{color:var(--ok)}
+.rres .k{display:block;margin-bottom:9px;text-transform:uppercase;letter-spacing:.07em;
+  font-size:10.5px}
+.rres .cod{margin-top:11px;width:100%;max-width:420px}
+.rnota{font-size:12.5px;color:var(--tinta3);margin:11px 0 0;line-height:1.6}
+.enlace{background:none;border:0;padding:0;color:var(--acento2);cursor:pointer;
+  text-decoration:underline;font-size:inherit}
+.chk1{display:flex;gap:11px;align-items:flex-start;margin-top:14px;font-size:13.5px;
+  line-height:1.55;color:var(--tinta2);background:var(--sup2);border:1px solid var(--linea2);
+  border-radius:var(--r2);padding:13px 15px;cursor:pointer}
+.chk1:has(input:checked){border-color:var(--acento);background:var(--acentoSuave)}
+.chk1 input{margin-top:2px;flex:none;width:17px;height:17px}
+.chk1 b{color:var(--tinta)}
+.mcaso{margin-top:14px;background:var(--sup2);border-left:3px solid var(--fis);
+  border-radius:var(--r2);padding:12px 15px}
+.mcaso b{display:block;font-size:15px;letter-spacing:-.01em}
+.mcaso .mini{margin-top:2px}
+.modal.ancho{max-width:860px}
+.rgrid.chico .ruta{padding:14px 16px}
+.rgrid.chico .rtit{font-size:14.5px}
+.paso2{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
+.p2{font-size:11.5px;color:var(--tinta2);background:var(--sup2);border:1px solid var(--linea);
+  border-radius:99px;padding:4px 11px;white-space:nowrap}
+.p2 b{color:var(--tinta);font-weight:650;margin-left:4px;font-variant-numeric:tabular-nums}
+.p2.a{border-color:var(--cE)} .p2.b{border-color:var(--cB)} .p2.c{border-color:var(--cC)}
+.p2.d{border-color:var(--cA)} .p2.e{border-color:var(--linea2)}
+
+/* --------------------------------------------------- ubicación en almacenes */
+.alcomp{display:grid;grid-template-columns:1fr 240px;gap:16px;align-items:start;margin-bottom:16px}
+@media (max-width:820px){.alcomp{grid-template-columns:1fr}}
+.alcol .k{display:block;margin-bottom:8px;text-transform:uppercase;letter-spacing:.07em;
+  font-size:10.5px}
+.alcol .listalotes td{border-bottom:1px solid var(--linea)}
+.alcol .num{text-align:right;font-variant-numeric:tabular-nums}
+.alesp{background:var(--sup2);border:1px solid var(--linea2);border-left:3px solid var(--acento);
+  border-radius:var(--r2);padding:13px 15px}
+.alesp b{display:block;font-size:21px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.alesp .mini{display:block;margin-top:3px}
+.alsel{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:13px;
+  background:var(--sup2);border:1px solid var(--linea);border-radius:var(--r2);padding:11px 14px}
+.alsel .k{text-transform:uppercase;letter-spacing:.07em;font-size:10.5px}
+.alsel select{background:var(--sup);border:1px solid var(--linea2);border-radius:8px;
+  padding:7px 10px;font-size:13px}
+.alsel .mini{flex:1;min-width:220px}
+
+/* ------------------------------------------- depuración del maestro
+   Tres acciones posibles por material, siempre escritas: ninguna se
+   reconoce sólo por el color del botón. */
+.ph{margin:0 0 10px}
+.impfila{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.impfila input[type=file]{font-size:13px;color:var(--tinta2);max-width:100%}
+.impfila input[type=file]::file-selector-button{background:var(--sup2);
+  border:1px solid var(--linea2);border-radius:9px;padding:7px 12px;margin-right:10px;
+  cursor:pointer;color:var(--tinta)}
+.mini.exc{color:var(--alerta)}
+.polact{border-left:3px solid var(--acento)}
+.poltit{display:flex;gap:10px;align-items:center;margin-bottom:12px}
+.poltit b{font-size:15px}
+.polacc{display:flex;gap:9px;margin-top:14px;flex-wrap:wrap}
+.polopc{display:flex;flex-direction:column;gap:9px;margin-top:16px}
+.polopcion{display:flex;gap:11px;align-items:flex-start;background:var(--sup2);
+  border:1px solid var(--linea2);border-radius:var(--r2);padding:13px 15px;cursor:pointer;
+  font-size:13px;color:var(--tinta2);line-height:1.55}
+.polopcion:has(input:checked){border-color:var(--acento);background:var(--acentoSuave)}
+.polopcion input{margin-top:2px;flex:none;width:17px;height:17px}
+.polopcion b{display:block;color:var(--tinta);font-size:14.5px;margin-bottom:2px}
+.selalc{background:var(--sup2);border:1px solid var(--linea2);border-radius:9px;
+  padding:9px 11px;width:100%;max-width:520px;margin-top:5px}
+.depacc{display:flex;gap:5px;flex-wrap:wrap}
+.dbot{background:var(--sup2);border:1px solid var(--linea2);border-radius:99px;
+  padding:5px 12px;font-size:12px;cursor:pointer;color:var(--tinta2);white-space:nowrap}
+.dbot:hover{border-color:var(--tinta3);color:var(--tinta)}
+.dbot.on{background:var(--acento);border-color:var(--acento);color:#fff;font-weight:600}
+.dfil{font-size:13px;color:var(--tinta2);margin-bottom:10px}
+.dfil b{color:var(--tinta)}
+.falta{margin:0;padding-left:19px;color:var(--tinta2);font-size:13.5px;line-height:1.65}
+.falta li{margin-bottom:8px}
+.falta b{color:var(--tinta)}
+tr.clic{cursor:pointer}
+tr.clic:hover{background:var(--sup2)}
