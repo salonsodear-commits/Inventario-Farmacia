@@ -580,6 +580,8 @@ tr.clic:hover{background:var(--sup2)}
   cursor:pointer;font-weight:650}
 .sest.choque:hover{filter:brightness(1.06)}
 .sest.consulta{border-color:var(--cD);color:var(--cD);background:var(--cD-f);font-weight:650}
+.sest.prueba{border-color:var(--cC);color:var(--alerta);background:var(--cC-f);
+  font-weight:700;letter-spacing:.05em}
 
 </style>
 </head>
@@ -655,6 +657,7 @@ var Almacen = (function () {
 
   var modo = "local";          // "servidor" | "local" | "consulta"
   var usuario = null;          // sólo en modo servidor
+  var modoServidor = "";       // "entra" o "desarrollo", lo dice el servidor
   var decisiones = {};
   var depu = { politica: null, materiales: {}, maestro: null, historial: [] };
   var revisorLocal = "";
@@ -672,7 +675,8 @@ var Almacen = (function () {
   function estado() {
     return { modo: modo, usuario: usuario,
              sincronizando: enVuelo || cola.length > 0 || pendientesOtros > 0,
-             pendientes: cola.length, fallo: fallo, conflictos: conflictos.slice() };
+             pendientes: cola.length, fallo: fallo, conflictos: conflictos.slice(),
+             modoServidor: modoServidor };
   }
   function limpiarConflictos() { conflictos = []; avisar(); }
   function alCambiar(fn) { oyentes.push(fn); }
@@ -783,6 +787,7 @@ var Almacen = (function () {
       .then(function (d) {
         modo = "servidor";
         usuario = d.usuario;
+        modoServidor = d.modo || "";
         decisiones = d.decisiones || {};
         depu = d.depuracion || depu;
         if (!depu.materiales) depu.materiales = {};
@@ -3491,6 +3496,13 @@ var App = (function () {
     var h = "";
     if (st.modo === "servidor") {
       var u = st.usuario || {};
+      /* En modo prueba la identidad no la puso Entra ID: la escribió quien
+         lanzó el servidor. Tiene que verse, para que nadie confunda una
+         prueba con el sistema de verdad. */
+      if (st.modoServidor === "desarrollo") {
+        h += '<span class="sest prueba" title="Arrancado sin autenticación: ' +
+             'las decisiones no valen y la identidad no está verificada">PRUEBA</span>';
+      }
       h += '<span class="quien" title="' + esc(u.upn || "") + '">' +
            esc(u.nombre || "") + "</span>";
       if (st.fallo) {

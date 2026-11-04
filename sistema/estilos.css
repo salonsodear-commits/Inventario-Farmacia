@@ -565,3 +565,5 @@ tr.clic:hover{background:var(--sup2)}
   cursor:pointer;font-weight:650}
 .sest.choque:hover{filter:brightness(1.06)}
 .sest.consulta{border-color:var(--cD);color:var(--cD);background:var(--cD-f);font-weight:650}
+.sest.prueba{border-color:var(--cC);color:var(--alerta);background:var(--cC-f);
+  font-weight:700;letter-spacing:.05em}

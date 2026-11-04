@@ -2245,6 +2245,13 @@ var App = (function () {
     var h = "";
     if (st.modo === "servidor") {
       var u = st.usuario || {};
+      /* En modo prueba la identidad no la puso Entra ID: la escribió quien
+         lanzó el servidor. Tiene que verse, para que nadie confunda una
+         prueba con el sistema de verdad. */
+      if (st.modoServidor === "desarrollo") {
+        h += '<span class="sest prueba" title="Arrancado sin autenticación: ' +
+             'las decisiones no valen y la identidad no está verificada">PRUEBA</span>';
+      }
       h += '<span class="quien" title="' + esc(u.upn || "") + '">' +
            esc(u.nombre || "") + "</span>";
       if (st.fallo) {

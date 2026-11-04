@@ -1,0 +1,73 @@
+INVENTARIO FISICO VS SAP · version de prueba
+==================================================================
+
+QUE HACER
+------------------------------------------------------------------
+
+  Windows:  doble clic en   PROBAR.bat
+  Mac/Linux: en una terminal,  bash probar.sh
+
+Se abre el navegador solo. No hay que instalar nada: el Node que
+hace falta viene adentro de la carpeta node\.
+
+
+QUE ES ESTO Y QUE NO ES
+------------------------------------------------------------------
+
+Es la aplicacion completa, funcionando, para que la veas y decidas.
+Tiene el analisis entero: los 1.991 casos de las tres bases.
+
+NO pide usuario y contrasena. No es que falte: no se puede. El
+ingreso con la cuenta de Emergencias necesita que la aplicacion
+este publicada en una direccion web, porque Microsoft no acepta
+una maquina suelta como direccion de retorno del login. Por eso
+en la barra de arriba vas a ver un cartel que dice PRUEBA.
+
+Las decisiones que tomes quedan en datos\inventario.db, en esta
+misma carpeta. Son de prueba y no van a ningun lado. Si queres
+empezar de cero, borra la carpeta datos\ y volve a arrancar.
+
+
+QUE MIRAR
+------------------------------------------------------------------
+
+1. INICIO. El trabajo esta en siete grupos, ordenados por
+   prioridad. Empeza por el 1.
+
+2. GRUPO 2 - las dos alternativas. Los 58 items que no aparecieron
+   en SAP no se dan de alta sin mas: el sistema te pregunta si
+   queres verificar primero el maestro completo, o crear igual
+   asumiendo el riesgo de codigo duplicado. La segunda opcion te
+   muestra el riesgo y te exige confirmar que lo entendes.
+
+3. GRUPO 5 - la ubicacion. Materiales bien identificados cuyo
+   stock figura en otro almacen. Es un problema distinto del de
+   identificacion y por eso esta aparte.
+
+4. SOLAPA MAESTRO. Los 30 materiales con existencia cero. No son
+   candidatos a baja de stock: lo que se decide es que pasa con el
+   registro. Se puede fijar una politica masiva y anotar
+   excepciones.
+
+5. DESCARGAR EXCEL. Boton de arriba a la derecha. Sale con todo lo
+   que hayas decidido.
+
+6. TRABAJO ENTRE VARIOS. Doble clic en
+   PROBAR CON DOS PERSONAS.bat
+   Abre dos ventanas con identidades distintas sobre la misma
+   base. Deci algo en una y mira como aparece solo en la otra.
+   Despues deci lo MISMO en las dos y vas a ver el aviso de que
+   alguien ya lo habia decidido.
+
+
+LO QUE CAMBIA CUANDO SE PUBLIQUE
+------------------------------------------------------------------
+
+  - Se entra con la cuenta @emergencias.com.ar y las decisiones
+    quedan firmadas con el nombre real, no con uno escrito a mano.
+  - La base deja de estar en tu maquina y pasa a ser compartida,
+    con respaldo diario.
+  - Desaparece el cartel de PRUEBA.
+
+Donde publicarla y que conviene decidir antes esta en
+DESPLEGAR.md.

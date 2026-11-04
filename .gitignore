@@ -9,3 +9,6 @@ datos/
 *.db
 *.db-wal
 *.db-shm
+
+# El paquete de prueba lleva Node adentro: 32 MB que no van al repositorio
+Inventario fisico vs SAP - PRUEBA.zip

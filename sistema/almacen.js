@@ -33,6 +33,7 @@ var Almacen = (function () {
 
   var modo = "local";          // "servidor" | "local" | "consulta"
   var usuario = null;          // sólo en modo servidor
+  var modoServidor = "";       // "entra" o "desarrollo", lo dice el servidor
   var decisiones = {};
   var depu = { politica: null, materiales: {}, maestro: null, historial: [] };
   var revisorLocal = "";
@@ -50,7 +51,8 @@ var Almacen = (function () {
   function estado() {
     return { modo: modo, usuario: usuario,
              sincronizando: enVuelo || cola.length > 0 || pendientesOtros > 0,
-             pendientes: cola.length, fallo: fallo, conflictos: conflictos.slice() };
+             pendientes: cola.length, fallo: fallo, conflictos: conflictos.slice(),
+             modoServidor: modoServidor };
   }
   function limpiarConflictos() { conflictos = []; avisar(); }
   function alCambiar(fn) { oyentes.push(fn); }
@@ -161,6 +163,7 @@ var Almacen = (function () {
       .then(function (d) {
         modo = "servidor";
         usuario = d.usuario;
+        modoServidor = d.modo || "";
         decisiones = d.decisiones || {};
         depu = d.depuracion || depu;
         if (!depu.materiales) depu.materiales = {};
