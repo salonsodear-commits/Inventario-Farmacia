@@ -1,0 +1,51 @@
+# Despliegue en Fly.io.
+#
+# Lo importante de este archivo es el volumen: sin él, el disco es efímero y
+# las decisiones se pierden en cada despliegue.
+#
+#   fly launch --no-deploy --name inventario-emergencias --region gru
+#   fly volumes create datos --size 1 --region gru
+#   fly secrets set INVSAP_TENANT_ID=… INVSAP_CLIENT_ID=… INVSAP_CLIENT_SECRET=…
+#   fly deploy
+#
+# Ver servidor/instalar/DESPLEGAR.md.
+
+app = "inventario-emergencias"
+primary_region = "gru"              # São Paulo, lo más cerca de Argentina
+
+[build]
+  dockerfile = "servidor/instalar/Dockerfile"
+
+[env]
+  INVSAP_HOST = "0.0.0.0"
+  INVSAP_PUERTO = "8080"
+  INVSAP_DB = "/app/datos/inventario.db"
+  INVSAP_RESPALDOS = "/app/datos/respaldos"
+  INVSAP_COOKIE_SEGURA = "si"
+
+# La base y los respaldos viven acá. Es lo único que sobrevive a un despliegue.
+[[mounts]]
+  source = "datos"
+  destination = "/app/datos"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # Una sola máquina: SQLite es un archivo, y dos procesos escribiéndolo desde
+  # máquinas distintas no comparten el volumen.
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/api/salud"
+    [http_service.checks.headers]
+      x-invsap = "1"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

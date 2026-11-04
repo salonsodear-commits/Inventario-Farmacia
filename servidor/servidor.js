@@ -31,8 +31,11 @@ const ARRANQUE = new Date();
 
 // ------------------------------------------------------------- configuración
 const cfg = {
-  puerto: Number(process.env.INVSAP_PUERTO || 8080),
-  host: process.env.INVSAP_HOST || "127.0.0.1",
+  // En un hosting gestionado (Azure App Service, Fly, Render) el puerto lo
+  // asigna la plataforma y llega en PORT; escuchar en otro deja la aplicación
+  // andando pero inalcanzable.
+  puerto: Number(process.env.INVSAP_PUERTO || process.env.PORT || 8080),
+  host: process.env.INVSAP_HOST || (process.env.PORT ? "0.0.0.0" : "127.0.0.1"),
   base: process.env.INVSAP_DB || path.join(RAIZ, "datos", "inventario.db"),
   horasSesion: Number(process.env.INVSAP_HORAS_SESION || 10),
   dominio: process.env.INVSAP_DOMINIO || "emergencias.com.ar",
@@ -48,6 +51,11 @@ const cfg = {
     redirectUri: process.env.INVSAP_REDIRECT_URI || "",
   },
 };
+/* La cookie de sesión tiene que ir marcada Secure cuando la conexión del
+   usuario es HTTPS. Detrás de un proxy —que es lo normal en cualquier
+   hosting— el servidor ve HTTP aunque el usuario esté en HTTPS, así que no
+   alcanza con mirar la conexión: se mira la URI registrada, que es la que el
+   usuario realmente usa. */
 const SEGURA = (process.env.INVSAP_COOKIE_SEGURA || "").toLowerCase() === "si" ||
                /^https:/i.test(cfg.entra.redirectUri);
 
@@ -368,7 +376,11 @@ const servidor = http.createServer(async (req, res) => {
       if (s) db.anotarAcceso(s.oid, s.upn, "salida", null, ip(req));
       if (c) db.borrarSesion(c);
       ponerCookie(res, "invsap_sesion", "", 0);
-      const volver = `${url.protocol}//${url.host}/`;
+      // url.protocol es el de la conexión al proxy, no el del usuario. El
+      // esquema real llega en X-Forwarded-Proto.
+      const esquema = (req.headers["x-forwarded-proto"] || "").split(",")[0].trim() ||
+                      (SEGURA ? "https" : "http");
+      const volver = `${esquema}://${url.host}/`;
       res.writeHead(302, {
         location: cfg.auth === "on" ? entra.urlSalida(volver) : "/" });
       return res.end();

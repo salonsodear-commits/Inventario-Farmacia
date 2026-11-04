@@ -1,0 +1,65 @@
+# Publica la aplicación en Azure App Service cada vez que cambia la rama
+# principal.
+#
+# Para activarlo hace falta cargar el secreto AZURE_WEBAPP_PUBLISH_PROFILE en
+# el repositorio: Azure → App Service → Obtener perfil de publicación, y el XML
+# va en Settings → Secrets → Actions.
+#
+# La base de datos NO se toca: vive en /home, que está fuera de lo que el
+# despliegue reemplaza.
+
+name: Publicar en Azure
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:        # también se puede lanzar a mano
+
+env:
+  APLICACION: inventario-emergencias
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # No hay dependencias que instalar, pero sí conviene comprobar que lo
+      # que se publica al menos es JavaScript válido.
+      - name: Comprobar la sintaxis
+        run: |
+          for f in servidor/*.js sistema/*.js; do
+            [ "$(basename "$f")" = "datos.js" ] && continue
+            node --check "$f"
+          done
+
+      - name: Comprobar que arranca y responde
+        run: |
+          INVSAP_AUTH=off INVSAP_PUERTO=8099 node servidor/servidor.js &
+          for i in $(seq 1 20); do
+            sleep 1
+            if curl -fs -H 'x-invsap: 1' http://127.0.0.1:8099/api/salud >/dev/null; then
+              echo "responde"; exit 0
+            fi
+          done
+          echo "no respondió a tiempo"; exit 1
+
+      # Sólo lo que la aplicación necesita para correr.
+      - name: Armar el paquete
+        run: zip -r app.zip servidor sistema package.json -x '*/datos/*'
+
+      - uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.APLICACION }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: app.zip
+
+      - name: Comprobar que quedó andando
+        run: |
+          sleep 25
+          curl -fsS -H 'x-invsap: 1' \
+            "https://${{ env.APLICACION }}.azurewebsites.net/api/salud"
