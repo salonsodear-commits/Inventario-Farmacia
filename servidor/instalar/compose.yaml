@@ -1,0 +1,29 @@
+# Levantar el sistema con Docker Compose.
+#
+#   cp servidor/instalar/inventario.env.ejemplo .env   # y completarlo
+#   docker compose -f servidor/instalar/compose.yaml up -d
+#
+# El archivo .env tiene el secreto de Entra: no va al repositorio.
+
+services:
+  inventario:
+    build:
+      context: ../..
+      dockerfile: servidor/instalar/Dockerfile
+    image: inventario:1.0.0
+    container_name: inventario
+    restart: unless-stopped
+    env_file: ../../.env
+    ports:
+      # Sólo loopback: adelante va el proxy que termina el TLS. Para exponerlo
+      # directo (no recomendado, la cookie viajaría en claro), sacar el 127.0.0.1.
+      - "127.0.0.1:8080:8080"
+    volumes:
+      # La base y los respaldos sobreviven a cualquier reconstrucción.
+      - inventario-datos:/app/datos
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+volumes:
+  inventario-datos:

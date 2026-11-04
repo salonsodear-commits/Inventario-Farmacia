@@ -396,6 +396,18 @@ class Base {
       },
     };
   }
+  /* La marca del último cambio, para que el navegador pueda preguntar «¿pasó
+     algo?» sin traerse todo. Es una consulta barata sobre dos índices. */
+  marcaDeCambio() {
+    const r = this.db.prepare(`
+      SELECT MAX(m) m FROM (
+        SELECT MAX(actualizado) m FROM decision
+        UNION ALL SELECT MAX(cuando) FROM decision_historial
+        UNION ALL SELECT MAX(cuando) FROM depuracion_historial
+      )`).get();
+    return r && r.m ? r.m : "";
+  }
+
   resumen() {
     const n = s => this.db.prepare(s).get().n;
     return {

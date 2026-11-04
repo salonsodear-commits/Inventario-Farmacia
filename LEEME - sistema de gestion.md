@@ -1,12 +1,17 @@
 # Sistema de gestión · Inventario físico vs SAP
 
-Tres piezas que salen del **mismo análisis**, por eso las cifras coinciden entre ellas:
+Esto es una **aplicación**, no un archivo. Se entra con la cuenta de Emergencias
+y las decisiones van a una base compartida.
 
-| Pieza | Archivo | Para qué |
+| Pieza | Qué es | Para qué |
 |---|---|---|
-| **Sistema interactivo** | `Sistema - Inventario fisico vs SAP.html` | Revisar, decidir y registrar. Es la herramienta de trabajo. **Un solo archivo.** |
+| **La aplicación** | Se instala y se sirve (ver [`servidor/README.md`](servidor/README.md)) | **Revisar, decidir y registrar.** Es la herramienta de trabajo. |
 | **Excel** | `Inventario fisico vs SAP - analisis.xlsx` | Analizar y seguir trabajando sobre los datos. Con fórmulas vivas. |
 | **PDF** | `Inventario fisico vs SAP - informe integral.pdf` | Explicar el caso y los resultados a quien no vio nada de esto. 20 páginas. |
+| **Copia de consulta** | `Inventario fisico vs SAP - consulta.html` | Mirar el análisis sin levantar nada. **No se puede decidir ahí.** |
+
+Los tres primeros salen del **mismo análisis y las mismas decisiones**, por eso
+las cifras coinciden entre ellos.
 
 > El PDF **no trae el listado de los 1.991 materiales**: es un informe ejecutivo. El
 > detalle individual está en el Excel y en el sistema, que es donde se puede filtrar,
@@ -14,56 +19,61 @@ Tres piezas que salen del **mismo análisis**, por eso las cifras coinciden entr
 
 ---
 
-## Dos formas de usarlo, y la diferencia importa
+## Por qué dejó de ser un archivo que se manda por mail
 
-| | Archivo único | Servidor |
-|---|---|---|
-| Cómo se abre | Doble clic en el `.html` | `http://…` en el navegador |
-| Quién sos | Un nombre que escribís a mano | **Tu cuenta @emergencias.com.ar** |
-| Dónde quedan las decisiones | En ese navegador, en esa computadora | **Base SQLite compartida** |
-| ¿Ves lo que decidieron otros? | No | Sí |
-| Para qué sirve | Mirar, mostrar, probar | **Trabajar de verdad** |
+Porque cada copia que circulaba era **un lugar donde alguien decidía sin que
+nadie se enterara**. Esas decisiones no entraban en ningún lado: no había forma
+de juntarlas, ni de saber quién había decidido qué, ni de evitar que dos
+personas resolvieran lo mismo de maneras distintas. Y el campo «Revisor» era
+texto libre, así que el registro de autoría no valía nada.
 
-Si varias personas van a revisar las mismas bases, **tiene que ser con el
-servidor**: es lo que hace que el registro de quién decidió qué sea confiable y
-que nadie pise el trabajo del otro. Las instrucciones están en
-[`servidor/README.md`](servidor/README.md), incluido qué completar en la
-pantalla de registro de Azure.
+En la aplicación:
 
-El sistema detecta solo en cuál de los dos modos está y lo dice en la barra de
-arriba: con el servidor muestra tu nombre y si quedó algo sin guardar; sin
-servidor avisa «Sólo en este navegador».
+- se entra con la cuenta **@emergencias.com.ar**, así que quién decidió qué
+  **no depende de lo que cada uno escriba**;
+- las decisiones van a una **base SQLite compartida**, con historial completo;
+- lo que decide una persona **lo ven las demás solas**, sin apretar nada;
+- si dos deciden el mismo caso, el sistema **avisa** en vez de pisar en silencio.
 
-> **Por qué el archivo único no puede pedir usuario y contraseña.** Microsoft no
-> admite `file://` como dirección de retorno del login: exige `http://localhost`
-> o `https://`. No es una limitación del sistema, es de cómo funciona OAuth. Por
+La copia `Inventario fisico vs SAP - consulta.html` sigue existiendo para mirar
+el análisis sin levantar nada —mostrarlo en una reunión, mandárselo a alguien
+que sólo quiere verlo— pero **no deja decidir**, y dice por qué.
+
+> **Por qué la copia no puede pedir usuario y contraseña.** Microsoft no admite
+> `file://` como dirección de retorno del login: exige `http://localhost` o
+> `https://`. No es una limitación del sistema, es de cómo funciona OAuth. Por
 > eso el login va de la mano de servir la aplicación.
 
-## Cómo abrir el sistema (modo archivo único)
+## Cómo se instala
 
-**Doble clic en `Sistema - Inventario fisico vs SAP.html`.**
+Está todo en **[`servidor/README.md`](servidor/README.md)**: qué completar en el
+registro de Azure, las variables de configuración, el servicio de systemd, la
+imagen de Docker y el script de instalación.
 
-Es **un único archivo autocontenido**: los datos, el código y los estilos están adentro.
-No necesita internet, ni instalación, ni servidor, ni ningún otro archivo al lado. Se
-puede guardar en el escritorio, mandar por correo o dejar en una carpeta compartida, y
-funciona igual. No envía datos a ningún lado.
+Lo corto, en una máquina Linux:
 
-Si al hacer doble clic se abre un editor en vez del navegador: clic derecho →
-*Abrir con* → Chrome o Edge.
+```bash
+sudo ./servidor/instalar/instalar.sh     # crea el servicio
+sudo nano /etc/inventario.env            # completar con los datos de Azure
+sudo systemctl start inventario
+```
 
-> **Para desarrollo**, el mismo sistema está separado en archivos dentro de la carpeta
-> `sistema/` (`index.html`, `app.js`, `informe.js`, `exportar.js`, `xlsxmin.js`,
-> `estilos.css`, `datos.js`). El archivo único se regenera con
-> `python3 scripts/v3/empaquetar.py`. Para usarlo día a día alcanza con el archivo único.
+Para probar en tu propia máquina sin tener todavía el registro de Azure:
+
+```bash
+INVSAP_AUTH=off node servidor/servidor.js
+```
+
+**No tiene dependencias**: usa sólo lo que viene con Node, así que no hay
+`npm install`. Requiere Node 22.5 o superior.
 
 ## Cómo trabajar
 
 El sistema está armado como un **flujo de trabajo**, no como un listado. No hay que
 decidir por dónde empezar: la pantalla de inicio lo dice.
 
-1. Escribí tu nombre arriba, en **Revisor**. Queda registrado en cada decisión.
-   *Con el servidor este campo no aparece: tu nombre sale de la cuenta con la
-   que entraste, que es justamente la gracia de entrar con la cuenta.*
+1. Entrá con tu cuenta de Emergencias. Tu nombre queda en cada decisión que
+   tomes: no hay campo que completar, y por eso el registro es confiable.
 2. **Inicio** muestra el trabajo en siete grupos, numerados por prioridad, cada uno con
    cuántos quedan pendientes y su barra de avance. Arriba a la derecha, el avance general.
 3. En cada grupo hay dos formas de trabajar:
@@ -200,20 +210,24 @@ descripción de los almacenes, sólo el código.
 
 ### Dónde quedan las decisiones
 
-**Con el servidor:** en una base SQLite compartida, firmadas con la cuenta con
-la que entraste. El botón **↻** de la barra trae lo que decidieron los demás sin
-recargar la página. Si una escritura falla, el indicador lo dice y se reintenta
-sola: nunca se da por guardado algo que no se guardó.
+En una **base SQLite compartida**, firmadas con la cuenta con la que entraste,
+con el historial completo de cada caso.
 
-**Con el archivo único:** en el almacenamiento del navegador, **en esa
-computadora**. No se sincronizan. Dos consecuencias prácticas:
+- Lo que decide otro **aparece solo**, cada 20 segundos. El botón **↻** fuerza
+  la actualización.
+- Si estás en el modo revisión, no te cambia el caso de abajo de las manos:
+  avisa y actualiza cuando salís.
+- Si una escritura falla, el indicador lo dice y se reintenta sola. **Nunca se
+  da por guardado algo que no se guardó.**
+- Si dos personas deciden el mismo caso, el sistema avisa a la segunda y le
+  muestra quién había decidido antes. **Nada se pierde:** el historial guarda
+  las dos, con nombre y hora.
 
-- Si trabajás desde otra máquina, no vas a ver las decisiones de la primera.
-- Si limpiás los datos del navegador, se borran.
+La base se respalda sola todos los días y se conservan los últimos 14.
 
-**En los dos casos conviene exportar el Excel al terminar cada sesión**: es el
-respaldo y la forma de compartir lo decidido. El Excel trae una hoja
-«Decisiones» con el historial completo: qué se cambió, quién y cuándo.
+**Conviene exportar el Excel al terminar cada sesión igual**: es la forma de
+compartir lo decidido con quien no entra a la aplicación. Trae una hoja
+«Decisiones» con el historial completo.
 
 ---
 

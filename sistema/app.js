@@ -103,8 +103,39 @@ var App = (function () {
      cuándo. Quién sale de la sesión cuando se entró con Entra ID, así que en
      ese modo no es un nombre escrito a mano. */
   function decidir(id, cambios, descripcion) {
+    if (Almacen.soloConsulta()) return avisarConsulta();
     Almacen.decidir(id, cambios, descripcion);
     invalidar();
+  }
+
+  /* Una sola explicación, en el único lugar por el que pasan todas las
+     decisiones. Antes de esto, el archivo suelto dejaba decidir y lo decidido
+     no llegaba a ningún lado. */
+  var yaAvisoConsulta = false;
+  function avisarConsulta() {
+    if (yaAvisoConsulta) { aviso("Esta copia es para consultar: las decisiones van en la aplicación."); return; }
+    yaAvisoConsulta = true;
+    var donde = (D.meta && D.meta.aplicacion) || "";
+    var cont = document.createElement("div");
+    cont.innerHTML = '<div class="modalfondo"><div class="modal">' +
+      "<h2>Esta copia es para consultar</h2>" +
+      '<p class="sub">Podés mirar todo —el análisis, las fichas, la comparación ' +
+      "característica por característica, el informe— pero las decisiones se " +
+      "toman en la aplicación.</p>" +
+      '<div class="aviso" style="margin-top:16px"><b>Por qué.</b>' +
+      "Cuando el sistema era un archivo que circulaba por correo, cada copia era " +
+      "un lugar donde alguien decidía sin que nadie se enterara, y eso no entraba " +
+      "en ningún lado. En la aplicación las decisiones quedan en una base " +
+      "compartida, firmadas con tu cuenta, y todos ven lo mismo.</div>" +
+      (donde ? '<p class="sub" style="margin-top:16px">La aplicación está en ' +
+               '<b>' + esc(donde) + "</b>.</p>" : "") +
+      '<div class="modalacc"><button class="btn pri" id="cqOk">Entendido</button></div>' +
+      "</div></div>";
+    document.body.appendChild(cont.firstChild);
+    var m = document.querySelector(".modalfondo");
+    function cerrar() { m.remove(); }
+    m.querySelector("#cqOk").addEventListener("click", cerrar);
+    m.addEventListener("click", function (ev) { if (ev.target === m) cerrar(); });
   }
 
   // ------------------------------------------------------------- derivados
@@ -731,6 +762,7 @@ var App = (function () {
   /* Pregunta expresa antes de crear sin verificar. No se puede confirmar sin marcar
      que se entiende el riesgo: la decisión queda registrada con nombre y fecha. */
   function modalCrearSinVerificar(casos, alVolver) {
+    if (Almacen.soloConsulta()) return avisarConsulta();
     var uno = casos.length === 1;
     var h = '<div class="modalfondo"><div class="modal">' +
       "<h2>Crear " + (uno ? "este material" : num(casos.length) + " materiales") +
@@ -861,6 +893,7 @@ var App = (function () {
     pintarTriage();
   }
   function confirmarSeleccion(c) {
+    if (Almacen.soloConsulta()) return avisarConsulta();
     var mats = Object.keys(estado.selCand);
     if (!mats.length) return aviso("Marcá al menos un código.");
     var nom = "";
@@ -887,8 +920,9 @@ var App = (function () {
     avanzar();
   }
   function accionTriage(c, a) {
+    if (a === "s") return avanzar();        // saltear no decide nada
+    if (Almacen.soloConsulta()) return avisarConsulta();
     if (a === "confirmar") return confirmarSeleccion(c);
-    if (a === "s") return avanzar();
     // ---- clase B: elegir alternativa y registrar el resultado de la verificación
     if (a === "b1") {
       decidir(c.id, conObs({ ruta_b: RB_VERIF, estado_revision: "Pendiente de validación",
@@ -1053,6 +1087,7 @@ var App = (function () {
     modal.addEventListener("click", function (ev) { if (ev.target === modal) cerrar(); });
 
     function aplicar(aprobar) {
+      if (Almacen.soloConsulta()) { cerrar(); return avisarConsulta(); }
       var sel = seleccionados();
       if (!sel.length) return aviso("No hay casos seleccionados.");
       if (!confirm((aprobar ? verbo : "Rechazar") + ": " + sel.length +
@@ -1598,6 +1633,7 @@ var App = (function () {
            (g ? " g" : "") + '">' + esc(v) + "</div></div>";
   }
   function accionFicha(c, a) {
+    if (Almacen.soloConsulta()) return avisarConsulta();
     var o = document.getElementById("obs") ? document.getElementById("obs").value : "";
     switch (a) {
       case "confirmar":
@@ -1928,6 +1964,7 @@ var App = (function () {
   }
 
   function decidirMaterial(cod, acc) {
+    if (Almacen.soloConsulta()) return avisarConsulta();
     var depu = depuObj();
     if (acc === "__pol") {
       Almacen.decidirMaterial(cod, null, "",
@@ -2001,6 +2038,7 @@ var App = (function () {
     modal.querySelector("#polCancel").addEventListener("click", cerrar);
     modal.addEventListener("click", function (ev) { if (ev.target === modal) cerrar(); });
     modal.querySelector("#polOk").addEventListener("click", function () {
+      if (Almacen.soloConsulta()) { cerrar(); return avisarConsulta(); }
       var r = modal.querySelector('input[name="polacc"]:checked');
       if (!r) return aviso("Elegí una acción.");
       var crit = modal.querySelector("#polCrit").value.trim();
@@ -2216,14 +2254,55 @@ var App = (function () {
       } else {
         h += '<span class="sest bien" title="Las decisiones se guardan en la base compartida">✓ guardado</span>';
       }
+      if (st.conflictos && st.conflictos.length) {
+        h += '<button class="sest choque" id="bChoque">' + st.conflictos.length +
+             (st.conflictos.length === 1 ? " caso lo decidió otro" : " casos los decidió otro") +
+             "</button>";
+      }
       h += '<a class="salir" href="/auth/salir" title="Cerrar la sesión">Salir</a>';
+    } else if (st.modo === "consulta") {
+      h += '<span class="sest consulta">Copia para consulta · no se puede decidir</span>';
     } else {
       h += '<span class="sest local" title="Sin servidor, las decisiones quedan en este navegador. ' +
            'Exportá el Excel al terminar.">Sólo en este navegador</span>';
       if (st.fallo) h += '<span class="sest mal" title="' + esc(st.fallo) + '">⚠</span>';
     }
     caja.innerHTML = h;
+    var bc = caja.querySelector("#bChoque");
+    if (bc) bc.addEventListener("click", function () { modalConflictos(st.conflictos); });
     medirBarra();
+  }
+
+  /* Dos personas decidieron el mismo caso. No se pierde nada —el historial
+     guarda las dos— pero quien llegó último tiene que enterarse de que pisó
+     algo, y poder ir a mirarlo. */
+  function modalConflictos(lista) {
+    var h = '<div class="modalfondo"><div class="modal">' +
+      "<h2>" + (lista.length === 1 ? "Otra persona ya había decidido este caso"
+                                   : "Otras personas ya habían decidido estos casos") + "</h2>" +
+      '<p class="sub">Tu decisión se guardó igual y quedó como la última. Nada se perdió: ' +
+      "el historial de cada caso tiene las dos, con nombre y fecha. Conviene mirarlos por " +
+      "si hace falta ponerse de acuerdo.</p>" +
+      '<table class="listalotes" style="margin-top:16px"><thead><tr>' +
+      "<th>Caso</th><th>Lo había decidido</th><th></th></tr></thead><tbody>" +
+      lista.map(function (x) {
+        var c = caso(x.casoId);
+        return "<tr><td><b>" + esc(c ? (c.nombre_fisico || c.texto_sap) : x.casoId) + "</b>" +
+          '<div class="mini">' + esc(c ? c.base : "") + "</div></td>" +
+          "<td>" + esc(x.quien || "—") + "</td>" +
+          '<td><button class="btn chico" data-ver="' + esc(x.casoId) + '">Ver la ficha</button></td></tr>';
+      }).join("") + "</tbody></table>" +
+      '<div class="modalacc"><button class="btn pri" id="chOk">Entendido</button></div>' +
+      "</div></div>";
+    var cont = document.createElement("div");
+    cont.innerHTML = h; document.body.appendChild(cont.firstChild);
+    var modal = document.querySelector(".modalfondo");
+    function cerrar() { modal.remove(); Almacen.limpiarConflictos(); }
+    modal.querySelector("#chOk").addEventListener("click", cerrar);
+    modal.addEventListener("click", function (ev) { if (ev.target === modal) cerrar(); });
+    modal.querySelectorAll("[data-ver]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        cerrar(); estado.volverA = estado.vista; ir("ficha", b.dataset.ver); }); });
   }
 
   function iniciar() {
@@ -2232,6 +2311,17 @@ var App = (function () {
     document.addEventListener("keydown", teclas);
     Almacen.alCambiar(pintarEstadoAlmacen);
     pintarEstadoAlmacen(Almacen.estado());
+    /* Cuando otro decide algo, se redibuja sola. Salvo en el modo revisión:
+       ahí hay un caso abierto en la pantalla y cambiárselo a alguien en medio
+       de una decisión sería peor que esperar. */
+    Almacen.cuandoLleguenCambios(function () {
+      invalidar();
+      if (estado.vista === "revisar" || document.querySelector(".modalfondo")) {
+        aviso("Alguien más registró decisiones. Se actualiza al salir de acá.");
+        return;
+      }
+      ir(estado.vista);
+    });
 
     /* En modo servidor la identidad la pone Entra ID: el campo deja de ser
        texto libre, porque la gracia de entrar con la cuenta es justamente que

@@ -1,0 +1,15 @@
+{
+  "name": "inventario-fisico-vs-sap",
+  "version": "1.0.0",
+  "description": "Conciliación de los inventarios físicos de Farmacia contra SAP: identificación, cursos de acción, ubicación en almacenes y depuración del maestro.",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": { "node": ">=22.5" },
+  "scripts": {
+    "start": "node servidor/servidor.js",
+    "dev": "INVSAP_AUTH=off node servidor/servidor.js",
+    "datos": "python3 scripts/v3/dataset.py",
+    "auditar": "python3 scripts/v3/auditar.py"
+  },
+  "dependencies": {}
+}

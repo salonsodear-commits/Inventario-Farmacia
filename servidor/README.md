@@ -93,7 +93,35 @@ con `INVSAP_REDIRECT_URI`: Azure compara carácter por carácter.
 
 ---
 
-## Arrancarlo
+## Instalarlo
+
+### En una máquina Linux con systemd
+
+```bash
+sudo ./servidor/instalar/instalar.sh
+sudo nano /etc/inventario.env        # completar con los datos de Azure
+sudo systemctl start inventario
+systemctl status inventario
+journalctl -u inventario -f
+```
+
+El script crea el usuario de servicio, copia la aplicación a `/opt/inventario`,
+deja la configuración en `/etc/inventario.env` con permisos restringidos y
+habilita el servicio para que arranque sola con la máquina. Es idempotente: se
+vuelve a correr para actualizar la aplicación, y no toca ni la base ni la
+configuración.
+
+### Con Docker
+
+```bash
+cp servidor/instalar/inventario.env.ejemplo .env    # y completarlo
+docker compose -f servidor/instalar/compose.yaml up -d
+```
+
+La base vive en un volumen, así que el contenedor se puede reconstruir sin
+perder nada.
+
+### A mano, para probar
 
 ```bash
 export INVSAP_TENANT_ID="…"          # Id. de directorio (inquilino)
@@ -173,18 +201,72 @@ que permite rehacer el análisis sin perder lo decidido.
 
 ### Respaldo
 
-El archivo de la base es uno solo. Para copiarlo con el servidor andando, hay
-que usar el comando de SQLite, no `cp`, porque en modo WAL hay escrituras en un
-archivo aparte:
+**Se hace solo.** Uno al arrancar y uno por día a la hora de
+`INVSAP_RESPALDO_HORA` (3 de la mañana por defecto), en
+`INVSAP_RESPALDOS`. Se conservan los últimos `INVSAP_RESPALDOS_CUANTOS` (14).
+
+Se usa `VACUUM INTO`, que es la forma que SQLite soporta para copiar la base
+**en caliente**: con el servidor andando y en modo WAL, copiar el archivo con
+`cp` puede dejar una copia inconsistente, porque parte de los datos están en el
+`-wal`.
+
+Para uno a mano:
 
 ```bash
 sqlite3 datos/inventario.db ".backup respaldo-$(date +%F).db"
 ```
 
-Si no hay `sqlite3` instalado, parar el servidor y copiar los tres archivos
-(`inventario.db`, `-wal` y `-shm`).
+El último respaldo figura en `/api/salud`, así que se puede monitorear.
+
+### Cómo saber si está viva
+
+```bash
+curl -s -H 'x-invsap: 1' http://127.0.0.1:8080/api/salud
+```
+
+Devuelve la versión, hace cuánto está corriendo, el último respaldo y los
+totales de la base. La imagen de Docker ya lo usa como `HEALTHCHECK`.
+
+### Registro de actividad
+
+Va a la salida estándar, que es lo que corresponde con systemd (queda en
+`journalctl -u inventario`) y con Docker. Una línea por evento:
+
+```
+2026-11-04T14:42:13.136Z info  ingreso usuario=salonsodear@emergencias.com.ar ip=10.0.0.5
+2026-11-04T14:42:13.136Z info  respaldo archivo=inventario-2026-11-04.db bytes=77824
+2026-11-04T14:51:02.004Z AVISO ingreso_rechazado motivo="La cuenta x@gmail.com no es del dominio…"
+```
+
+Con `INVSAP_LOG` se puede además escribir a un archivo, para cuando no hay
+systemd ni Docker.
 
 ---
+
+## Trabajar entre varias personas
+
+La aplicación está pensada para que varios revisen a la vez:
+
+- **Lo que decide uno aparece solo** en la pantalla de los demás. Cada 20
+  segundos el navegador pregunta si hubo cambios (una consulta barata) y sólo
+  si los hubo se trae el estado.
+- **No interrumpe.** Si alguien está en el modo revisión con un caso abierto,
+  no se lo cambian de abajo de las manos: avisa y actualiza al salir.
+- **Si dos deciden el mismo caso**, el segundo recibe un aviso con el nombre de
+  quien había decidido antes y un acceso directo a la ficha. La última decisión
+  queda como vigente, pero **nada se pierde**: el historial guarda las dos.
+
+### Probar el trabajo entre varios sin tener Azure listo
+
+Dos servidores con identidades distintas sobre la **misma base**:
+
+```bash
+INVSAP_AUTH=off INVSAP_PUERTO=8080 INVSAP_DEV_USUARIO="Ana Perez"  node servidor/servidor.js &
+INVSAP_AUTH=off INVSAP_PUERTO=8082 INVSAP_DEV_USUARIO="Beto Gomez" node servidor/servidor.js &
+```
+
+`INVSAP_DEV_USUARIO` sólo tiene efecto con `INVSAP_AUTH=off`, que ya exige
+escuchar en localhost.
 
 ## Si se pone en un servidor de verdad
 

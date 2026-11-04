@@ -19,9 +19,15 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { Base } = require("./db.js");
 const { Entra, ErrorIngreso } = require("./entra.js");
+const { Registro, Respaldo } = require("./operacion.js");
 
 const RAIZ = path.resolve(__dirname, "..");
 const SISTEMA = path.join(RAIZ, "sistema");
+const VERSION = (() => {
+  try { return JSON.parse(fs.readFileSync(path.join(RAIZ, "package.json"), "utf8")).version; }
+  catch (e) { return "desconocida"; }
+})();
+const ARRANQUE = new Date();
 
 // ------------------------------------------------------------- configuración
 const cfg = {
@@ -31,6 +37,10 @@ const cfg = {
   horasSesion: Number(process.env.INVSAP_HORAS_SESION || 10),
   dominio: process.env.INVSAP_DOMINIO || "emergencias.com.ar",
   auth: (process.env.INVSAP_AUTH || "on").toLowerCase(),
+  registro: process.env.INVSAP_LOG || "",
+  respaldos: process.env.INVSAP_RESPALDOS || path.join(RAIZ, "datos", "respaldos"),
+  respaldosCuantos: Number(process.env.INVSAP_RESPALDOS_CUANTOS || 14),
+  respaldoHora: Number(process.env.INVSAP_RESPALDO_HORA || 3),
   entra: {
     tenantId: process.env.INVSAP_TENANT_ID || "",
     clientId: process.env.INVSAP_CLIENT_ID || "",
@@ -41,6 +51,7 @@ const cfg = {
 const SEGURA = (process.env.INVSAP_COOKIE_SEGURA || "").toLowerCase() === "si" ||
                /^https:/i.test(cfg.entra.redirectUri);
 
+const reg = new Registro(cfg.registro);
 function salirCon(msg) { console.error("\n  " + msg + "\n"); process.exit(1); }
 
 if (cfg.auth === "on") {
@@ -61,9 +72,18 @@ if (cfg.auth === "on") {
 }
 
 const db = new Base(cfg.base);
+const respaldo = new Respaldo(db.db, cfg.respaldos, cfg.respaldosCuantos, reg)
+  .programar(cfg.respaldoHora);
 const entra = cfg.auth === "on" ? new Entra({ ...cfg.entra, dominio: cfg.dominio }) : null;
-const USUARIO_DEV = { oid: "dev-local", upn: "dev@" + cfg.dominio, nombre: "Modo desarrollo",
-                      email: null };
+/* En desarrollo se puede dar un nombre para simular personas distintas:
+   dos servidores con INVSAP_DEV_USUARIO distinto, puertos distintos y la MISMA
+   INVSAP_DB alcanzan para probar el trabajo entre varios. Sólo aplica con
+   INVSAP_AUTH=off, que ya exige escuchar en localhost. */
+const DEV_NOMBRE = process.env.INVSAP_DEV_USUARIO || "Modo desarrollo";
+const USUARIO_DEV = {
+  oid: "dev-" + DEV_NOMBRE.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+  upn: DEV_NOMBRE.toLowerCase().replace(/[^a-z0-9]+/g, ".") + "@" + cfg.dominio,
+  nombre: DEV_NOMBRE, email: null };
 if (cfg.auth !== "on") db.registrarUsuario(USUARIO_DEV);
 
 // ------------------------------------------------------------- utilidades
@@ -189,11 +209,24 @@ async function api(req, res, url, usuario) {
     return json(res, 200, {
       usuario: { nombre: usuario.nombre, upn: usuario.upn, oid: usuario.oid },
       modo: cfg.auth === "on" ? "entra" : "desarrollo",
+      marca: db.marcaDeCambio(),
       ...db.estado(),
     });
   }
   if (req.method === "GET" && r === "salud") {
-    return json(res, 200, { ok: true, modo: cfg.auth, ...db.resumen() });
+    return json(res, 200, {
+      ok: true, version: VERSION, modo: cfg.auth,
+      desde: ARRANQUE.toISOString(),
+      segundos_activa: Math.round((Date.now() - ARRANQUE) / 1000),
+      ultimo_respaldo: respaldo.ultimo(),
+      ...db.resumen(),
+    });
+  }
+  /* «¿Decidió algo alguien más?», en una consulta barata. El navegador
+     pregunta esto cada tanto en lugar de traerse todo el estado. */
+  if (req.method === "GET" && r === "cambios") {
+    const marca = db.marcaDeCambio();
+    return json(res, 200, { marca: marca, hay: marca > (url.searchParams.get("desde") || "") });
   }
 
   if (req.method !== "GET" && !pedidoPropio(req)) {
@@ -203,8 +236,19 @@ async function api(req, res, url, usuario) {
   if (req.method === "POST" && r === "decision") {
     const b = await leerCuerpo(req, 1 << 20);
     if (!b.casoId || !b.cambios) return json(res, 400, { error: "Falta casoId o cambios." });
+    /* Si otra persona decidió este mismo caso mientras éste lo tenía abierto,
+       se guarda igual —nada se pierde, el historial guarda las dos— pero se
+       avisa. Pisar en silencio el trabajo de otro sería lo peor de los dos
+       mundos: ni se entera quien pisó ni quien fue pisado. */
+    const previo = db.db.prepare(
+      "SELECT version, revisor, usuario FROM decision WHERE caso_id = ?").get(b.casoId);
+    const conflicto = !!(previo && b.versionConocida !== undefined &&
+                         previo.version > b.versionConocida &&
+                         previo.usuario !== usuario.oid);
     const d = db.guardarDecision(b.casoId, b.cambios, b.descripcion || "(sin descripción)", usuario);
-    return json(res, 200, { ok: true, version: d.version, actualizado: d.actualizado });
+    return json(res, 200, { ok: true, version: d.version, actualizado: d.actualizado,
+                            marca: db.marcaDeCambio(), conflicto: conflicto,
+                            conflictoCon: conflicto ? previo.revisor : undefined });
   }
 
   /* Los lotes deciden cientos de casos de una vez: van en un solo pedido y en
@@ -223,7 +267,7 @@ async function api(req, res, url, usuario) {
       }
       db.db.exec("COMMIT");
     } catch (e) { db.db.exec("ROLLBACK"); throw e; }
-    return json(res, 200, { ok: true, guardados: b.items.length });
+    return json(res, 200, { ok: true, guardados: b.items.length, marca: db.marcaDeCambio() });
   }
 
   if (req.method === "DELETE" && r.startsWith("decision/")) {
@@ -305,12 +349,14 @@ const servidor = http.createServer(async (req, res) => {
         const sid = crypto.randomBytes(32).toString("base64url");
         db.crearSesion(sid, usuario.oid, cfg.horasSesion, ip(req), req.headers["user-agent"]);
         db.anotarAcceso(usuario.oid, usuario.upn, "ingreso", null, ip(req));
+        reg.info("ingreso", { usuario: usuario.upn, ip: ip(req) });
         ponerCookie(res, "invsap_sesion", sid, cfg.horasSesion * 3600);
         res.writeHead(302, { location: volverA.startsWith("/") ? volverA : "/" });
         return res.end();
       } catch (e) {
         if (e instanceof ErrorIngreso) {
           db.anotarAcceso(null, null, "rechazo", e.message, ip(req));
+          reg.aviso("ingreso_rechazado", { motivo: e.message, ip: ip(req) });
           return texto(res, 403, paginaIngreso(e.message));
         }
         throw e;
@@ -335,12 +381,15 @@ const servidor = http.createServer(async (req, res) => {
       return texto(res, 200, paginaIngreso(null));
     }
 
+    if (p.startsWith("/api/") && req.method !== "GET") {
+      reg.info("api", { metodo: req.method, ruta: p, usuario: usuario.upn });
+    }
     if (p.startsWith("/api/")) return await api(req, res, url, usuario);
     if (p === "/" || p === "/index.html") return servirEstatico(res, "index.html");
     if (/^\/[A-Za-z0-9._-]+$/.test(p)) return servirEstatico(res, p.slice(1));
     return texto(res, 404, "No encontrado.");
   } catch (e) {
-    console.error("[error]", req.method, p, "·", e.message);
+    reg.error("pedido_fallido", { metodo: req.method, ruta: p, motivo: e.message });
     if (p.startsWith("/api/")) return json(res, 500, { error: e.message });
     return texto(res, 500, "Error del servidor.");
   }
@@ -350,9 +399,10 @@ setInterval(() => db.limpiarSesiones(), 15 * 60e3).unref();
 
 servidor.listen(cfg.puerto, cfg.host, () => {
   const u = `http://${cfg.host}:${cfg.puerto}/`;
-  console.log(`\n  Sistema de gestión · inventario físico vs SAP`);
+  console.log(`\n  Sistema de gestión · inventario físico vs SAP  v${VERSION}`);
   console.log(`  ${u}`);
   console.log(`  base de datos: ${cfg.base}`);
+  console.log(`  respaldos: ${cfg.respaldos} (uno por día, se guardan ${cfg.respaldosCuantos})`);
   if (cfg.auth === "on") {
     console.log(`  ingreso: Entra ID · sólo cuentas @${cfg.dominio}`);
     console.log(`  redirect URI registrada: ${cfg.entra.redirectUri}`);
@@ -364,5 +414,22 @@ servidor.listen(cfg.puerto, cfg.host, () => {
   console.log("");
 });
 
-process.on("SIGINT", () => { db.cerrar(); process.exit(0); });
-process.on("SIGTERM", () => { db.cerrar(); process.exit(0); });
+/* Un error no capturado no puede dejar la base a medias ni el proceso colgado:
+   se registra, se cierra ordenado y el supervisor —systemd o Docker— levanta
+   de nuevo. */
+function apagar(motivo, codigo) {
+  reg.info("apagando", { motivo });
+  try { servidor.close(); } catch (e) {}
+  try { db.cerrar(); } catch (e) {}
+  reg.cerrar();
+  process.exit(codigo || 0);
+}
+process.on("SIGINT", () => apagar("SIGINT"));
+process.on("SIGTERM", () => apagar("SIGTERM"));
+process.on("uncaughtException", e => {
+  reg.error("error_no_capturado", { motivo: e.message, pila: (e.stack || "").split("\n")[1] });
+  apagar("error no capturado", 1);
+});
+process.on("unhandledRejection", e => {
+  reg.error("promesa_sin_capturar", { motivo: (e && e.message) || String(e) });
+});

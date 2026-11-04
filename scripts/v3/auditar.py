@@ -12,7 +12,7 @@ S = os.path.join(RAIZ, "salida", "auditoria") + os.sep
 os.makedirs(S, exist_ok=True)
 XLSX = RAIZ + "Inventario fisico vs SAP - analisis.xlsx"
 PDF = RAIZ + "Inventario fisico vs SAP - informe integral.pdf"
-HTML = RAIZ + "Sistema - Inventario fisico vs SAP.html"
+HTML = RAIZ + "Inventario fisico vs SAP - consulta.html"
 
 fallos, avisos = [], []
 def ok(c, titulo, detalle=""):
@@ -201,8 +201,37 @@ for frase, titulo in [
 print("\n=== 4. EL SISTEMA ===")
 h = io.open(HTML, encoding="utf-8").read()
 ok("<script src=" not in h and 'href="estilos' not in h,
-   "el sistema es un archivo único, sin referencias externas")
-ok(len(h) > 3_000_000, "el sistema lleva los datos adentro", "%.1f MB" % (len(h) / 1024 / 1024))
+   "la copia de consulta es un archivo único, sin referencias externas")
+ok(len(h) > 3_000_000, "la copia lleva los datos adentro", "%.1f MB" % (len(h) / 1024 / 1024))
+ok("INVSAP_SOLO_CONSULTA = true" in h,
+   "la copia viene marcada como de sólo consulta")
+ok("Esta copia es para consultar" in h,
+   "la copia explica dónde se decide")
+
+# El servidor: lo que convierte esto en una aplicación y no en un archivo.
+print("\n=== 4b. LA APLICACIÓN ===")
+for n in ["servidor/servidor.js", "servidor/db.js", "servidor/entra.js",
+          "servidor/operacion.js", "servidor/README.md", "package.json",
+          "servidor/instalar/inventario.service", "servidor/instalar/Dockerfile",
+          "servidor/instalar/instalar.sh", "servidor/instalar/inventario.env.ejemplo"]:
+    ok(os.path.exists(RAIZ + n), "existe %s" % n)
+srv = io.open(RAIZ + "servidor/servidor.js", encoding="utf-8").read()
+ok("INVSAP_AUTH" in srv and "127.0.0.1" in srv,
+   "el modo sin autenticación exige escuchar en localhost")
+ent = io.open(RAIZ + "servidor/entra.js", encoding="utf-8").read()
+for frase, titulo in [
+    ("code_challenge_method", "el ingreso usa PKCE"),
+    ("crypto.verify", "se verifica la firma del id_token"),
+    ("#ext#", "se rechaza a los usuarios invitados"),
+    ("claims.nonce !== nonceEsperado", "se verifica el nonce"),
+    ("claims.tid !== this.cfg.tenantId", "se verifica el inquilino"),
+]:
+    ok(frase in ent, titulo)
+ok("client_secret" not in ent.split("urlIngreso")[1].split("}")[0],
+   "el secreto no viaja en la URL de autorización")
+dbjs = io.open(RAIZ + "servidor/db.js", encoding="utf-8").read()
+ok("BEGIN IMMEDIATE" in dbjs, "las escrituras van en transacción")
+ok("decision_historial" in dbjs, "hay historial de decisiones")
 for frase, titulo in [
     ("Crear sin verificar el maestro", "el sistema tiene la alternativa 2"),
     ("riesgo de generar un código duplicado", "el sistema explica el riesgo al preguntar"),

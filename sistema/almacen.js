@@ -7,10 +7,13 @@
      de verdad: varias personas sobre las mismas bases, cada decisión firmada
      con la identidad real de quien la tomó.
 
-   · LOCAL — el archivo único abierto con doble clic. Sin servidor no hay
+   · CONSULTA — el archivo único abierto con doble clic. Sin servidor no hay
      login posible (Microsoft no admite file:// como dirección de retorno) ni
-     base compartida, así que las decisiones quedan en el navegador de esa
-     computadora, como antes. Sirve para mirar y para probar.
+     base compartida. Antes acá se podía decidir, y eso era el problema: cada
+     copia que circulaba por correo era un lugar donde alguien decidía sin que
+     nadie se enterara, y esas decisiones no entraban en ningún lado. Ahora el
+     archivo sirve para MIRAR —el análisis completo, las fichas, el informe—
+     pero no para decidir. Para decidir hay que entrar a la aplicación.
 
    El modo se detecta solo. El resto del sistema no se entera: llama siempre a
    las mismas funciones.
@@ -28,7 +31,7 @@ var Almacen = (function () {
   var CLAVE_DEP = "invsap.depuracion.v1";
   var CLAVE_REV = "invsap.revisor";
 
-  var modo = "local";          // "servidor" | "local"
+  var modo = "local";          // "servidor" | "local" | "consulta"
   var usuario = null;          // sólo en modo servidor
   var decisiones = {};
   var depu = { politica: null, materiales: {}, maestro: null, historial: [] };
@@ -39,13 +42,17 @@ var Almacen = (function () {
   var pendientesOtros = 0;     // pedidos que no son de decisiones
   var fallo = null;
   var oyentes = [];
+  var alLlegarCambios = null;   // lo pone app.js: qué hacer cuando otro decidió algo
+  var marca = "";               // marca del último cambio que este navegador conoce
+  var conflictos = [];          // casos que otro decidió mientras los teníamos abiertos
 
   // ------------------------------------------------------------- estado
   function estado() {
     return { modo: modo, usuario: usuario,
              sincronizando: enVuelo || cola.length > 0 || pendientesOtros > 0,
-             pendientes: cola.length, fallo: fallo };
+             pendientes: cola.length, fallo: fallo, conflictos: conflictos.slice() };
   }
+  function limpiarConflictos() { conflictos = []; avisar(); }
   function alCambiar(fn) { oyentes.push(fn); }
   function avisar() { oyentes.forEach(function (f) { try { f(estado()); } catch (e) {} }); }
 
@@ -108,8 +115,15 @@ var Almacen = (function () {
     var envio = lote.length === 1
       ? pedir("POST", "/api/decision", lote[0])
       : pedir("POST", "/api/decision/lote", { items: lote });
-    envio.then(function () {
-      enVuelo = false; fallo = null; avisar();
+    envio.then(function (r) {
+      enVuelo = false; fallo = null;
+      // El servidor avisa si alguien más había decidido ese caso. Se guarda
+      // igual —el historial guarda las dos— pero la persona se entera.
+      if (r && r.conflicto) {
+        conflictos.push({ casoId: lote[0].casoId, quien: r.conflictoCon });
+      }
+      if (r && r.marca) marca = r.marca;
+      avisar();
       if (cola.length) setTimeout(vaciar, 0);
     }).catch(function (e) {
       // Se devuelven al principio de la cola y se reintenta: una caída de red
@@ -151,13 +165,21 @@ var Almacen = (function () {
         depu = d.depuracion || depu;
         if (!depu.materiales) depu.materiales = {};
         if (!depu.historial) depu.historial = [];
+        marca = d.marca || "";
+        vigilar();
         avisar();
         listo();
       })
       .catch(function () { arrancarLocal(listo); });
   }
+  /* `consulta` lo escribe el empaquetador en el archivo único. Un archivo
+     servido desde la aplicación nunca lo trae, así que no hay manera de
+     quedar en modo consulta por accidente. */
+  function soloConsulta() {
+    return typeof window.INVSAP_SOLO_CONSULTA !== "undefined" && window.INVSAP_SOLO_CONSULTA;
+  }
   function arrancarLocal(listo) {
-    modo = "local";
+    modo = soloConsulta() ? "consulta" : "local";
     try { decisiones = JSON.parse(localStorage.getItem(CLAVE) || "{}") || {}; }
     catch (e) { decisiones = {}; }
     try {
@@ -186,7 +208,12 @@ var Almacen = (function () {
   /* El modelo en memoria se actualiza acá, para que el sistema sea igual de
      rápido en los dos modos. La persistencia sale por detrás. */
   function decidir(casoId, cambios, descripcion) {
+    if (modo === "consulta") return null;    // acá no se decide; lo dice la interfaz
     var d = decisiones[casoId] || { historial: [] };
+    // 0 = «cuando lo leí no había ninguna decisión». Mandarlo como undefined
+    // hacía que el servidor no pudiera distinguir «no sé» de «no había nada»,
+    // y el aviso de conflicto nunca saltaba en el caso más común.
+    var versionConocida = d.version || 0;
     var antes = {};
     Object.keys(cambios).forEach(function (k) {
       antes[k] = d[k] === undefined ? null : d[k];
@@ -198,7 +225,8 @@ var Almacen = (function () {
     d.revisor = revisor() || "(sin identificar)";
     d.actualizado = new Date().toISOString();
     decisiones[casoId] = d;
-    encolar({ casoId: casoId, cambios: cambios, descripcion: descripcion });
+    encolar({ casoId: casoId, cambios: cambios, descripcion: descripcion,
+              versionConocida: versionConocida });
     return d;
   }
 
@@ -256,8 +284,8 @@ var Almacen = (function () {
                           quien: revisor() || "(sin identificar)", que: que });
   }
 
-  /* Vuelve a traer todo del servidor: lo usa el botón de actualizar, para ver
-     lo que decidieron otros sin recargar la página. */
+  /* Vuelve a traer todo del servidor. Lo usa el refresco automático y el
+     botón de actualizar. */
   function recargar() {
     if (modo !== "servidor") return Promise.resolve();
     return pedir("GET", "/api/estado").then(function (d) {
@@ -265,15 +293,45 @@ var Almacen = (function () {
       depu = d.depuracion || depu;
       if (!depu.materiales) depu.materiales = {};
       if (!depu.historial) depu.historial = [];
+      marca = d.marca || marca;
       avisar();
     });
   }
 
+  /* Trabajar entre varias personas sin ver lo que hacen las demás es la
+     mitad del problema que esto vino a resolver. Cada tanto se pregunta si
+     hubo cambios —una consulta barata, no el estado entero— y recién si los
+     hubo se trae todo.
+
+     No se pregunta mientras hay escrituras propias en vuelo, para no traerse
+     un estado viejo justo antes de que entre el propio. */
+  var VIGILA_MS = 20000;
+  function vigilar() {
+    setInterval(function () {
+      if (modo !== "servidor") return;
+      if (document.hidden) return;             // pestaña en segundo plano: no molesta
+      if (enVuelo || cola.length) return;
+      fetch("/api/cambios?desde=" + encodeURIComponent(marca),
+            { headers: { "x-invsap": "1" }, credentials: "same-origin" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          if (!d || !d.hay) return;
+          return recargar().then(function () {
+            if (alLlegarCambios) alLlegarCambios();
+          });
+        })
+        .catch(function () { /* una consulta perdida no es noticia: se reintenta sola */ });
+    }, VIGILA_MS);
+  }
+  function cuandoLleguenCambios(fn) { alLlegarCambios = fn; }
+
   return {
     iniciar: iniciar, estado: estado, alCambiar: alCambiar,
+    soloConsulta: function () { return modo === "consulta"; },
     modo: function () { return modo; }, usuario: function () { return usuario; },
     todas: todas, depuracion: depuracion, revisor: revisor, fijarRevisor: fijarRevisor,
     decidir: decidir, olvidar: olvidar, recargar: recargar,
+    cuandoLleguenCambios: cuandoLleguenCambios, limpiarConflictos: limpiarConflictos,
     fijarPolitica: fijarPolitica, quitarPolitica: quitarPolitica,
     decidirMaterial: decidirMaterial, fijarMaestro: fijarMaestro, quitarMaestro: quitarMaestro,
   };

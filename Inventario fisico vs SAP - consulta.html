@@ -1,8 +1,9 @@
 <!doctype html>
 <!--
-  Sistema de gestión · Inventario físico vs SAP
-  Archivo único y autocontenido: no necesita internet, ni instalación,
-  ni ningún otro archivo al lado. Se abre con doble clic.
+  Inventario físico vs SAP · COPIA PARA CONSULTA
+  Muestra el análisis completo, pero no se puede decidir acá: las
+  decisiones se toman en la aplicación, donde quedan en una base
+  compartida y firmadas con la cuenta de cada uno.
   Generado el 2026-11-04
 -->
 
@@ -575,6 +576,10 @@ tr.clic:hover{background:var(--sup2)}
   border-radius:7px;white-space:nowrap}
 .salir:hover{background:var(--sup2);color:var(--tinta)}
 @media (max-width:1150px){.quien{display:none}}
+.sest.choque{border-color:var(--cD);color:var(--cD);background:var(--cD-f);
+  cursor:pointer;font-weight:650}
+.sest.choque:hover{filter:brightness(1.06)}
+.sest.consulta{border-color:var(--cD);color:var(--cD);background:var(--cD-f);font-weight:650}
 
 </style>
 </head>
@@ -612,6 +617,7 @@ tr.clic:hover{background:var(--sup2)}
   <section id="v-ayuda" class="oculto"></section>
 </main>
 
+<script>window.INVSAP_SOLO_CONSULTA = true;</script>
 <script>
 /* ---- almacen.js ---- */
 /* Dónde se guardan las decisiones.
@@ -623,10 +629,13 @@ tr.clic:hover{background:var(--sup2)}
      de verdad: varias personas sobre las mismas bases, cada decisión firmada
      con la identidad real de quien la tomó.
 
-   · LOCAL — el archivo único abierto con doble clic. Sin servidor no hay
+   · CONSULTA — el archivo único abierto con doble clic. Sin servidor no hay
      login posible (Microsoft no admite file:// como dirección de retorno) ni
-     base compartida, así que las decisiones quedan en el navegador de esa
-     computadora, como antes. Sirve para mirar y para probar.
+     base compartida. Antes acá se podía decidir, y eso era el problema: cada
+     copia que circulaba por correo era un lugar donde alguien decidía sin que
+     nadie se enterara, y esas decisiones no entraban en ningún lado. Ahora el
+     archivo sirve para MIRAR —el análisis completo, las fichas, el informe—
+     pero no para decidir. Para decidir hay que entrar a la aplicación.
 
    El modo se detecta solo. El resto del sistema no se entera: llama siempre a
    las mismas funciones.
@@ -644,7 +653,7 @@ var Almacen = (function () {
   var CLAVE_DEP = "invsap.depuracion.v1";
   var CLAVE_REV = "invsap.revisor";
 
-  var modo = "local";          // "servidor" | "local"
+  var modo = "local";          // "servidor" | "local" | "consulta"
   var usuario = null;          // sólo en modo servidor
   var decisiones = {};
   var depu = { politica: null, materiales: {}, maestro: null, historial: [] };
@@ -655,13 +664,17 @@ var Almacen = (function () {
   var pendientesOtros = 0;     // pedidos que no son de decisiones
   var fallo = null;
   var oyentes = [];
+  var alLlegarCambios = null;   // lo pone app.js: qué hacer cuando otro decidió algo
+  var marca = "";               // marca del último cambio que este navegador conoce
+  var conflictos = [];          // casos que otro decidió mientras los teníamos abiertos
 
   // ------------------------------------------------------------- estado
   function estado() {
     return { modo: modo, usuario: usuario,
              sincronizando: enVuelo || cola.length > 0 || pendientesOtros > 0,
-             pendientes: cola.length, fallo: fallo };
+             pendientes: cola.length, fallo: fallo, conflictos: conflictos.slice() };
   }
+  function limpiarConflictos() { conflictos = []; avisar(); }
   function alCambiar(fn) { oyentes.push(fn); }
   function avisar() { oyentes.forEach(function (f) { try { f(estado()); } catch (e) {} }); }
 
@@ -724,8 +737,15 @@ var Almacen = (function () {
     var envio = lote.length === 1
       ? pedir("POST", "/api/decision", lote[0])
       : pedir("POST", "/api/decision/lote", { items: lote });
-    envio.then(function () {
-      enVuelo = false; fallo = null; avisar();
+    envio.then(function (r) {
+      enVuelo = false; fallo = null;
+      // El servidor avisa si alguien más había decidido ese caso. Se guarda
+      // igual —el historial guarda las dos— pero la persona se entera.
+      if (r && r.conflicto) {
+        conflictos.push({ casoId: lote[0].casoId, quien: r.conflictoCon });
+      }
+      if (r && r.marca) marca = r.marca;
+      avisar();
       if (cola.length) setTimeout(vaciar, 0);
     }).catch(function (e) {
       // Se devuelven al principio de la cola y se reintenta: una caída de red
@@ -767,13 +787,21 @@ var Almacen = (function () {
         depu = d.depuracion || depu;
         if (!depu.materiales) depu.materiales = {};
         if (!depu.historial) depu.historial = [];
+        marca = d.marca || "";
+        vigilar();
         avisar();
         listo();
       })
       .catch(function () { arrancarLocal(listo); });
   }
+  /* `consulta` lo escribe el empaquetador en el archivo único. Un archivo
+     servido desde la aplicación nunca lo trae, así que no hay manera de
+     quedar en modo consulta por accidente. */
+  function soloConsulta() {
+    return typeof window.INVSAP_SOLO_CONSULTA !== "undefined" && window.INVSAP_SOLO_CONSULTA;
+  }
   function arrancarLocal(listo) {
-    modo = "local";
+    modo = soloConsulta() ? "consulta" : "local";
     try { decisiones = JSON.parse(localStorage.getItem(CLAVE) || "{}") || {}; }
     catch (e) { decisiones = {}; }
     try {
@@ -802,7 +830,12 @@ var Almacen = (function () {
   /* El modelo en memoria se actualiza acá, para que el sistema sea igual de
      rápido en los dos modos. La persistencia sale por detrás. */
   function decidir(casoId, cambios, descripcion) {
+    if (modo === "consulta") return null;    // acá no se decide; lo dice la interfaz
     var d = decisiones[casoId] || { historial: [] };
+    // 0 = «cuando lo leí no había ninguna decisión». Mandarlo como undefined
+    // hacía que el servidor no pudiera distinguir «no sé» de «no había nada»,
+    // y el aviso de conflicto nunca saltaba en el caso más común.
+    var versionConocida = d.version || 0;
     var antes = {};
     Object.keys(cambios).forEach(function (k) {
       antes[k] = d[k] === undefined ? null : d[k];
@@ -814,7 +847,8 @@ var Almacen = (function () {
     d.revisor = revisor() || "(sin identificar)";
     d.actualizado = new Date().toISOString();
     decisiones[casoId] = d;
-    encolar({ casoId: casoId, cambios: cambios, descripcion: descripcion });
+    encolar({ casoId: casoId, cambios: cambios, descripcion: descripcion,
+              versionConocida: versionConocida });
     return d;
   }
 
@@ -872,8 +906,8 @@ var Almacen = (function () {
                           quien: revisor() || "(sin identificar)", que: que });
   }
 
-  /* Vuelve a traer todo del servidor: lo usa el botón de actualizar, para ver
-     lo que decidieron otros sin recargar la página. */
+  /* Vuelve a traer todo del servidor. Lo usa el refresco automático y el
+     botón de actualizar. */
   function recargar() {
     if (modo !== "servidor") return Promise.resolve();
     return pedir("GET", "/api/estado").then(function (d) {
@@ -881,15 +915,45 @@ var Almacen = (function () {
       depu = d.depuracion || depu;
       if (!depu.materiales) depu.materiales = {};
       if (!depu.historial) depu.historial = [];
+      marca = d.marca || marca;
       avisar();
     });
   }
 
+  /* Trabajar entre varias personas sin ver lo que hacen las demás es la
+     mitad del problema que esto vino a resolver. Cada tanto se pregunta si
+     hubo cambios —una consulta barata, no el estado entero— y recién si los
+     hubo se trae todo.
+
+     No se pregunta mientras hay escrituras propias en vuelo, para no traerse
+     un estado viejo justo antes de que entre el propio. */
+  var VIGILA_MS = 20000;
+  function vigilar() {
+    setInterval(function () {
+      if (modo !== "servidor") return;
+      if (document.hidden) return;             // pestaña en segundo plano: no molesta
+      if (enVuelo || cola.length) return;
+      fetch("/api/cambios?desde=" + encodeURIComponent(marca),
+            { headers: { "x-invsap": "1" }, credentials: "same-origin" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          if (!d || !d.hay) return;
+          return recargar().then(function () {
+            if (alLlegarCambios) alLlegarCambios();
+          });
+        })
+        .catch(function () { /* una consulta perdida no es noticia: se reintenta sola */ });
+    }, VIGILA_MS);
+  }
+  function cuandoLleguenCambios(fn) { alLlegarCambios = fn; }
+
   return {
     iniciar: iniciar, estado: estado, alCambiar: alCambiar,
+    soloConsulta: function () { return modo === "consulta"; },
     modo: function () { return modo; }, usuario: function () { return usuario; },
     todas: todas, depuracion: depuracion, revisor: revisor, fijarRevisor: fijarRevisor,
     decidir: decidir, olvidar: olvidar, recargar: recargar,
+    cuandoLleguenCambios: cuandoLleguenCambios, limpiarConflictos: limpiarConflictos,
     fijarPolitica: fijarPolitica, quitarPolitica: quitarPolitica,
     decidirMaterial: decidirMaterial, fijarMaestro: fijarMaestro, quitarMaestro: quitarMaestro,
   };
@@ -1285,8 +1349,39 @@ var App = (function () {
      cuándo. Quién sale de la sesión cuando se entró con Entra ID, así que en
      ese modo no es un nombre escrito a mano. */
   function decidir(id, cambios, descripcion) {
+    if (Almacen.soloConsulta()) return avisarConsulta();
     Almacen.decidir(id, cambios, descripcion);
     invalidar();
+  }
+
+  /* Una sola explicación, en el único lugar por el que pasan todas las
+     decisiones. Antes de esto, el archivo suelto dejaba decidir y lo decidido
+     no llegaba a ningún lado. */
+  var yaAvisoConsulta = false;
+  function avisarConsulta() {
+    if (yaAvisoConsulta) { aviso("Esta copia es para consultar: las decisiones van en la aplicación."); return; }
+    yaAvisoConsulta = true;
+    var donde = (D.meta && D.meta.aplicacion) || "";
+    var cont = document.createElement("div");
+    cont.innerHTML = '<div class="modalfondo"><div class="modal">' +
+      "<h2>Esta copia es para consultar</h2>" +
+      '<p class="sub">Podés mirar todo —el análisis, las fichas, la comparación ' +
+      "característica por característica, el informe— pero las decisiones se " +
+      "toman en la aplicación.</p>" +
+      '<div class="aviso" style="margin-top:16px"><b>Por qué.</b>' +
+      "Cuando el sistema era un archivo que circulaba por correo, cada copia era " +
+      "un lugar donde alguien decidía sin que nadie se enterara, y eso no entraba " +
+      "en ningún lado. En la aplicación las decisiones quedan en una base " +
+      "compartida, firmadas con tu cuenta, y todos ven lo mismo.</div>" +
+      (donde ? '<p class="sub" style="margin-top:16px">La aplicación está en ' +
+               '<b>' + esc(donde) + "</b>.</p>" : "") +
+      '<div class="modalacc"><button class="btn pri" id="cqOk">Entendido</button></div>' +
+      "</div></div>";
+    document.body.appendChild(cont.firstChild);
+    var m = document.querySelector(".modalfondo");
+    function cerrar() { m.remove(); }
+    m.querySelector("#cqOk").addEventListener("click", cerrar);
+    m.addEventListener("click", function (ev) { if (ev.target === m) cerrar(); });
   }
 
   // ------------------------------------------------------------- derivados
@@ -1913,6 +2008,7 @@ var App = (function () {
   /* Pregunta expresa antes de crear sin verificar. No se puede confirmar sin marcar
      que se entiende el riesgo: la decisión queda registrada con nombre y fecha. */
   function modalCrearSinVerificar(casos, alVolver) {
+    if (Almacen.soloConsulta()) return avisarConsulta();
     var uno = casos.length === 1;
     var h = '<div class="modalfondo"><div class="modal">' +
       "<h2>Crear " + (uno ? "este material" : num(casos.length) + " materiales") +
@@ -2043,6 +2139,7 @@ var App = (function () {
     pintarTriage();
   }
   function confirmarSeleccion(c) {
+    if (Almacen.soloConsulta()) return avisarConsulta();
     var mats = Object.keys(estado.selCand);
     if (!mats.length) return aviso("Marcá al menos un código.");
     var nom = "";
@@ -2069,8 +2166,9 @@ var App = (function () {
     avanzar();
   }
   function accionTriage(c, a) {
+    if (a === "s") return avanzar();        // saltear no decide nada
+    if (Almacen.soloConsulta()) return avisarConsulta();
     if (a === "confirmar") return confirmarSeleccion(c);
-    if (a === "s") return avanzar();
     // ---- clase B: elegir alternativa y registrar el resultado de la verificación
     if (a === "b1") {
       decidir(c.id, conObs({ ruta_b: RB_VERIF, estado_revision: "Pendiente de validación",
@@ -2235,6 +2333,7 @@ var App = (function () {
     modal.addEventListener("click", function (ev) { if (ev.target === modal) cerrar(); });
 
     function aplicar(aprobar) {
+      if (Almacen.soloConsulta()) { cerrar(); return avisarConsulta(); }
       var sel = seleccionados();
       if (!sel.length) return aviso("No hay casos seleccionados.");
       if (!confirm((aprobar ? verbo : "Rechazar") + ": " + sel.length +
@@ -2780,6 +2879,7 @@ var App = (function () {
            (g ? " g" : "") + '">' + esc(v) + "</div></div>";
   }
   function accionFicha(c, a) {
+    if (Almacen.soloConsulta()) return avisarConsulta();
     var o = document.getElementById("obs") ? document.getElementById("obs").value : "";
     switch (a) {
       case "confirmar":
@@ -3110,6 +3210,7 @@ var App = (function () {
   }
 
   function decidirMaterial(cod, acc) {
+    if (Almacen.soloConsulta()) return avisarConsulta();
     var depu = depuObj();
     if (acc === "__pol") {
       Almacen.decidirMaterial(cod, null, "",
@@ -3183,6 +3284,7 @@ var App = (function () {
     modal.querySelector("#polCancel").addEventListener("click", cerrar);
     modal.addEventListener("click", function (ev) { if (ev.target === modal) cerrar(); });
     modal.querySelector("#polOk").addEventListener("click", function () {
+      if (Almacen.soloConsulta()) { cerrar(); return avisarConsulta(); }
       var r = modal.querySelector('input[name="polacc"]:checked');
       if (!r) return aviso("Elegí una acción.");
       var crit = modal.querySelector("#polCrit").value.trim();
@@ -3398,14 +3500,55 @@ var App = (function () {
       } else {
         h += '<span class="sest bien" title="Las decisiones se guardan en la base compartida">✓ guardado</span>';
       }
+      if (st.conflictos && st.conflictos.length) {
+        h += '<button class="sest choque" id="bChoque">' + st.conflictos.length +
+             (st.conflictos.length === 1 ? " caso lo decidió otro" : " casos los decidió otro") +
+             "</button>";
+      }
       h += '<a class="salir" href="/auth/salir" title="Cerrar la sesión">Salir</a>';
+    } else if (st.modo === "consulta") {
+      h += '<span class="sest consulta">Copia para consulta · no se puede decidir</span>';
     } else {
       h += '<span class="sest local" title="Sin servidor, las decisiones quedan en este navegador. ' +
            'Exportá el Excel al terminar.">Sólo en este navegador</span>';
       if (st.fallo) h += '<span class="sest mal" title="' + esc(st.fallo) + '">⚠</span>';
     }
     caja.innerHTML = h;
+    var bc = caja.querySelector("#bChoque");
+    if (bc) bc.addEventListener("click", function () { modalConflictos(st.conflictos); });
     medirBarra();
+  }
+
+  /* Dos personas decidieron el mismo caso. No se pierde nada —el historial
+     guarda las dos— pero quien llegó último tiene que enterarse de que pisó
+     algo, y poder ir a mirarlo. */
+  function modalConflictos(lista) {
+    var h = '<div class="modalfondo"><div class="modal">' +
+      "<h2>" + (lista.length === 1 ? "Otra persona ya había decidido este caso"
+                                   : "Otras personas ya habían decidido estos casos") + "</h2>" +
+      '<p class="sub">Tu decisión se guardó igual y quedó como la última. Nada se perdió: ' +
+      "el historial de cada caso tiene las dos, con nombre y fecha. Conviene mirarlos por " +
+      "si hace falta ponerse de acuerdo.</p>" +
+      '<table class="listalotes" style="margin-top:16px"><thead><tr>' +
+      "<th>Caso</th><th>Lo había decidido</th><th></th></tr></thead><tbody>" +
+      lista.map(function (x) {
+        var c = caso(x.casoId);
+        return "<tr><td><b>" + esc(c ? (c.nombre_fisico || c.texto_sap) : x.casoId) + "</b>" +
+          '<div class="mini">' + esc(c ? c.base : "") + "</div></td>" +
+          "<td>" + esc(x.quien || "—") + "</td>" +
+          '<td><button class="btn chico" data-ver="' + esc(x.casoId) + '">Ver la ficha</button></td></tr>';
+      }).join("") + "</tbody></table>" +
+      '<div class="modalacc"><button class="btn pri" id="chOk">Entendido</button></div>' +
+      "</div></div>";
+    var cont = document.createElement("div");
+    cont.innerHTML = h; document.body.appendChild(cont.firstChild);
+    var modal = document.querySelector(".modalfondo");
+    function cerrar() { modal.remove(); Almacen.limpiarConflictos(); }
+    modal.querySelector("#chOk").addEventListener("click", cerrar);
+    modal.addEventListener("click", function (ev) { if (ev.target === modal) cerrar(); });
+    modal.querySelectorAll("[data-ver]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        cerrar(); estado.volverA = estado.vista; ir("ficha", b.dataset.ver); }); });
   }
 
   function iniciar() {
@@ -3414,6 +3557,17 @@ var App = (function () {
     document.addEventListener("keydown", teclas);
     Almacen.alCambiar(pintarEstadoAlmacen);
     pintarEstadoAlmacen(Almacen.estado());
+    /* Cuando otro decide algo, se redibuja sola. Salvo en el modo revisión:
+       ahí hay un caso abierto en la pantalla y cambiárselo a alguien en medio
+       de una decisión sería peor que esperar. */
+    Almacen.cuandoLleguenCambios(function () {
+      invalidar();
+      if (estado.vista === "revisar" || document.querySelector(".modalfondo")) {
+        aviso("Alguien más registró decisiones. Se actualiza al salir de acá.");
+        return;
+      }
+      ir(estado.vista);
+    });
 
     /* En modo servidor la identidad la pone Entra ID: el campo deja de ser
        texto libre, porque la gracia de entrar con la cuenta es justamente que

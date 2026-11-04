@@ -1,0 +1,57 @@
+; Servicio systemd para el sistema de inventario físico vs SAP.
+;
+; Instalar:
+;   sudo cp servidor/instalar/inventario.service /etc/systemd/system/
+;   sudo cp servidor/instalar/inventario.env.ejemplo /etc/inventario.env
+;   sudo chmod 600 /etc/inventario.env        # tiene el secreto de Entra
+;   sudo nano /etc/inventario.env             # completar los valores
+;   sudo systemctl daemon-reload
+;   sudo systemctl enable --now inventario
+;
+; Ver cómo anda:   systemctl status inventario
+; Ver el registro: journalctl -u inventario -f
+
+[Unit]
+Description=Inventario físico vs SAP · gestión de identificación y cursos de acción
+Documentation=file:///opt/inventario/servidor/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=inventario
+Group=inventario
+WorkingDirectory=/opt/inventario
+ExecStart=/usr/bin/node servidor/servidor.js
+
+; El secreto de Entra vive acá, no en el repositorio ni en la línea de comandos
+; (donde cualquiera que corra `ps` lo vería).
+EnvironmentFile=/etc/inventario.env
+
+; Si se cae, vuelve sola. El límite evita que un error de arranque la deje
+; reiniciándose a ciegas para siempre.
+Restart=on-failure
+RestartSec=5
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
+; Apagado ordenado: el servidor cierra la base al recibir SIGTERM.
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+; Endurecimiento: la aplicación sólo necesita leer su código y escribir en
+; datos/. Todo lo demás le queda fuera de alcance aunque algo salga mal.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/inventario/datos
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target
