@@ -61,8 +61,11 @@ ok(m["valorizacion"]["disponible"] is False,
 # ---------------------------------------------------------------- Excel
 print("\n=== 2. EL EXCEL ===")
 # recalcular con LibreOffice para leer los valores de las fórmulas
-if not os.path.exists(S + "audit/" + os.path.basename(XLSX)):
+conv = S + "audit/" + os.path.basename(XLSX)
+if not os.path.exists(conv) or os.path.getmtime(conv) < os.path.getmtime(XLSX):
     os.makedirs(S + "audit", exist_ok=True)
+    if os.path.exists(conv):
+        os.remove(conv)
     subprocess.run(["soffice", "--headless", "--convert-to", "xlsx", "--outdir",
                     S + "audit", XLSX], check=True, capture_output=True, timeout=600)
 z = zipfile.ZipFile(S + "audit/" + os.path.basename(XLSX))
@@ -101,8 +104,13 @@ def buscar(etiqueta):
             return res[n].get("B", "")
     return None
 
-ok(buscar("Casos totales") == str(len(d["casos"])),
-   "«Casos totales» del Resumen coincide con el dataset", str(buscar("Casos totales")))
+def buscarPrefijo(pref):
+    for n in sorted(res):
+        if res[n].get("A", "").strip().startswith(pref):
+            return res[n].get("B", "")
+    return None
+ok(buscarPrefijo("Casos totales") == str(len(d["casos"])),
+   "«Casos totales» del Resumen coincide con el dataset", str(buscarPrefijo("Casos totales")))
 ok(buscar("Ítems de los inventarios físicos") == str(k["items_fisicos"]),
    "«Ítems de los inventarios físicos» coincide")
 for cl, n in sorted(clases.items()):
@@ -118,6 +126,17 @@ for est, n in al.items():
     ok(v is not None and int(float(v)) == n, "ubicación «%s» en el Resumen" % est, "%s vs %d" % (v, n))
 ok(buscar("Materiales sin stock a la vista") == str(T["F"]),
    "«Materiales sin stock a la vista» coincide con la clase F")
+ok(buscar("Ítem") is not None, "el Resumen abre con el glosario de magnitudes")
+ok(buscar("Unidades físicas contadas") == str(int(k["unidades_fisicas"])),
+   "«Unidades físicas contadas» coincide con el dataset")
+ok(buscar("Materiales de SAP sin identificar (casos)") ==
+   str(len(d["casos"]) - k["items_fisicos"]),
+   "los casos de SAP cierran contra los ítems físicos")
+cab_casos = celdas("Casos")[4]
+ok(cab_casos.get("O") == "Unidades CONTADAS en el depósito",
+   "la columna O dice que son unidades contadas")
+ok(cab_casos.get("P") == "Unidades de STOCK EN SAP en esa base",
+   "la columna P dice que son unidades de SAP")
 
 ctl = celdas("Control")
 estados = [ctl[n].get("E", "") for n in sorted(ctl) if ctl[n].get("E", "")]
@@ -163,7 +182,8 @@ print("\n=== 3. EL PDF ===")
 txt = subprocess.run(["pdftotext", "-layout", PDF, "-"], capture_output=True,
                      check=True).stdout.decode("utf-8")
 paginas = txt.count("\f")
-ok(paginas == 20, "20 páginas", str(paginas))
+plano = re.sub(r"\s+", " ", txt)        # una frase puede venir partida en dos líneas
+ok(paginas == 21, "21 páginas", str(paginas))
 ok(paginas < 30, "es un informe ejecutivo, no un listado")
 
 def miles(n):
@@ -185,6 +205,8 @@ ok("Detalle de los materiales propuestos para baja" not in txt,
 ok("Dónde está el detalle" in txt, "el PDF dice dónde está el detalle")
 
 for frase, titulo in [
+    ("tres maneras de contar lo mismo", "el PDF fija el vocabulario antes de los resultados"),
+    ("no son la misma magnitud", "el PDF advierte que las unidades contadas y las de SAP no se suman"),
     ("dos alternativas", "el PDF explica las dos alternativas de la clase B"),
     ("Código duplicado", "el PDF nombra el riesgo de código duplicado"),
     ("Depuración del maestro", "el PDF tiene la sección de depuración del maestro"),
@@ -195,7 +217,7 @@ for frase, titulo in [
     ("no ejecuta ninguna modificación sobre SAP",
      "el PDF lo dice ya en la primera página"),
 ]:
-    ok(frase in txt, titulo)
+    ok(frase.lower() in plano.lower(), titulo)
 
 # ---------------------------------------------------------------- sistema
 print("\n=== 4. EL SISTEMA ===")
@@ -205,6 +227,13 @@ ok("<script src=" not in h and 'href="estilos' not in h,
 ok(len(h) > 3_000_000, "la copia lleva los datos adentro", "%.1f MB" % (len(h) / 1024 / 1024))
 ok("INVSAP_SOLO_CONSULTA = true" in h,
    "la copia viene marcada como de sólo consulta")
+for frase, titulo in [
+    ("ítems, unidades y casos", "el sistema distingue las tres magnitudes"),
+    ("Unidades CONTADAS en el depósito", "el Excel rotula las unidades contadas"),
+    ("Unidades de STOCK EN SAP", "el Excel rotula las unidades de SAP"),
+    ("no son la misma magnitud", "el sistema advierte que no se suman"),
+]:
+    ok(frase.lower() in h.lower(), titulo)
 ok("Esta copia es para consultar" in h,
    "la copia explica dónde se decide")
 

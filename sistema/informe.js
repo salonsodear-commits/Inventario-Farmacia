@@ -115,8 +115,38 @@ var Informe = (function () {
       sistema y de qué informe proviene. El sistema incluye controles que comparan sus propios
       totales contra los de las fuentes; se detallan en la parte 2.</p>`, "Parte 1");
 
+    marcar("Qué se cuenta", 1);
+    pagina("3 · Tres maneras de contar lo mismo", `
+      <p>A lo largo del informe aparecen cifras que miden cosas distintas. Confundirlas
+      cambia por completo la lectura, así que conviene fijar el vocabulario antes de los
+      resultados.</p>` +
+      tabla(["", "Qué es", "Cuántos hay"], [
+        ["<b>ítem</b>", "Un producto contado en un inventario físico: una fila del PDF de la base.",
+         "<b>" + num(k.items_fisicos) + "</b>"],
+        ["<b>unidad</b>", "Cada unidad de ese producto. Un solo ítem puede ser 500 unidades, " +
+         "así que las dos cifras no se parecen.", "<b>" + num(k.unidades_fisicas) + "</b>"],
+        ["<b>caso</b>", "Una fila de este trabajo: un ítem del depósito, o un material de SAP " +
+         "con stock que ningún inventario identificó. Es lo que cuentan las clasificaciones.",
+         "<b>" + num(k.total_casos) + "</b>"],
+        ["<b>material</b>", "Un código de SAP. Un mismo material aparece en varios casos si " +
+         "tiene stock en más de una base.", "—"],
+      ], ["eti-col"]) + `
+      <h4>La trampa que conviene conocer</h4>
+      <p class="aviso"><b>Las unidades contadas en el depósito y las unidades de stock en SAP
+      no son la misma magnitud, y no se suman.</b> Son dos recuentos de universos distintos:
+      uno es lo que había en el estante el día del inventario, el otro es lo que el sistema
+      dice que debería haber. Compararlos es justamente el objeto de este trabajo; sumarlos
+      no significa nada. Por eso, cada vez que las dos aparecen juntas, van en columnas
+      separadas y rotuladas.</p>
+      <h4>Por qué los casos son más que los ítems</h4>
+      <p>Los ` + num(k.items_fisicos) + ` ítems contados generan ` + num(k.items_fisicos) + `
+      casos. A eso se suman ` + num(k.total_casos - k.items_fisicos) + ` casos que no salen de
+      ningún recuento: son materiales que SAP registra con stock en una base y que ningún
+      inventario identificó ahí. Como el ajuste se registra por centro, un mismo material con
+      stock en dos bases son dos casos.</p>`, "Parte 1");
+
     marcar("Criterio de cruce y metodología", 1);
-    pagina("3 · Cómo se valida una correspondencia", `
+    pagina("4 · Cómo se valida una correspondencia", `
       <p>La regla de fondo: <b>el parecido del nombre genera el candidato, las características
       deciden</b>. No se asigna un código por similitud textual.</p>
       <h4>Características que se extraen de cada material</h4>` +
@@ -148,7 +178,7 @@ var Informe = (function () {
       cualquier identificación puede auditarse sin rehacer el análisis.</p>`, "Parte 1");
 
     marcar("Clasificación y cursos de acción", 1);
-    pagina("4 · Clasificación de los casos y cursos de acción", `
+    pagina("5 · Clasificación de los casos y cursos de acción", `
       <p>Cada caso recibe una clasificación, un curso de acción y un estado de revisión.</p>` +
       tabla(["", "Clasificación", "Qué significa", "Curso de acción"], [
         [et("A"), "Identificado en SAP", "Existe físicamente y se encontró un código cuya nomenclatura y presentación se corresponden.", "Mantener la identificación. No se propone alta."],
@@ -182,7 +212,7 @@ var Informe = (function () {
       equivalencia de un ítem todavía sin resolver.</p>`, "Parte 1");
 
     marcar("Criterio de valorización", 1);
-    pagina("5 · Criterio de valorización y alcance del análisis", `
+    pagina("6 · Criterio de valorización y alcance del análisis", `
       <h4>Criterio pedido: precio de última compra</h4>
       <p class="aviso"><b>Ese dato no está disponible en ninguno de los archivos recibidos.</b>
       Se revisaron campo por campo:</p>
@@ -212,7 +242,7 @@ var Informe = (function () {
       `, "Parte 1");
 
     marcar("Alcance y limitaciones", 1);
-    pagina("6 · Alcance y limitaciones del análisis", `
+    pagina("7 · Alcance y limitaciones del análisis", `
       <p>Lo que este trabajo puede afirmar, y lo que no.</p>
       <ul>
         <li>El análisis cubre los tres inventarios físicos recibidos y el stock de SAP de las
@@ -235,18 +265,21 @@ var Informe = (function () {
     marcar("Parte 2 · Resultados", 0);
     marcar("Resumen ejecutivo", 1);
     var pctId = t.A / k.items_fisicos * 100;
-    pagina("7 · Resumen ejecutivo", `
+    pagina("8 · Resumen ejecutivo", `
       <p>Se analizaron <b>` + num(k.items_fisicos) + ` ítems</b> relevados en los inventarios
       físicos de las tres bases, que suman <b>` + num(k.unidades_fisicas) + ` unidades</b>
       contadas. Cruzados contra SAP, y sumando los materiales de SAP que ningún inventario
       identificó, el universo de gestión es de <b>` + num(k.total_casos) + ` casos</b>.</p>` +
+      '<p class="glosa"><b>Ítem</b>: un producto contado. <b>Unidad</b>: cada unidad de ' +
+      'ese producto; un solo ítem puede ser 500. <b>Caso</b>: una fila de este trabajo. ' +
+      'Las cifras que siguen son <b>casos</b>, salvo donde diga otra cosa.</p>' +
       '<div class="kpifila">' +
-      [["A", t.A, "Identificados en SAP", "de " + num(k.items_fisicos) + " ítems físicos"],
-       ["B", t.B, "Pendientes de alta", "físicos sin correspondencia"],
-       ["C", t.C, "Candidatos a baja", "material SAP sin identificar"],
-       ["D", t.D, "En revisión", "no se resuelven solos"],
-       ["E", t.E, "Fuera del alcance", "no son de Farmacia"],
-       ["F", t.F, "En SAP sin stock", "se depura el maestro"]]
+      [["A", t.A, "Identificados en SAP", "casos · de " + num(k.items_fisicos) + " ítems"],
+       ["B", t.B, "Pendientes de alta", "casos · sin correspondencia"],
+       ["C", t.C, "Candidatos a baja", "casos · material SAP"],
+       ["D", t.D, "En revisión", "casos · no se resuelven solos"],
+       ["E", t.E, "Fuera del alcance", "casos · no son de Farmacia"],
+       ["F", t.F, "En SAP sin stock", "casos · se depura el maestro"]]
       .map(function (x) {
         return '<div class="kpi ' + x[0] + '"><div class="n">' + num(x[1]) +
           '</div><div class="t">' + x[2] + '</div><div class="d">' + x[3] + "</div></div>";
@@ -286,7 +319,7 @@ var Informe = (function () {
       sujetas a revisión y aprobación.</p>`, "Parte 2");
 
     marcar("Resultados por base y por tipo", 1);
-    pagina("8 · Resultados por base y por tipo de material", `
+    pagina("9 · Resultados por base y por tipo de material", `
       <h4>Por base</h4>` +
       tabla(["Base", "Sistema", "Ítems físicos", "Unidades", "A", "B", "C", "D", "E", "Casos"],
         m.bases.map(function (b) {
@@ -326,7 +359,7 @@ var Informe = (function () {
       primero. El sistema permite filtrarlas.</p>`, "Parte 2");
 
     marcar("Valorización", 1);
-    pagina("9 · Resultados de la valorización", `
+    pagina("10 · Resultados de la valorización", `
       <h4>Valorización por precio de última compra</h4>` +
       tabla(["Concepto", "Resultado"], [
         ["Criterio aplicado", "<b>Precio de última compra</b>"],
@@ -347,7 +380,7 @@ var Informe = (function () {
       un código de SAP confirmado, y la F tampoco porque no tiene stock.</p>`, "Parte 2");
 
     marcar("Controles de integridad", 1);
-    pagina("10 · Controles de integridad contra las fuentes", `
+    pagina("11 · Controles de integridad contra las fuentes", `
       <p>Antes de mirar ningún resultado conviene saber si las cifras cierran. Estos controles
       comparan lo que informa el sistema contra los totales de los archivos originales,
       renglón por renglón.</p>` +
@@ -367,7 +400,7 @@ var Informe = (function () {
       y queda fuera de este trabajo.</p>`, "Parte 2");
 
     marcar("Estado de la gestión", 1);
-    pagina("11 · Estado de la gestión de decisiones", `
+    pagina("12 · Estado de la gestión de decisiones", `
       <p>El sistema registra qué se decidió, quién lo decidió y cuándo. Este informe refleja el
       estado al momento de generarlo.</p>` +
       tabla(["Estado", "Casos"], [
@@ -421,7 +454,7 @@ var Informe = (function () {
 
     marcar("Ubicación del stock", 1);
     var al = k.almacen || {}, am = m.almacenes;
-    pagina("12 · Ubicación del stock: centros y almacenes", `
+    pagina("13 · Ubicación del stock: centros y almacenes", `
       <p>El <b>centro</b> es la base; el <b>almacén</b> es el depósito dentro de esa base.
       Son dos campos distintos de SAP y hasta acá sólo se había mirado el centro. Hay tres
       cuestiones independientes y conviene no mezclarlas: si el material está bien
@@ -450,7 +483,7 @@ var Informe = (function () {
       hace falta preguntarle a la base. Hoy la única ambigua es Neuquén · Descartables.</p>`,
       "Parte 3");
 
-    pagina("12 · Ubicación del stock (continuación)", `
+    pagina("13 · Ubicación del stock (continuación)", `
       <h4>Qué está observado y qué es una propuesta</h4>
       <p>La distinción es importante porque las dos cosas se parecen y no valen lo mismo.</p>
       <p><b>Observado:</b> a qué base pertenece cada almacén. En la bajada, cada código de
@@ -483,7 +516,7 @@ var Informe = (function () {
       if (!e.verificacion) { rb.verif++; return; }
       rb.cerrado++;
     });
-    pagina("13 · Los ítems sin correspondencia: dos alternativas, no una", `
+    pagina("14 · Los ítems sin correspondencia: dos alternativas, no una", `
       <p>Son <b>` + num(t.B) + ` ítems</b> que existen en el depósito y no aparecieron entre
       los materiales que <b>hoy tienen stock</b> en SAP. Eso <b>no prueba que no existan en
       SAP</b>: la bajada recibida no es el maestro completo, así que el material puede estar
@@ -517,7 +550,7 @@ var Informe = (function () {
       if (acc.excepcion) exc++;
     });
     var pol = App.depuracion().politica;
-    pagina("14 · Depuración del maestro de materiales", `
+    pagina("15 · Depuración del maestro de materiales", `
       <p>Al separar los candidatos a baja apareció un grupo que no era lo que parecía:
       <b>` + num(t.F) + ` materiales que figuran en SAP con existencia CERO</b>. Proponer su
       baja no tiene sentido, porque <b>no hay stock que dar de baja</b>. Lo que corresponde
@@ -552,7 +585,7 @@ var Informe = (function () {
         return "<li>" + esc(x) + "</li>"; }).join("") + `</ul>`, "Parte 3");
 
     marcar("Dónde está el detalle", 1);
-    pagina("15 · Dónde está el detalle de cada caso", `
+    pagina("16 · Dónde está el detalle de cada caso", `
       <p>Este informe <b>no lleva el listado de los ` + num(k.total_casos) + ` casos</b>.
       Imprimir cada material uno por uno daría decenas de páginas que nadie lee y que quedan
       desactualizadas apenas se toma la primera decisión. El detalle vive donde se puede
@@ -566,7 +599,7 @@ var Informe = (function () {
         ["El plan de depuración del maestro", "Excel, hoja «Depuración del maestro», y solapa «Maestro» del sistema."],
         ["Quién decidió qué y cuándo", "Excel, hoja «Decisiones»: el historial completo, con nombre y fecha."],
         ["Verificar que las cifras cierran contra las fuentes", "Excel, hoja «Control»: cada control se recalcula solo sobre la hoja «Casos»."],
-        ["Entender cómo se decidió una correspondencia", "Excel, hoja «Metodología», y las secciones 3 y 4 de este informe."],
+        ["Entender cómo se decidió una correspondencia", "Excel, hoja «Metodología», y las secciones 4 y 5 de este informe."],
       ]) + `
       <p class="aviso"><b>Los tres salen del mismo dato.</b> El sistema, el Excel y este
       informe se arman a partir del mismo conjunto de casos y de las mismas decisiones
@@ -574,7 +607,7 @@ var Informe = (function () {
       a exportar, el Excel y el PDF lo reflejan.</p>`, "Parte 3");
 
     marcar("Próximos pasos", 1);
-    pagina("16 · Próximos pasos, en orden", `
+    pagina("17 · Próximos pasos, en orden", `
       <p>El orden importa: cada paso cambia los números del siguiente. Aprobar las bajas
       primero sería el error más caro, porque la lista de bajas se achica a medida que se
       resuelven los casos en revisión.</p>
@@ -611,7 +644,7 @@ var Informe = (function () {
         paquete para su ejecución en SAP.</li>
       </ol>`, "Parte 3");
 
-    pagina("17 · Decisiones que requieren validación", `
+    pagina("18 · Decisiones que requieren validación", `
       <p>Ninguna de éstas la puede tomar el análisis: dependen de un criterio de la
       organización. Están listadas acá para que se definan antes de ejecutar nada.</p>` +
       tabla(["Decisión", "Por qué requiere validación"], [
@@ -793,6 +826,9 @@ var Informe = (function () {
   table.t th.eti-col,table.t td.eti-col{width:22px}
   table.t tr:nth-child(even) td{background:#fafaf8}
   .sub2{font-size:7.6pt;color:var(--itx3)}
+  .glosa{font-size:8.4pt;color:var(--itx2);background:#f6f6f3;border-radius:4px;
+    padding:7px 10px;margin:0 0 11px;line-height:1.55}
+  .glosa b{color:var(--itx)}
   .ok{color:var(--iA)}
   .eti{display:inline-block;width:17px;height:17px;line-height:17px;text-align:center;
     border-radius:50%;color:#fff;font-weight:700;font-size:8.5pt}

@@ -254,6 +254,43 @@ var App = (function () {
     return d.toLocaleDateString("es-AR") + " " +
            d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
   }
+  /* Acá se cuentan TRES cosas distintas y conviene no mezclarlas nunca:
+
+       ítem      un producto contado en un inventario físico
+       unidad    cada unidad de ese producto (un ítem puede ser 500 unidades)
+       caso      una fila del análisis: un ítem físico, o un material de SAP
+                 con stock que ningún inventario identificó
+
+     Y hay una trampa más: las unidades CONTADAS en el depósito y las unidades
+     de STOCK EN SAP no son la misma magnitud y no se suman. Por eso se
+     devuelven por separado. */
+  function magnitudes(lista) {
+    var r = { casos: lista.length, items: 0, contadas: 0, enSap: 0, materiales: 0 };
+    var mats = {};
+    lista.forEach(function (c) {
+      if (c.origen === "Inventario físico") {
+        r.items++;
+        r.contadas += c.cantidad_fisica || 0;
+      } else {
+        r.enSap += c.stock_sap || 0;
+      }
+      efectivo(c).materiales.forEach(function (m) { mats[m] = 1; });
+    });
+    r.materiales = Object.keys(mats).length;
+    return r;
+  }
+  /* El renglón que acompaña a un número: dice de qué son esas unidades. */
+  function detalleMagnitud(m) {
+    var p = [], deSap = m.casos - m.items;
+    if (m.items) p.push(num(m.items) + (m.items === 1 ? " ítem contado" : " ítems contados") +
+                        " · " + num(m.contadas) + " unidades");
+    // Un material de SAP con stock cero sigue siendo un caso: decir «de SAP»
+    // y nada más dejaría la impresión de que no hay nada que contar.
+    if (deSap) p.push(num(deSap) + (deSap === 1 ? " material de SAP · " : " materiales de SAP · ") +
+                      (m.enSap ? num(m.enSap) + " unidades de stock" : "sin stock"));
+    return p.join("  |  ");
+  }
+
   function conteos(lista) {
     var r = { A: 0, B: 0, C: 0, D: 0, E: 0 };
     lista.forEach(function (c) { r[L(c)]++; });
@@ -327,11 +364,16 @@ var App = (function () {
     var k = D.kpis;
 
     var h = '<div class="cabi"><div><h1>¿Por dónde empezar?</h1>' +
-      '<p class="sub">' + num(k.items_fisicos) + ' ítems contados en las tres bases, cruzados ' +
-      'contra SAP. Abajo está el trabajo ordenado por prioridad: empezá por el grupo 1.</p></div>' +
+      '<p class="sub"><b>' + num(k.items_fisicos) + ' ítems</b> contados en las tres bases ' +
+      '—<b>' + num(k.unidades_fisicas) + ' unidades</b> en total—, cruzados contra SAP. ' +
+      'Sumando los materiales de SAP que ningún inventario identificó, el trabajo es de ' +
+      '<b>' + num(k.total_casos) + ' casos</b>. Empezá por el grupo 1.</p>' +
+      '<p class="glosa">Un <b>ítem</b> es un producto contado; una <b>unidad</b> es cada ' +
+      'unidad de ese producto; un <b>caso</b> es una fila de este trabajo. Los números de ' +
+      'abajo son <b>casos</b>, salvo donde diga otra cosa.</p></div>' +
       '<div class="globo">' + '<div class="k">Avance general</div><div class="n">' +
       (decidibles.length ? Math.round(hechos / decidibles.length * 100) : 0) + "%</div>" +
-      '<div class="d">' + num(hechos) + " de " + num(decidibles.length) + " resueltos</div>" +
+      '<div class="d">' + num(hechos) + " de " + num(decidibles.length) + " casos resueltos</div>" +
       '<div class="pbar grande"><i style="width:' +
       (decidibles.length ? hechos / decidibles.length * 100 : 0) + '%"></i></div></div></div>';
 
@@ -384,11 +426,17 @@ var App = (function () {
         if (bloq) h += '<div class="cnota">⚠ ' + num(bloq) + " de estas bajas dependen de un " +
           "caso del grupo 1. Conviene resolver esos primero: pueden dejar de ser bajas.</div>";
       }
+      // El desglose va dentro del cuerpo de la tarjeta, antes de cerrarlo.
+      var mag = magnitudes(pend.length ? pend : todos);
+      var det = detalleMagnitud(mag);
+      if (det) h += '<div class="cmag">' + det + "</div>";
       h += "</div>";
 
       h += '<div class="cacc">' + (listo
-        ? '<div class="cpend ok">' + num(todos.length) + "<small>resueltos</small></div>"
-        : '<div class="cpend">' + num(pend.length) + "<small>pendientes</small></div>") +
+        ? '<div class="cpend ok">' + num(todos.length) +
+          "<small>casos resueltos</small></div>"
+        : '<div class="cpend">' + num(pend.length) +
+          "<small>casos pendientes</small></div>") +
         (q.id === "depurar"
           ? '<button class="btn pri" data-dep="1">Abrir la depuración</button>'
           : listo ? "" :
@@ -403,7 +451,7 @@ var App = (function () {
     h += "</div>";
 
     h += '<div class="cola apagada"><div class="cnum">—</div><div class="ccuerpo">' +
-      '<div class="ctit">Sin acción: ' + num(k.fuera_alcance) + ' materiales fuera del alcance</div>' +
+      '<div class="ctit">Sin acción: ' + num(k.fuera_alcance) + ' casos fuera del alcance</div>' +
       '<div class="cdesc">Indumentaria, equipamiento y repuestos. El inventario relevado es de ' +
       'Farmacia, así que nunca iban a aparecer: su ausencia no prueba nada y no se propone ' +
       'ninguna baja.</div></div><div class="cacc">' +
@@ -439,12 +487,15 @@ var App = (function () {
       'estar perfectamente identificado y aun así figurar en el almacén equivocado. Eso no lo ' +
       'convierte en candidato a alta ni a baja.</p>';
     h += '<div class="kpis">' +
-      kpi("A", "Ubicación correcta", al[AL_OK] || 0, "en el almacén propuesto", AL_OK) +
-      kpi("C", "Ubicación a cambiar", al[AL_CAMB] || 0, "figuran en otro almacén", AL_CAMB) +
-      kpi("D", "En varios almacenes", al[AL_MULT] || 0, "mismo material repartido", AL_MULT) +
+      kpi("A", "Ubicación correcta", al[AL_OK] || 0, "casos · en el almacén propuesto", AL_OK) +
+      kpi("C", "Ubicación a cambiar", al[AL_CAMB] || 0, "casos · figuran en otro almacén", AL_CAMB) +
+      kpi("D", "En varios almacenes", al[AL_MULT] || 0, "casos · material repartido", AL_MULT) +
       kpi("E", "Pendiente de validar", (al[AL_VAL] || 0) + (al[AL_NOID] || 0),
-          "falta definir el almacén esperado", AL_VAL) +
+          "casos · falta definir el almacén", AL_VAL) +
       "</div>";
+    h += '<p class="glosa">Son <b>casos</b>: cada combinación de un material con una base. ' +
+      "Un mismo material puede estar bien ubicado en una base y mal en otra, así que se " +
+      "cuenta una vez por base.</p>";
     h += '<div class="aviso info" style="margin-top:12px"><b>La correspondencia almacén→base ' +
       'está observada; el almacén esperado es una propuesta.</b>' +
       'En la bajada, cada código de almacén aparece bajo un único centro: saber a qué base ' +
@@ -1266,7 +1317,11 @@ var App = (function () {
     var h = '<div class="cabi"><div><h1>Todos los casos</h1>' +
       '<p class="sub">' + num(lista.length) + " de " + num(D.casos.length) +
       ' casos con los filtros actuales. Para trabajar ordenado conviene usar ' +
-      '<b>Inicio</b>; esta vista es para buscar algo puntual.</p></div>' +
+      '<b>Inicio</b>; esta vista es para buscar algo puntual.</p>' +
+      (function () {
+        var m = magnitudes(lista), d = detalleMagnitud(m);
+        return d ? '<p class="glosa">De esos: ' + d + ".</p>" : "";
+      })() + "</div>" +
       '<button class="btn" id="bInicio2">← Ir al inicio</button></div>';
 
     h += '<div class="filtros">' +
@@ -1293,7 +1348,7 @@ var App = (function () {
       th("clase", "Clasificación") + th("base", "Base") +
       '<th class="hfis" data-campo="nombre">En el depósito</th>' +
       '<th class="hsap" data-campo="material">Con stock en SAP</th>' +
-      th("cantidad", "Cantidad") + th("aprobacion", "Estado") + "</tr></thead><tbody>";
+      th("cantidad", "Unidades") + th("aprobacion", "Estado") + "</tr></thead><tbody>";
     if (!pag.length) h += '<tr><td colspan="7" class="vacio">No hay casos con estos filtros.</td></tr>';
     pag.forEach(function (c) {
       var e = efectivo(c), l = L(c);
@@ -1319,7 +1374,9 @@ var App = (function () {
               (e.agrupado ? '<div class="mini">agrupados como «' + esc(e.unificada) + "»</div>" : "") +
               (resueltoPorAgrupacion(c) ? '<div class="mini ok">identificado en una agrupación</div>' : "")
             : '<span class="nohay">no está entre los que tienen stock</span>') + "</td>" +
-        '<td class="num">' + num(cant) + "</td>" +
+        '<td class="num">' + num(cant) +
+          '<div class="mini">' + (c.origen === "Inventario físico"
+            ? "contadas" : "en SAP") + "</div></td>" +
         "<td><span class=\"estado " + (e.aprobacion === "Aprobado" || e.aprobacion === "Correspondencia confirmada" ? "ap" :
             e.aprobacion === "Rechazado" ? "re" : "") + '">' + esc(e.aprobacion) + "</span>" +
           (e.observaciones ? '<div class="mini">con observación</div>' : "") + "</td></tr>";
@@ -2136,6 +2193,26 @@ var App = (function () {
       "resuelven por base de una sola vez.</li>" +
       "<li>Al terminar, <b>Descargar Excel</b>: es tu respaldo y la forma de compartirlo.</li>" +
       "</ol></div>" +
+      '<div class="bloque"><h3>Ítems, unidades y casos: tres cosas distintas</h3>' +
+      "<p>Son tres maneras de contar lo mismo y dan números muy distintos. Donde hay una " +
+      "cifra, el sistema dice siempre de cuál se trata.</p>" +
+      '<table class="listalotes"><tbody>' +
+      '<tr><td style="white-space:nowrap"><b>ítem</b></td><td>Un producto contado en un ' +
+      "inventario físico. Una fila del PDF de la base. Hay <b>" + num(D.kpis.items_fisicos) +
+      "</b> en las tres bases.</td></tr>" +
+      '<tr><td style="white-space:nowrap"><b>unidad</b></td><td>Cada unidad de ese producto. ' +
+      "Un solo ítem puede ser 500 unidades. Se contaron <b>" + num(D.kpis.unidades_fisicas) +
+      "</b> en total.</td></tr>" +
+      '<tr><td style="white-space:nowrap"><b>caso</b></td><td>Una fila de este trabajo: un ' +
+      "ítem del depósito, o un material de SAP con stock que ningún inventario identificó. " +
+      "Hay <b>" + num(D.kpis.total_casos) + "</b>. Es lo que cuentan los grupos del inicio.</td></tr>" +
+      '<tr><td style="white-space:nowrap"><b>material</b></td><td>Un código de SAP. Un mismo ' +
+      "material aparece en varios casos si tiene stock en más de una base.</td></tr>" +
+      "</tbody></table>" +
+      "<p><b>Una trampa que conviene conocer:</b> las unidades <i>contadas en el depósito</i> " +
+      "y las unidades de <i>stock en SAP</i> no son la misma magnitud y no se suman. Cuando " +
+      "las dos aparecen juntas, el sistema las muestra por separado.</p></div>" +
+
       '<div class="bloque"><h3>Atajos del modo revisión</h3><p>' +
       "<kbd>1</kbd>…<kbd>9</kbd> elegir un candidato · <kbd>A</kbd> aprobar o confirmar · " +
       "<kbd>R</kbd> rechazar · <kbd>N</kbd> ninguno corresponde · <kbd>X</kbd> no puedo " +

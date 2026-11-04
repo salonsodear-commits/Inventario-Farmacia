@@ -15,7 +15,7 @@ las cifras coinciden entre ellos.
 
 > El PDF **no trae el listado de los 1.991 materiales**: es un informe ejecutivo. El
 > detalle individual está en el Excel y en el sistema, que es donde se puede filtrar,
-> ordenar y actualizar. La sección 15 del informe dice exactamente dónde buscar cada cosa.
+> ordenar y actualizar. La sección 16 del informe dice exactamente dónde buscar cada cosa.
 
 ---
 

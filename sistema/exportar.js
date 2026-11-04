@@ -18,8 +18,8 @@ var Exportar = (function () {
     ["Curso de acción sugerido", 30], ["Motivo de revisión", 32], ["Base", 11],
     ["Centro", 8], ["Sistema de origen", 15], ["Informe de origen", 34], ["Tipo", 14],
     ["Código en inventario físico", 16], ["Nomenclatura del inventario físico", 42],
-    ["Presentación detectada", 34], ["Cantidad física · UNIDADES", 13],
-    ["Stock SAP en la base · UNIDADES", 14], ["Cantidad a valorizar · UNIDADES", 14],
+    ["Presentación detectada", 34], ["Unidades CONTADAS en el depósito", 15],
+    ["Unidades de STOCK EN SAP en esa base", 16], ["Unidades a valorizar", 14],
     ["Nº de lotes", 9], ["Código SAP · análisis", 13], ["Códigos SAP asignados", 22],
     ["¿Asignado o corregido a mano?", 12], ["Descripción en SAP", 42],
     ["Atributos verificados", 30], ["Confianza del cruce", 11],
@@ -115,7 +115,7 @@ var Exportar = (function () {
   var COLS_OP = [["Nº", 6], ["Base", 11], ["Tipo", 14], ["Código SAP", 13],
     ["Descripción en SAP", 44], ["Código inventario físico", 15],
     ["Nomenclatura del inventario físico", 42], ["Presentación", 30],
-    ["Cantidad física · UNIDADES", 13], ["Stock SAP · UNIDADES", 13],
+    ["Unidades CONTADAS en el depósito", 15], ["Unidades de STOCK EN SAP", 15],
     ["Atributos verificados", 26], ["Confianza", 10], ["Justificación", 64],
     ["Nomenclatura unificada", 40],
     ["Estado de valorización", 19], ["VU de referencia SAP · $", 14],
@@ -179,15 +179,38 @@ var Exportar = (function () {
       [{ v: "Generado", s: E.SUBTITULO }, { v: new Date().toLocaleString("es-AR") }],
       [{ v: "Revisor", s: E.SUBTITULO }, { v: App.revisor() || "(sin identificar)" }],
       [],
+      /* Tres magnitudes distintas que dan números muy distintos. Va primero,
+         antes que cualquier cifra, para que nadie lea un número sin saber de
+         qué es. */
+      [{ v: "QUÉ SE ESTÁ CONTANDO EN CADA COLUMNA", s: E.SUBTITULO }],
+      [{ v: "Ítem" }, { v: "Un producto contado en un inventario físico: una fila del " +
+                             "PDF de la base.", s: E.TEXTO }],
+      [{ v: "Unidad" }, { v: "Cada unidad de ese producto. Un solo ítem puede ser 500 " +
+                             "unidades.", s: E.TEXTO }],
+      [{ v: "Caso" }, { v: "Una fila de este trabajo: un ítem del depósito, o un material " +
+                           "de SAP con stock que ningún inventario identificó. Es lo que " +
+                           "cuenta la columna «Casos».", s: E.TEXTO }],
+      [{ v: "Material" }, { v: "Un código de SAP. Un mismo material aparece en varios " +
+                                "casos si tiene stock en más de una base.", s: E.TEXTO }],
+      [{ v: "ATENCIÓN" }, { v: "Las unidades CONTADAS en el depósito y las unidades de " +
+                                "STOCK EN SAP no son la misma magnitud y no se suman. Van " +
+                                "siempre en columnas separadas.", s: E.TEXTO }],
+      [],
       [{ v: "UNIVERSO ANALIZADO", s: E.SUBTITULO }],
-      [{ v: "Casos totales" }, { f: "COUNTA(Casos!B5:B100000)", s: E.ENTERO }],
+      [{ v: "Casos totales (ítems físicos + materiales de SAP sin identificar)" },
+       { f: "COUNTA(Casos!B5:B100000)", s: E.ENTERO }],
       [{ v: "Ítems de los inventarios físicos" },
        { f: 'COUNTIF(Casos!C:C,"Inventario físico")', s: E.ENTERO }],
       [{ v: "Unidades físicas contadas" },
        { f: 'SUMIF(Casos!C:C,"Inventario físico",Casos!O:O)', s: E.ENTERO }],
+      [{ v: "Materiales de SAP sin identificar (casos)" },
+       { f: 'COUNTIF(Casos!C:C,"Stock SAP")', s: E.ENTERO }],
+      [{ v: "Unidades de stock en SAP de esos materiales" },
+       { f: 'SUMIF(Casos!C:C,"Stock SAP",Casos!P:P)', s: E.ENTERO }],
       [],
       [{ v: "CLASIFICACIÓN", s: E.SUBTITULO }, { v: "Casos", s: E.SUBTITULO },
-       { v: "Unidades físicas", s: E.SUBTITULO }, { v: "Stock SAP", s: E.SUBTITULO }],
+       { v: "Unidades contadas", s: E.SUBTITULO },
+       { v: "Unidades de stock SAP", s: E.SUBTITULO }],
     ];
     m.clases.forEach(function (cl) {
       f.push([{ v: cl },
@@ -196,9 +219,9 @@ var Exportar = (function () {
         { f: 'SUMIF(Casos!D:D,"' + cl + '",Casos!P:P)', s: E.ENTERO }]);
     });
     f.push([]);
-    f.push([{ v: "POR BASE", s: E.SUBTITULO }].concat(
-      m.clases.map(function (cl) { return { v: cl.slice(0, 1), s: E.SUBTITULO }; }),
-      [{ v: "Ítems físicos", s: E.SUBTITULO }, { v: "Unidades físicas", s: E.SUBTITULO }]));
+    f.push([{ v: "POR BASE · casos por clasificación", s: E.SUBTITULO }].concat(
+      m.clases.map(function (cl) { return { v: cl.slice(0, 1) + " (casos)", s: E.SUBTITULO }; }),
+      [{ v: "Ítems físicos", s: E.SUBTITULO }, { v: "Unidades contadas", s: E.SUBTITULO }]));
     m.bases.forEach(function (b) {
       f.push([{ v: b }].concat(
         m.clases.map(function (cl) {
@@ -208,15 +231,15 @@ var Exportar = (function () {
          { f: 'SUMIFS(Casos!O:O,Casos!G:G,"' + b + '",Casos!C:C,"Inventario físico")', s: E.ENTERO }]));
     });
     f.push([]);
-    f.push([{ v: "POR TIPO DE MATERIAL", s: E.SUBTITULO }].concat(
-      m.clases.map(function (cl) { return { v: cl.slice(0, 1), s: E.SUBTITULO }; })));
+    f.push([{ v: "POR TIPO DE MATERIAL · casos por clasificación", s: E.SUBTITULO }].concat(
+      m.clases.map(function (cl) { return { v: cl.slice(0, 1) + " (casos)", s: E.SUBTITULO }; })));
     m.tipos.forEach(function (t) {
       f.push([{ v: t }].concat(m.clases.map(function (cl) {
         return { f: 'COUNTIFS(Casos!K:K,"' + t + '",Casos!D:D,"' + cl + '")', s: E.ENTERO };
       })));
     });
     f.push([]);
-    f.push([{ v: "ESTADO DE LA GESTIÓN", s: E.SUBTITULO }]);
+    f.push([{ v: "ESTADO DE LA GESTIÓN · en casos", s: E.SUBTITULO }]);
     [["Pendientes de decidir", 'COUNTIF(Casos!AH:AH,"Sin decidir")'],
      ["Correspondencias confirmadas", 'COUNTIF(Casos!AH:AH,"Correspondencia confirmada")'],
      ["Propuestas aprobadas", 'COUNTIF(Casos!AH:AH,"Aprobado")'],
@@ -228,7 +251,7 @@ var Exportar = (function () {
      ["Ítems con varios códigos SAP agrupados", 'COUNTIF(Casos!AM:AM,"Sí")']
     ].forEach(function (p) { f.push([{ v: p[0] }, { f: p[1], s: E.ENTERO }]); });
     f.push([]);
-    f.push([{ v: "CLASE B · LAS DOS ALTERNATIVAS", s: E.SUBTITULO }]);
+    f.push([{ v: "CLASE B · LAS DOS ALTERNATIVAS · en casos", s: E.SUBTITULO }]);
     f.push([{ v: "Un ítem que no aparece entre los materiales con stock no está probado que " +
                  "no exista en SAP. Por eso la clase B se trabaja eligiendo expresamente una " +
                  "de dos alternativas.", s: E.TENUE }]);
@@ -244,7 +267,7 @@ var Exportar = (function () {
      ["Ligados al plan de depuración del maestro", 'COUNTIF(Casos!AX:AX,"?*")']
     ].forEach(function (p) { f.push([{ v: p[0] }, { f: p[1], s: E.ENTERO }]); });
     f.push([]);
-    f.push([{ v: "UBICACIÓN DEL STOCK EN LOS ALMACENES", s: E.SUBTITULO }]);
+    f.push([{ v: "UBICACIÓN DEL STOCK EN LOS ALMACENES · en casos", s: E.SUBTITULO }]);
     f.push([{ v: "Una cosa es que el material esté bien identificado, otra que tenga stock, " +
                  "y otra que ese stock esté en el almacén que corresponde. El almacén " +
                  "esperado es una PROPUESTA a validar con cada base.", s: E.TENUE }]);
@@ -255,7 +278,7 @@ var Exportar = (function () {
     f.push([{ v: "Ubicaciones con una decisión registrada" },
             { f: 'COUNTIF(Casos!AR:AR,"?*")', s: E.ENTERO }]);
     f.push([]);
-    f.push([{ v: "DEPURACIÓN DEL MAESTRO", s: E.SUBTITULO }]);
+    f.push([{ v: "DEPURACIÓN DEL MAESTRO · en materiales", s: E.SUBTITULO }]);
     f.push([{ v: "Materiales con existencia CERO. No se dan de baja de stock: se decide qué " +
                  "pasa con el registro. La bajada no es el maestro completo, así que esto es " +
                  "la punta visible del universo a depurar.", s: E.TENUE }]);
