@@ -1323,7 +1323,7 @@ var App = (function () {
                 dp2: "Dar de baja del maestro", re: "Reabrir para volver a decidir" }[a] || a;
     var grave = riesgoLote(s.id, a);
 
-    var h = '<div class="modal"><div class="mcaja ancha"><h2>' + esc(nom) + "</h2>" +
+    var h = '<div class="modalfondo"><div class="modal ancho"><h2>' + esc(nom) + "</h2>" +
       '<p class="sub">Antes de aplicar, esto es a lo que alcanza.</p>' +
       '<div class="lalc">' +
       lalc(num(al.aptos.length), al.aptos.length === 1 ? "caso" : "casos") +
@@ -1351,7 +1351,8 @@ var App = (function () {
         '<label class="mchk"><input type="checkbox" id="lOk"> Entiendo el alcance y ' +
         "quiero aplicarlo a los " + num(al.aptos.length) + " casos</label></div>";
     }
-    h += '<div class="macc"><button class="btn" id="lCancel">Cancelar</button>' +
+    h += '<div class="modalacc"><span style="flex:1"></span>' +
+      '<button class="btn" id="lCancel">Cancelar</button>' +
       '<button class="btn pri" id="lGo"' + (grave ? " disabled" : "") + ">Aplicar a " +
       num(al.aptos.length) + (al.aptos.length === 1 ? " caso" : " casos") + "</button></div>";
     h += "</div></div>";

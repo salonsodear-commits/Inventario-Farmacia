@@ -789,7 +789,7 @@ tr.clic:hover{background:var(--sup2)}
 .elegc small{display:block;font-size:10.5px;font-weight:400;color:var(--tinta3)}
 
 /* ---- alcance de una decisión en lote ---- */
-.mcaja.ancha{max-width:620px}
+.modal.ancho{max-width:640px}
 .lalc{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:14px 0}
 .lalci{background:var(--sup2);border:1px solid var(--linea);border-radius:var(--r2);
   padding:10px;text-align:center}
