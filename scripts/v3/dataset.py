@@ -5,6 +5,7 @@ Que los tres salgan de acá es lo que garantiza que las cifras coincidan.
 """
 import json, os, datetime, collections
 import fuentes, cruce_estricto as C, clasificar as K, valorizar as V, almacenes as AL
+import equivalencias as EQ
 
 RAIZ = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SALIDA_JSON = os.path.join(RAIZ, "sistema", "datos.json")
@@ -35,8 +36,20 @@ def construir():
         f["n"] = i + 1
         f["candidatos"] = f.get("candidatos", [])[:5]
 
+    # Dónde está el stock de cada material en cada base. Va al dataset porque
+    # el almacén hace falta DONDE SE DECIDE —al evaluar un candidato— y no
+    # sólo en la cola de ubicación: parte de la decisión es si el candidato
+    # está donde debería estar.
+    ubic = {}
+    for (base, mat), porAlm in det.items():
+        filas = [{"a": a or "(sin almacén)", "u": round(u, 2)}
+                 for a, u in sorted(porAlm.items(), key=lambda x: -x[1]) if u > 0]
+        if filas:
+            ubic[f"{base}|{mat}"] = filas
+
     alm = {
         "propuesta": filas_prop,
+        "ubicacion": ubic,
         "observados": sorted({a for (_, a) in comp if a}),
         "por_base": AL.almacenes_por_base(comp),
         "falta": AL.FALTANTES,
@@ -47,18 +60,25 @@ def construir():
                  "correspondencia se supuso por parecido de nombres ni de códigos."),
     }
 
+    # Qué ítems del depósito son el mismo producto con otro nombre. Se calcula
+    # acá, con el mismo aparato de atributos que el cruce, y no en el navegador
+    # por parecido de nombre: sugerir equivalencias falsas sería peor que no
+    # sugerir ninguna.
+    equiv = EQ.calcular(casos)
+
     control = _control(fis, sap, casos)
     return {
-        "meta": _meta(fis, sap, casos, alm),
+        "meta": _meta(fis, sap, casos, alm, equiv),
         "casos": casos,
         "kpis": _kpis(casos),
         "control": control,
     }
 
 
-def _meta(fis, sap, casos, alm):
+def _meta(fis, sap, casos, alm, equiv):
     return {
         "almacenes": alm,
+        "equivalencias": equiv,
         "generado": datetime.date.today().isoformat(),
         "criterio": ("El universo del análisis son los ítems de los inventarios "
                      "físicos. Cada uno se cruza contra los materiales que HOY tienen "

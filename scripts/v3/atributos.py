@@ -259,6 +259,25 @@ def poblacion(txt):
                 out.add(canon); break
     return out
 
+# ---------------------------------------------------------------- esterilidad
+# «Apósito estéril» y «apósito NO estéril» son dos productos distintos, con
+# código propio y precio propio. La palabra estaba tratada como ruido —se
+# descartaba al armar la denominación—, y por eso «Apositos estériles» del
+# depósito traía «APOSITO NO ESTERIL» como primer candidato: las dos
+# denominaciones quedaban en «aposito». Es la clase de falso candidato que todo
+# este análisis viene evitando, así que la esterilidad es una característica
+# como el calibre o el volumen, y contradecirse en ella es un conflicto.
+RX_NO_ESTERIL = re.compile(r"(?:\bno\b[\s/-]*|\bs\s*/\s*)esteril")
+RX_ESTERIL    = re.compile(r"esteril")
+
+def esterilidad(txt):
+    t = base(txt)
+    if RX_NO_ESTERIL.search(t):
+        return {"no estéril"}
+    if RX_ESTERIL.search(t):
+        return {"estéril"}
+    return set()
+
 # ---------------------------------------------------------------- denominación
 RUIDO = set("""de del la el los las para por con sin y o a en al x un una uso
 esteril estéril descartable descartables comun comunes marca s/m c/ p/ tipo
@@ -294,6 +313,7 @@ def perfil(txt, tipo=None):
         "modelo": modelo(txt),
         "longitud": longitud(txt),
         "poblacion": poblacion(txt),
+        "esterilidad": esterilidad(txt),
         "sueltos": sueltos(txt),
         "tipo": tipo,
     }
@@ -307,6 +327,7 @@ CONFLICTOS = [
     ("talle", "talle", conflicto_simple),
     ("modelo / referencia", "modelo", conflicto_calibre),
     ("longitud", "longitud", conflicto_simple),
+    ("esterilidad", "esterilidad", conflicto_simple),
     ("población", "poblacion", conflicto_simple),
     ("cantidad o dosis sin unidad", "sueltos", conflicto_simple),
 ]
@@ -414,9 +435,12 @@ ETIQUETAS = [
     ("talle", "talle", lambda v: str(v).upper()),
     ("modelo", "modelo", _mod),
     ("longitud", "longitud", lambda v: f"{_n(v)} cm"),
+    ("esterilidad", "esterilidad", lambda v: str(v)),
     ("población", "poblacion", lambda v: str(v)),
     ("cantidad sin unidad", "sueltos", lambda v: str(v)),
 ]
+
+SE_NOMBRAN_SOLOS = {"esterilidad", "poblacion"}
 
 def describir(p):
     """Resumen legible de las características detectadas."""
@@ -429,5 +453,7 @@ def describir(p):
             txt = ", ".join(sorted(fmt(v) for v in vals))
         except Exception:
             txt = ", ".join(sorted(str(v) for v in vals))
-        trozos.append(f"{etiqueta} {txt}")
+        # Hay valores que ya se nombran solos: «esterilidad estéril» no agrega
+        # nada sobre «estéril».
+        trozos.append(txt if clave in SE_NOMBRAN_SOLOS else f"{etiqueta} {txt}")
     return " · ".join(trozos)

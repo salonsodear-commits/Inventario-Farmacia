@@ -90,7 +90,7 @@ var App = (function () {
     orden: { campo: "n", desc: false },
     pagina: 1, porPagina: 50,
     fichaId: null, volverA: "casos",
-    cola: null, motivo: null, triage: [], tIdx: 0, selCand: {}, unif: "",
+    cola: null, motivo: null, triage: [], tIdx: 0, selCand: {}, selPar: {}, unif: "",
     sel: {}, depFiltro: "",
   };
 
@@ -172,6 +172,54 @@ var App = (function () {
     };
   }
 
+  /* ---- Equivalencias entre nomenclaturas -------------------------------
+     El depósito y SAP no nombran igual las cosas, y la correspondencia no es
+     uno a uno en ninguno de los dos sentidos:
+
+       · un ítem del depósito puede ser VARIOS códigos de SAP (el mismo
+         producto abierto más de una vez), y
+       · varios ítems del depósito —con nombres distintos, de la misma base o
+         de bases distintas— pueden ser UN MISMO código de SAP.
+
+     Lo segundo es masivo: hay cientos de códigos con más de un ítem físico
+     compatible. «Adrenalina amp 1 ml», «ADRENALINA INY» y «Adrenalina 1
+     amp=1ml» son tres nombres del mismo material. Si cada uno se decide por
+     separado, la misma pregunta se contesta tres veces y puede contestarse
+     distinto.
+
+     Por eso se pueden declarar equivalencias en los dos sentidos, y quedan
+     registradas como tales. */
+
+  /* Los otros ítems que podrían ser lo mismo que éste.
+
+     La lista viene del análisis, no se arma acá. Un primer intento la armaba
+     en el navegador con «comparten un candidato en SAP», y eso proponía
+     juntar «Ácido acetilsalicílico 100 mg» con «N-acetilcisteína 600»: el
+     candidato lo genera el parecido del nombre, no el producto. Del lado del
+     análisis se comparan las características, que es el mismo criterio con el
+     que se decide todo lo demás.
+
+     Acá sólo se ordena: primero los que siguen en revisión, que son los que
+     esta decisión destraba. */
+  function parientes(c) {
+    var lista = (D.meta.equivalencias || {})[c.id] || [];
+    return lista.map(function (x) {
+      var o = caso(x.id);
+      return { caso: o, por: x.por, coinciden: x.coinciden || [],
+               fuertes: x.fuertes || [], parecido: x.parecido,
+               enRevision: L(o) === "D" || L(o) === "B" };
+    }).filter(function (x) { return !!x.caso; })
+      .sort(function (a, b) {
+        if (a.enRevision !== b.enRevision) return a.enRevision ? -1 : 1;
+        return b.fuertes.length - a.fuertes.length;
+      });
+  }
+  /* Dónde está el stock de un material en una base. */
+  function ubicacionDe(base, material) {
+    var u = (D.meta.almacenes.ubicacion || {})[base + "|" + material];
+    return u || [];
+  }
+
   /* Códigos que quedaron asignados a algún ítem físico, por base. Un material que
      fue agrupado deja de ser candidato a baja: alguien lo identificó. */
   var CACHE_ASIG = null;
@@ -194,16 +242,37 @@ var App = (function () {
     var a = asignados()[c.base];
     return a && a[c.material_sap] ? a[c.material_sap] : null;
   }
+  /* Los grupos de equivalencia ya declarados, en los dos sentidos: los nombres
+     del depósito de un lado y los códigos de SAP del otro. Un grupo puede tener
+     varios de cada lado. Se arman por la nomenclatura unificada, que es lo que
+     los identifica como el mismo producto. */
   function grupos() {
-    var g = [];
+    var porNombre = {}, sueltos = [];
     D.casos.forEach(function (c) {
       var e = efectivo(c);
-      if (e.materiales.length > 1) {
-        g.push({ caso: c, nombre: e.unificada || c.nombre_fisico,
-                 materiales: e.materiales, base: c.base, revisor: e.revisor });
+      if (e.unificada) {
+        var g = porNombre[e.unificada] || (porNombre[e.unificada] = {
+          nombre: e.unificada, items: [], materiales: {}, bases: {}, revisor: e.revisor });
+        if (c.origen === "Inventario físico") g.items.push(c);
+        e.materiales.forEach(function (m) { g.materiales[m] = 1; });
+        g.bases[c.base] = 1;
+        if (e.revisor) g.revisor = e.revisor;
+      } else if (e.materiales.length > 1) {
+        // Agrupó códigos sin ponerle nombre al grupo.
+        sueltos.push({ nombre: c.nombre_fisico, items: [c],
+                       materiales: e.materiales.reduce(function (o, m) { o[m] = 1; return o; }, {}),
+                       bases: {}, revisor: e.revisor });
+        sueltos[sueltos.length - 1].bases[c.base] = 1;
       }
     });
-    return g;
+    return Object.keys(porNombre).map(function (k) { return porNombre[k]; })
+      .concat(sueltos)
+      .map(function (g) {
+        return { nombre: g.nombre, items: g.items,
+                 materiales: Object.keys(g.materiales).sort(),
+                 bases: Object.keys(g.bases).sort(), revisor: g.revisor };
+      })
+      .sort(function (a, b) { return b.items.length - a.items.length; });
   }
   function pendiente(c) { return efectivo(c).aprobacion === "Sin decidir"; }
   /* La clase B se cierra en dos tiempos: primero se elige la alternativa, y si se eligió
@@ -337,7 +406,7 @@ var App = (function () {
     estado.triage = deCola(id).filter(function (c) {
       return pendienteCola(c, q) && (!motivo || c.motivo === motivo);
     });
-    estado.tIdx = 0; estado.selCand = {}; estado.unif = "";
+    estado.tIdx = 0; estado.selCand = {}; estado.selPar = {}; estado.unif = "";
     if (!estado.triage.length) { aviso("No quedan casos pendientes en este grupo."); return; }
     ir("revisar");
   }
@@ -461,18 +530,27 @@ var App = (function () {
     var liberadas = D.casos.filter(function (c) { return resueltoPorAgrupacion(c); }).length;
     if (gs.length || liberadas) {
       h += '<h2>Nomenclaturas unificadas</h2><div class="panelito">';
-      h += '<p class="pnota">Cuando un mismo producto está abierto en varios códigos de SAP, ' +
-        "se los agrupa bajo la nomenclatura del inventario físico. Los códigos agrupados " +
-        "dejan de ser candidatos a baja.</p>";
+      h += '<p class="pnota">El depósito y SAP no nombran igual. Acá quedan los grupos ya ' +
+        "declarados: <b>varias nomenclaturas del depósito</b> que son el mismo producto, " +
+        "<b>varios códigos de SAP</b> para un mismo producto, o las dos cosas a la vez. " +
+        "Los códigos agrupados dejan de ser candidatos a baja.</p>";
       if (liberadas) h += '<div class="cnota ok">✓ ' + num(liberadas) +
         (liberadas === 1 ? " candidato a baja quedó resuelto" : " candidatos a baja quedaron resueltos") +
         " por una agrupación.</div>";
       if (gs.length) {
-        h += '<table class="listalotes"><thead><tr><th>Nomenclatura unificada</th>' +
-          "<th>Base</th><th>Códigos SAP</th><th>Quién</th></tr></thead><tbody>" +
+        h += '<table class="listalotes tequiv"><thead><tr>' +
+          "<th>Nombre unificado</th><th>Nomenclaturas del depósito</th>" +
+          "<th>Códigos de SAP</th><th>Quién</th></tr></thead><tbody>" +
           gs.map(function (g) {
-            return "<tr><td><b>" + esc(g.nombre) + "</b></td><td>" + esc(g.base) + "</td><td>" +
-              g.materiales.map(esc).join(" · ") + "</td><td>" + esc(g.revisor) + "</td></tr>";
+            return "<tr><td><b>" + esc(g.nombre) + "</b>" +
+              (g.bases.length ? '<div class="mini">' + g.bases.map(esc).join(" · ") + "</div>" : "") +
+              "</td><td>" + (g.items.length
+                ? g.items.map(function (c) {
+                    return '<span class="cbchip fis">' + esc(c.nombre_fisico) + "</span>"; }).join(" ")
+                : '<span class="nohay">—</span>') +
+              "</td><td>" + g.materiales.map(function (m) {
+                return '<span class="cbchip">' + esc(m) + "</span>"; }).join(" ") +
+              "</td><td>" + esc(g.revisor || "—") + "</td></tr>";
           }).join("") + "</tbody></table>";
       }
       h += "</div>";
@@ -612,6 +690,22 @@ var App = (function () {
 
     // ======== lo que hoy tiene stock en SAP
     var limpios = (c.candidatos || []).filter(function (x) { return !x.conflictos.length; });
+    /* El orden importa porque la tecla 1 elige el primero. Entre candidatos que
+       el análisis dejó igual de compatibles, va primero el que TIENE el stock
+       donde debería: un código sin stock en esta base puede ser el correcto,
+       pero no es por dónde empezar a mirar. No se reordena nada del análisis,
+       sólo cómo se muestran: el orden de relevancia se conserva dentro de cada
+       grupo (ordenación estable sobre el índice original). */
+    (function () {
+      var esperado = c.almacen_esperado || c.almacen_base;
+      limpios = limpios.map(function (x, i) {
+        var ub = ubicacionDe(c.base, x.material);
+        var rango = !ub.length ? 2
+          : (esperado && ub.some(function (z) { return z.a === esperado; })) ? 0 : 1;
+        return { x: x, i: i, r: rango };
+      }).sort(function (a, b) { return a.r - b.r || a.i - b.i; })
+        .map(function (o) { return o.x; });
+    }());
     var sucios = (c.candidatos || []).filter(function (x) { return x.conflictos.length; });
     var nSel = Object.keys(estado.selCand).length;
 
@@ -627,12 +721,32 @@ var App = (function () {
       h += '<div class="cands">';
       limpios.forEach(function (x, i) {
         var m = estado.selCand[x.material];
+        var ub = ubicacionDe(c.base, x.material);
+        /* El almacén contra el que se compara es el que le corresponde a la base
+           y el tipo. Al evaluar candidatos todavía no hay código asignado, así
+           que `almacen_esperado` está vacío y hay que usar el de la base: si no,
+           el verde y el naranja no aparecerían nunca justo acá, que es donde la
+           ubicación forma parte de la decisión. Sigue siendo una propuesta
+           pendiente de validación, y el título lo dice. */
+        var esp = c.almacen_esperado || c.almacen_base;
         h += '<button class="cand' + (m ? " marcado" : "") + '" data-mat="' + esc(x.material) + '">' +
           '<span class="cmarca">' + (m ? "✓" : "") + "</span>" +
           '<span class="ckey">' + (i + 1) + "</span>" +
           '<span class="ctxt"><b>' + esc(x.material) + "</b> " + esc(x.texto) +
           (x.presentacion ? '<span class="cpres">' + esc(x.presentacion) + "</span>" : "") +
-          "</span></button>";
+          '<span class="cubic">' + (ub.length
+            ? ub.map(function (z) {
+                var bien = esp && z.a === esp;
+                return '<i class="alm' + (bien ? " ok" : esp ? " otro" : "") + '" title="' +
+                  (bien ? "el stock está en el almacén propuesto para esta base y tipo " +
+                          "(propuesta pendiente de validación)"
+                        : esp ? "el propuesto para esta base y tipo es el " + esc(esp) +
+                                " (propuesta pendiente de validación)"
+                        : "no hay almacén propuesto para esta base y tipo") +
+                  '">' + esc(z.a) + " · " + num(z.u) + " un.</i>";
+              }).join("")
+            : '<i class="alm nada">sin stock en ' + esc(c.base) + "</i>") +
+          "</span></span></button>";
       });
       h += "</div>";
     } else {
@@ -676,28 +790,50 @@ var App = (function () {
         esc(c.justificacion) + "</p></section>";
     }
 
+    // ======== otros ítems del depósito que podrían ser lo mismo
+    if (c.origen === "Inventario físico") h += panelEquivalencias(c);
+
     // ======== decidir
     h += '<section class="decidir">';
     if (estado.cola === "altas") h += panelB(c, e);
     if (q.esAlmacen) h += panelAlmacen(c, e);
+    /* La barra resume la equivalencia completa antes de confirmarla: cuántas
+       nomenclaturas del depósito y cuántos códigos de SAP quedan declarados el
+       mismo producto. Si hay más de uno de cualquiera de los dos lados, el
+       grupo necesita un nombre. */
+    var nPar = Object.keys(estado.selPar).length;
     if (limpios.length) {
+      var agrupa = nSel > 1 || nPar > 0;
       h += '<div class="confbar' + (nSel ? " activa" : "") + '">';
       if (!nSel) {
         h += '<span class="cbhint">Marcá arriba con <kbd>1</kbd>…<kbd>' +
           Math.min(limpios.length, 9) + "</kbd> o con el mouse, y confirmá con <kbd>Enter</kbd>.</span>";
-      } else if (nSel === 1) {
+      } else if (!agrupa) {
         h += '<span class="cbtxt">Este ítem del depósito queda identificado con <b>' +
           esc(Object.keys(estado.selCand)[0]) + "</b> en SAP.</span>" +
           '<button class="btn pri" data-acc="confirmar">Confirmar <kbd>Enter</kbd></button>';
       } else {
-        h += '<div class="cbgrupo"><div class="cbtxt"><b>' + nSel +
-          " códigos marcados.</b> SAP tiene este producto abierto en varios códigos: " +
-          "se agrupan bajo la nomenclatura del depósito.</div>" +
+        h += '<div class="cbgrupo"><div class="cbtxt">' +
+          '<span class="cbcuenta">' +
+            "<b>" + num(nPar + 1) + "</b> " + (nPar ? "nomenclaturas del depósito" : "nomenclatura del depósito") +
+            '<i class="cbigual">=</i>' +
+            "<b>" + num(nSel) + "</b> " + (nSel > 1 ? "códigos de SAP" : "código de SAP") +
+          "</span>" +
+          (nPar
+            ? " Quedan declarados el mismo producto y se deciden juntos."
+            : " SAP tiene este producto abierto en varios códigos.") + "</div>" +
           '<input type="text" id="unifNom" class="cod" value="' +
-          esc(estado.unif || c.nombre_fisico || "") + '" placeholder="nomenclatura unificada">' +
-          '<div class="cbchips">' + Object.keys(estado.selCand).map(function (m) {
-            return '<span class="cbchip">' + esc(m) + "</span>"; }).join("") + "</div></div>" +
-          '<button class="btn pri" data-acc="confirmar">Agrupar los ' + nSel +
+          esc(estado.unif || c.nombre_fisico || "") + '" placeholder="nombre que los unifica">' +
+          '<div class="cbchips">' +
+            '<span class="cbchip fis">' + esc(c.nombre_fisico) + "</span>" +
+            Object.keys(estado.selPar).map(function (id) {
+              var o = caso(id);
+              return '<span class="cbchip fis">' + esc(o.nombre_fisico) + "</span>"; }).join("") +
+            Object.keys(estado.selCand).map(function (m) {
+              return '<span class="cbchip">' + esc(m) + "</span>"; }).join("") +
+          "</div></div>" +
+          '<button class="btn pri" data-acc="confirmar">' +
+          (nPar ? "Declarar equivalentes" : "Agrupar los " + nSel) +
           " <kbd>Enter</kbd></button>";
       }
       h += "</div>";
@@ -750,11 +886,67 @@ var App = (function () {
       estado.volverA = "revisar"; ir("ficha", c.id); });
     el.querySelectorAll(".cand").forEach(function (b) {
       b.addEventListener("click", function () { marcar(c, b.dataset.mat); }); });
+    var tg = el.querySelector("#eqTog");
+    if (tg) tg.addEventListener("click", function () {
+      estado.verParientes = estado.verParientes === false; pintarTriage(); });
+    el.querySelectorAll("[data-par]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var id = b.dataset.par;
+        if (estado.selPar[id]) delete estado.selPar[id];
+        else estado.selPar[id] = 1;
+        if (Object.keys(estado.selPar).length && !estado.unif)
+          estado.unif = c.nombre_fisico || "";
+        pintarTriage();
+      }); });
     var un = el.querySelector("#unifNom");
     if (un) un.addEventListener("input", function () { estado.unif = un.value; });
     el.querySelectorAll("[data-acc]").forEach(function (b) {
       b.addEventListener("click", function () { accionTriage(c, b.dataset.acc); }); });
   }
+  /* La correspondencia entre el depósito y SAP no es uno a uno en ninguno de
+     los dos sentidos. Este panel resuelve el sentido que faltaba: varios ítems
+     del depósito que son el mismo material. Va plegado y en una sola línea
+     cuando no hay nada que mirar, para no robarle pantalla a la decisión. */
+  function panelEquivalencias(c) {
+    var otros = parientes(c);
+    if (!otros.length) return "";
+    var abierto = estado.verParientes !== false;
+    var nSel = Object.keys(estado.selPar).length;
+    var pend = otros.filter(function (o) { return o.enRevision; }).length;
+
+    var h = '<section class="equiv' + (abierto ? " abierta" : "") + '">';
+    h += '<header class="eqcab"><button class="eqtog" id="eqTog">' +
+      '<span class="eqflecha">' + (abierto ? "▾" : "▸") + "</span>" +
+      "<b>" + num(otros.length) + (otros.length === 1
+        ? " ítem más del depósito podría ser este mismo producto"
+        : " ítems más del depósito podrían ser este mismo producto") + "</b>" +
+      (pend ? '<span class="eqchip">' + num(pend) + " en revisión</span>" : "") +
+      (nSel ? '<span class="eqchip sel">' + num(nSel) + " marcados</span>" : "") +
+      "</button></header>";
+    if (abierto) {
+      h += '<p class="eqnota">Comparten candidato en SAP. Si son el mismo producto con ' +
+        "otro nombre, marcalos: se deciden juntos y queda registrado que son equivalentes.</p>";
+      h += '<div class="eqlista">' + otros.map(function (o) {
+        var oc = o.caso, oe = efectivo(oc), l = L(oc);
+        var marcado = estado.selPar[oc.id];
+        return '<button class="eqitem' + (marcado ? " marcado" : "") +
+          '" data-par="' + esc(oc.id) + '">' +
+          '<span class="cmarca">' + (marcado ? "✓" : "") + "</span>" +
+          '<span class="eqtxt"><b>' + esc(oc.nombre_fisico) + "</b>" +
+          '<span class="eqmeta">' + esc(oc.base) + " · " + num(oc.cantidad_fisica) + " un." +
+          (oe.materiales.length ? " · ya asignado a " + oe.materiales.map(esc).join(", ") : "") +
+          "</span>" +
+          '<span class="eqpor">' + (o.fuertes.length
+            ? '<i class="eqok">coincide en ' + o.fuertes.map(esc).join(", ") + "</i>"
+            : '<i class="eqdebil">mismo nombre, sin características que verificar</i>') +
+          "</span></span>" +
+          '<span class="et ' + l + '">' + l + "</span></button>";
+      }).join("") + "</div>";
+    }
+    h += "</section>";
+    return h;
+  }
+
   /* ---- Clase B · las dos alternativas ------------------------------------
      El sistema no elige por el usuario ni le impide crear: le hace la pregunta,
      le explica el riesgo del código duplicado y registra qué se decidió. */
@@ -934,7 +1126,10 @@ var App = (function () {
     if (o) cambios.observaciones = o;
     return cambios;
   }
-  function avanzar() { estado.tIdx++; estado.selCand = {}; estado.unif = ""; pintarTriage(); }
+  function avanzar() {
+    estado.tIdx++; estado.selCand = {}; estado.selPar = {}; estado.unif = "";
+    pintarTriage();
+  }
 
   function marcar(c, mat) {
     if (estado.selCand[mat]) delete estado.selCand[mat];
@@ -943,31 +1138,59 @@ var App = (function () {
       estado.unif = c.nombre_fisico || "";
     pintarTriage();
   }
+  /* Una sola confirmación resuelve los dos sentidos de la equivalencia: los
+     códigos de SAP marcados y los otros ítems del depósito marcados. Si hay
+     más de un ítem o más de un código, el grupo necesita un nombre: ese nombre
+     es lo que después los identifica como equivalentes. */
   function confirmarSeleccion(c) {
     if (Almacen.soloConsulta()) return avisarConsulta();
     var mats = Object.keys(estado.selCand);
-    if (!mats.length) return aviso("Marcá al menos un código.");
+    var pares = Object.keys(estado.selPar);
+    if (!mats.length) return aviso("Marcá al menos un código de SAP.");
+    var agrupa = mats.length > 1 || pares.length > 0;
     var nom = "";
-    if (mats.length > 1) {
+    if (agrupa) {
       var el = document.getElementById("unifNom");
       nom = (el ? el.value : estado.unif || "").trim();
       if (!nom) return aviso("Poné un nombre para la nomenclatura unificada.");
     }
-    var cam = conObs({ materiales: mats, estado_revision: "Revisado",
-                       aprobacion: "Correspondencia confirmada" });
-    if (mats.length > 1) cam.nomenclatura_unificada = nom;
-    decidir(c.id, cam, mats.length > 1
+    function cambios(base) {
+      var cam = { materiales: mats, estado_revision: "Revisado",
+                  aprobacion: "Correspondencia confirmada" };
+      if (agrupa) cam.nomenclatura_unificada = nom;
+      return base ? conObs(cam) : cam;
+    }
+    var queHizo = mats.length > 1
       ? "Se agruparon " + mats.length + " códigos SAP (" + mats.join(", ") +
         ") bajo la nomenclatura unificada «" + nom + "»"
-      : "Se asignó el código SAP " + mats[0]);
+      : "Se asignó el código SAP " + mats[0];
+    if (pares.length) {
+      queHizo += ". Se declararon equivalentes " + (pares.length + 1) +
+                 " nomenclaturas del depósito";
+    }
+    decidir(c.id, cambios(true), queHizo);
+    // El mismo material y el mismo nombre para cada ítem equivalente: así la
+    // misma pregunta no se contesta dos veces, ni distinto.
+    pares.forEach(function (id) {
+      var o = caso(id);
+      decidir(id, cambios(false),
+              "Equivalente a «" + (c.nombre_fisico || c.id) + "» (" + c.base + "): " +
+              "misma nomenclatura unificada «" + nom + "» y mismo código SAP " +
+              mats.join(", "));
+      void o;
+    });
+
     var liberadas = mats.filter(function (m) {
       return D.casos.some(function (x) {
         return x.base === c.base && x.material_sap === m && L(x) === "C"; });
     }).length;
-    aviso(mats.length > 1
-      ? "Agrupados " + mats.length + " códigos." + (liberadas
-          ? " " + liberadas + (liberadas === 1 ? " deja" : " dejan") + " de ser candidato a baja." : "")
-      : "Asignado " + mats[0] + "." + (liberadas ? " Deja de ser candidato a baja." : ""));
+    var msg = mats.length > 1 ? "Agrupados " + mats.length + " códigos."
+                              : "Asignado " + mats[0] + ".";
+    if (pares.length) msg += " " + (pares.length + 1) + " nomenclaturas del depósito " +
+                             "quedaron declaradas equivalentes.";
+    if (liberadas) msg += " " + liberadas +
+      (liberadas === 1 ? " deja" : " dejan") + " de ser candidato a baja.";
+    aviso(msg);
     avanzar();
   }
   function accionTriage(c, a) {
@@ -2238,6 +2461,37 @@ var App = (function () {
       "registrada con tu nombre y se liga al plan de depuración del maestro.</td></tr>" +
       "</tbody></table></div>" +
 
+      '<div class="bloque"><h3>Cuando una nomenclatura no corresponde a una sola</h3>' +
+      "<p>El depósito y SAP no nombran igual, y la correspondencia <b>no es uno a uno en " +
+      "ninguno de los dos sentidos</b>. El sistema deja declarar los dos.</p>" +
+      '<table class="listalotes"><tbody>' +
+      '<tr><td style="white-space:nowrap"><b>Una del depósito</b><br>= varios de SAP</td>' +
+      "<td>SAP tiene el mismo producto abierto en más de un código. Marcás los códigos que " +
+      "correspondan con <kbd>1</kbd>…<kbd>9</kbd>, le ponés el nombre que los unifica y " +
+      "quedan agrupados. Los códigos agrupados <b>dejan de ser candidatos a baja</b>.</td></tr>" +
+      '<tr><td style="white-space:nowrap"><b>Varias del depósito</b><br>= uno de SAP</td>' +
+      "<td>Cada base escribe el nombre a su manera. Cuando otro ítem del depósito podría " +
+      "ser el mismo producto, aparece en el panel de equivalencias arriba de los candidatos: " +
+      "lo marcás y se deciden juntos, con una sola respuesta.</td></tr>" +
+      '<tr><td style="white-space:nowrap"><b>Las dos cosas</b><br>a la vez</td>' +
+      "<td>Se pueden marcar varios ítems del depósito y varios códigos de SAP en la misma " +
+      "pantalla. La barra de abajo dice siempre cuántos de cada lado quedan declarados el " +
+      "mismo producto antes de confirmar.</td></tr>" +
+      "</tbody></table>" +
+      "<p><b>De dónde sale la sugerencia.</b> No del parecido del nombre: dos ítems se " +
+      "proponen sólo si comparten un candidato en SAP <i>y además</i> no tienen ninguna " +
+      "característica en conflicto y coinciden en alguna verificable —concentración, forma, " +
+      "volumen, calibre, medidas, esterilidad—. Cuando ninguno declara características, se " +
+      "exige que los nombres sean casi iguales. Una sugerencia falsa es peor que ninguna.</p>" +
+      "<p><b>El almacén, en la misma pantalla.</b> Cada candidato muestra en qué almacén " +
+      "tiene el stock y si es el almacén propuesto para esa base: en verde cuando coincide, " +
+      "en naranja cuando está en otro, y en gris cuando ese código no tiene stock en esa " +
+      "base. Parte de la decisión es si el código que estás por asignar tiene el stock " +
+      "donde debería.</p>" +
+      "<p>Los grupos declarados quedan a la vista en <b>Inicio</b> y en la hoja " +
+      "<b>Equivalencias</b> del Excel, con los dos lados, el nombre unificado y quién lo " +
+      "decidió.</p></div>" +
+
       '<div class="bloque"><h3>La depuración del maestro</h3>' +
       "<p>En la solapa <b>Maestro</b> están los materiales que figuran en SAP con " +
       "<b>existencia cero</b>. No son candidatos a baja de stock —no hay stock— sino " +
@@ -2286,8 +2540,9 @@ var App = (function () {
       'nuevo— <b>está fuera del alcance</b> de este trabajo.</p></div>' +
       '<div class="bloque"><h3>Cómo se decide una coincidencia</h3><p>El parecido del nombre ' +
       'genera el candidato; <b>las características deciden</b>: concentración, forma, volumen, ' +
-      'calibre, medidas, talle, modelo, longitud y población. Si los dos lados declaran la misma ' +
-      'característica con valores distintos, no son el mismo material. Si una se declara de un ' +
+      'calibre, medidas, talle, modelo, longitud, esterilidad y población. Si los dos lados ' +
+      'declaran la misma característica con valores distintos, no son el mismo material. Si ' +
+      'una se declara de un ' +
       'lado y no del otro, el caso va a revisión. Por eso hay tantos casos en el grupo 1: es a ' +
       'propósito.</p></div>' +
       '<div class="bloque"><h3>Dónde se guardan las decisiones</h3><p>En este navegador, en esta ' +

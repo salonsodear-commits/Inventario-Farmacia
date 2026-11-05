@@ -177,8 +177,45 @@ var Informe = (function () {
       contradecían. Esa justificación figura en la ficha del sistema y en el Excel, de modo que
       cualquier identificación puede auditarse sin rehacer el análisis.</p>`, "Parte 1");
 
+    marcar("Cuando los nombres no alcanzan", 1);
+    pagina("5 · Cuando una nomenclatura no corresponde a una sola", `
+      <p>El depósito y SAP no nombran igual, y la correspondencia <b>no es uno a uno en
+      ninguno de los dos sentidos</b>. Tratarla como si lo fuera obliga a contestar la misma
+      pregunta varias veces, y a veces a contestarla distinto.</p>` +
+      tabla(["Sentido", "Qué pasa", "Ejemplo"], [
+        ["<b>Una del depósito =<br>varios de SAP</b>",
+         "SAP tiene el mismo producto abierto en más de un código. Se agrupan bajo un nombre " +
+         "unificado y los códigos agrupados dejan de ser candidatos a baja.",
+         "Un ítem del depósito que corresponde a dos códigos de SAP del mismo producto."],
+        ["<b>Varias del depósito =<br>uno de SAP</b>",
+         "Cada base escribe el nombre a su manera, y a veces la misma base tiene dos " +
+         "renglones del mismo producto. Se declaran equivalentes y se deciden juntos.",
+         "«Dexametasona 8mg Amp x 2 ml» en San Juan y «Dexametasona inyectable 1 amp=2ml " +
+         "x8mg» en Salta."],
+      ]) + `
+      <h4>Cómo se propone una equivalencia</h4>
+      <p>El sistema sugiere qué otros ítems del depósito podrían ser el mismo producto, pero
+      <b>no por el parecido del nombre</b>. Dos ítems se proponen sólo si comparten un
+      candidato en SAP <b>y además</b> ninguna característica declarada por los dos está en
+      conflicto, y coinciden en alguna característica verificable —concentración, forma,
+      volumen, calibre, medidas, esterilidad—. Cuando ninguno declara características, se
+      exige que los nombres sean casi iguales.</p>
+      <p class="aviso"><b>Por qué tanta exigencia.</b> Una primera versión proponía
+      equivalencias por «comparten un candidato», y eso juntaba «Ácido acetilsalicílico
+      100 mg» con «N-acetilcisteína 600»: el candidato lo genera el parecido del nombre, no
+      el producto. Una sugerencia falsa es peor que ninguna, porque invita justamente al
+      error que este trabajo viene evitando.</p>
+      <p>La propuesta sigue siendo una propuesta: la confirma una persona, y al confirmarla
+      queda registrado qué nomenclaturas se declararon equivalentes, con qué nombre y quién
+      lo decidió.</p>
+      <h4>El almacén, donde se decide</h4>
+      <p>Al evaluar un candidato se ve <b>en qué almacén está su stock</b> y si es el almacén
+      propuesto para esa base. No hace falta ir a buscarlo a otra pantalla: parte de la
+      decisión es si el código que se está por asignar tiene el stock donde debería.</p>`,
+      "Parte 1");
+
     marcar("Clasificación y cursos de acción", 1);
-    pagina("5 · Clasificación de los casos y cursos de acción", `
+    pagina("6 · Clasificación de los casos y cursos de acción", `
       <p>Cada caso recibe una clasificación, un curso de acción y un estado de revisión.</p>` +
       tabla(["", "Clasificación", "Qué significa", "Curso de acción"], [
         [et("A"), "Identificado en SAP", "Existe físicamente y se encontró un código cuya nomenclatura y presentación se corresponden.", "Mantener la identificación. No se propone alta."],
@@ -212,7 +249,7 @@ var Informe = (function () {
       equivalencia de un ítem todavía sin resolver.</p>`, "Parte 1");
 
     marcar("Criterio de valorización", 1);
-    pagina("6 · Criterio de valorización y alcance del análisis", `
+    pagina("7 · Criterio de valorización y alcance del análisis", `
       <h4>Criterio pedido: precio de última compra</h4>
       <p class="aviso"><b>Ese dato no está disponible en ninguno de los archivos recibidos.</b>
       Se revisaron campo por campo:</p>
@@ -242,7 +279,7 @@ var Informe = (function () {
       `, "Parte 1");
 
     marcar("Alcance y limitaciones", 1);
-    pagina("7 · Alcance y limitaciones del análisis", `
+    pagina("8 · Alcance y limitaciones del análisis", `
       <p>Lo que este trabajo puede afirmar, y lo que no.</p>
       <ul>
         <li>El análisis cubre los tres inventarios físicos recibidos y el stock de SAP de las
@@ -265,7 +302,7 @@ var Informe = (function () {
     marcar("Parte 2 · Resultados", 0);
     marcar("Resumen ejecutivo", 1);
     var pctId = t.A / k.items_fisicos * 100;
-    pagina("8 · Resumen ejecutivo", `
+    pagina("9 · Resumen ejecutivo", `
       <p>Se analizaron <b>` + num(k.items_fisicos) + ` ítems</b> relevados en los inventarios
       físicos de las tres bases, que suman <b>` + num(k.unidades_fisicas) + ` unidades</b>
       contadas. Cruzados contra SAP, y sumando los materiales de SAP que ningún inventario
@@ -319,7 +356,7 @@ var Informe = (function () {
       sujetas a revisión y aprobación.</p>`, "Parte 2");
 
     marcar("Resultados por base y por tipo", 1);
-    pagina("9 · Resultados por base y por tipo de material", `
+    pagina("10 · Resultados por base y por tipo de material", `
       <h4>Por base</h4>` +
       tabla(["Base", "Sistema", "Ítems físicos", "Unidades", "A", "B", "C", "D", "E", "Casos"],
         m.bases.map(function (b) {
@@ -359,7 +396,7 @@ var Informe = (function () {
       primero. El sistema permite filtrarlas.</p>`, "Parte 2");
 
     marcar("Valorización", 1);
-    pagina("10 · Resultados de la valorización", `
+    pagina("11 · Resultados de la valorización", `
       <h4>Valorización por precio de última compra</h4>` +
       tabla(["Concepto", "Resultado"], [
         ["Criterio aplicado", "<b>Precio de última compra</b>"],
@@ -380,7 +417,7 @@ var Informe = (function () {
       un código de SAP confirmado, y la F tampoco porque no tiene stock.</p>`, "Parte 2");
 
     marcar("Controles de integridad", 1);
-    pagina("11 · Controles de integridad contra las fuentes", `
+    pagina("12 · Controles de integridad contra las fuentes", `
       <p>Antes de mirar ningún resultado conviene saber si las cifras cierran. Estos controles
       comparan lo que informa el sistema contra los totales de los archivos originales,
       renglón por renglón.</p>` +
@@ -400,7 +437,7 @@ var Informe = (function () {
       y queda fuera de este trabajo.</p>`, "Parte 2");
 
     marcar("Estado de la gestión", 1);
-    pagina("12 · Estado de la gestión de decisiones", `
+    pagina("13 · Estado de la gestión de decisiones", `
       <p>El sistema registra qué se decidió, quién lo decidió y cuándo. Este informe refleja el
       estado al momento de generarlo.</p>` +
       tabla(["Estado", "Casos"], [
@@ -454,7 +491,7 @@ var Informe = (function () {
 
     marcar("Ubicación del stock", 1);
     var al = k.almacen || {}, am = m.almacenes;
-    pagina("13 · Ubicación del stock: centros y almacenes", `
+    pagina("14 · Ubicación del stock: centros y almacenes", `
       <p>El <b>centro</b> es la base; el <b>almacén</b> es el depósito dentro de esa base.
       Son dos campos distintos de SAP y hasta acá sólo se había mirado el centro. Hay tres
       cuestiones independientes y conviene no mezclarlas: si el material está bien
@@ -483,7 +520,7 @@ var Informe = (function () {
       hace falta preguntarle a la base. Hoy la única ambigua es Neuquén · Descartables.</p>`,
       "Parte 3");
 
-    pagina("13 · Ubicación del stock (continuación)", `
+    pagina("14 · Ubicación del stock (continuación)", `
       <h4>Qué está observado y qué es una propuesta</h4>
       <p>La distinción es importante porque las dos cosas se parecen y no valen lo mismo.</p>
       <p><b>Observado:</b> a qué base pertenece cada almacén. En la bajada, cada código de
@@ -516,7 +553,7 @@ var Informe = (function () {
       if (!e.verificacion) { rb.verif++; return; }
       rb.cerrado++;
     });
-    pagina("14 · Los ítems sin correspondencia: dos alternativas, no una", `
+    pagina("15 · Los ítems sin correspondencia: dos alternativas, no una", `
       <p>Son <b>` + num(t.B) + ` ítems</b> que existen en el depósito y no aparecieron entre
       los materiales que <b>hoy tienen stock</b> en SAP. Eso <b>no prueba que no existan en
       SAP</b>: la bajada recibida no es el maestro completo, así que el material puede estar
@@ -550,7 +587,7 @@ var Informe = (function () {
       if (acc.excepcion) exc++;
     });
     var pol = App.depuracion().politica;
-    pagina("15 · Depuración del maestro de materiales", `
+    pagina("16 · Depuración del maestro de materiales", `
       <p>Al separar los candidatos a baja apareció un grupo que no era lo que parecía:
       <b>` + num(t.F) + ` materiales que figuran en SAP con existencia CERO</b>. Proponer su
       baja no tiene sentido, porque <b>no hay stock que dar de baja</b>. Lo que corresponde
@@ -585,7 +622,7 @@ var Informe = (function () {
         return "<li>" + esc(x) + "</li>"; }).join("") + `</ul>`, "Parte 3");
 
     marcar("Dónde está el detalle", 1);
-    pagina("16 · Dónde está el detalle de cada caso", `
+    pagina("17 · Dónde está el detalle de cada caso", `
       <p>Este informe <b>no lleva el listado de los ` + num(k.total_casos) + ` casos</b>.
       Imprimir cada material uno por uno daría decenas de páginas que nadie lee y que quedan
       desactualizadas apenas se toma la primera decisión. El detalle vive donde se puede
@@ -594,12 +631,13 @@ var Informe = (function () {
         ["Ver un material puntual con toda su justificación", "En el <b>sistema</b>, solapa «Buscar»: filtra por base, tipo, clasificación, almacén, estado y texto libre. Cada ficha trae la comparación característica por característica."],
         ["Trabajar una lista completa en Excel", "En el archivo <b>«Inventario fisico vs SAP - analisis.xlsx»</b>, hoja «Casos»: una fila por caso, " + num(50) + " columnas, con autofiltro y fórmulas vivas."],
         ["Una lista por clasificación", "Mismo Excel, hojas «A Identificados», «B Verificar en el maestro», «C Propuestas de baja», «D A revisar», «E Fuera del alcance» y «F Maestro sin stock»."],
+        ["Qué nomenclaturas quedaron declaradas equivalentes", "Excel, hoja «Equivalencias»: los nombres del depósito de un lado, los códigos de SAP del otro, y en qué sentido va cada grupo."],
         ["La ubicación de cada material", "Excel, hoja «Casos» columnas AN a AS, y hoja «Almacenes» para la propuesta por base y tipo."],
         ["Qué alternativa se eligió en cada caso de clase B", "Excel, hoja «Casos» columnas AT a AX."],
         ["El plan de depuración del maestro", "Excel, hoja «Depuración del maestro», y solapa «Maestro» del sistema."],
         ["Quién decidió qué y cuándo", "Excel, hoja «Decisiones»: el historial completo, con nombre y fecha."],
         ["Verificar que las cifras cierran contra las fuentes", "Excel, hoja «Control»: cada control se recalcula solo sobre la hoja «Casos»."],
-        ["Entender cómo se decidió una correspondencia", "Excel, hoja «Metodología», y las secciones 4 y 5 de este informe."],
+        ["Entender cómo se decidió una correspondencia", "Excel, hoja «Metodología», y las secciones 4 y 6 de este informe."],
       ]) + `
       <p class="aviso"><b>Los tres salen del mismo dato.</b> El sistema, el Excel y este
       informe se arman a partir del mismo conjunto de casos y de las mismas decisiones
@@ -607,7 +645,7 @@ var Informe = (function () {
       a exportar, el Excel y el PDF lo reflejan.</p>`, "Parte 3");
 
     marcar("Próximos pasos", 1);
-    pagina("17 · Próximos pasos, en orden", `
+    pagina("18 · Próximos pasos, en orden", `
       <p>El orden importa: cada paso cambia los números del siguiente. Aprobar las bajas
       primero sería el error más caro, porque la lista de bajas se achica a medida que se
       resuelven los casos en revisión.</p>
@@ -644,7 +682,7 @@ var Informe = (function () {
         paquete para su ejecución en SAP.</li>
       </ol>`, "Parte 3");
 
-    pagina("18 · Decisiones que requieren validación", `
+    pagina("19 · Decisiones que requieren validación", `
       <p>Ninguna de éstas la puede tomar el análisis: dependen de un criterio de la
       organización. Están listadas acá para que se definan antes de ejecutar nada.</p>` +
       tabla(["Decisión", "Por qué requiere validación"], [

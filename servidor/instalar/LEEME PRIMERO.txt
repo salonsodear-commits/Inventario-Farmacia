@@ -39,7 +39,7 @@ QUE MIRAR
 1. INICIO. El trabajo esta en siete grupos, ordenados por
    prioridad. Empeza por el 1.
 
-2. GRUPO 2 - las dos alternativas. Los 58 items que no aparecieron
+2. GRUPO 2 - las dos alternativas. Los 59 items que no aparecieron
    en SAP no se dan de alta sin mas: el sistema te pregunta si
    queres verificar primero el maestro completo, o crear igual
    asumiendo el riesgo de codigo duplicado. La segunda opcion te

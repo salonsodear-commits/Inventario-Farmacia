@@ -15,7 +15,7 @@ las cifras coinciden entre ellos.
 
 > El PDF **no trae el listado de los 1.991 materiales**: es un informe ejecutivo. El
 > detalle individual está en el Excel y en el sistema, que es donde se puede filtrar,
-> ordenar y actualizar. La sección 16 del informe dice exactamente dónde buscar cada cosa.
+> ordenar y actualizar. La sección 17 del informe dice exactamente dónde buscar cada cosa.
 
 ---
 
@@ -100,33 +100,78 @@ completa.
 
 Después de cada decisión pasa solo al siguiente. Una tanda de 50 casos lleva pocos minutos.
 
-### Varios códigos SAP para un mismo producto
+### Una nomenclatura no corresponde a una sola: los dos sentidos
 
-Pasa seguido: el depósito tiene **una** nomenclatura y SAP tiene el mismo producto abierto
-en **varios** códigos —marcas distintas, un código viejo y otro nuevo, uno discontinuado—.
+El depósito y SAP no nombran igual, y la correspondencia **no es uno a uno en ninguno de
+los dos sentidos**. Tratarla como si lo fuera obliga a contestar la misma pregunta varias
+veces, y a veces a contestarla distinto. El sistema deja declarar los dos sentidos, y las
+dos cosas a la vez.
 
-Para eso, en el modo revisión **se puede marcar más de un candidato**. Al marcar el
-segundo, aparece un campo con la **nomenclatura unificada**, precargado con el nombre que
-usa el depósito, y el botón pasa a decir «Agrupar los N códigos».
+**Una del depósito = varios códigos de SAP.** Pasa seguido: el depósito tiene **una**
+nomenclatura y SAP tiene el mismo producto abierto en **varios** códigos —marcas distintas,
+un código viejo y otro nuevo, uno discontinuado—. En el modo revisión **se puede marcar más
+de un candidato** con <kbd>1</kbd>…<kbd>9</kbd>. Al marcar el segundo aparece un campo con
+la **nomenclatura unificada**, precargado con el nombre que usa el depósito, y el botón
+pasa a decir «Agrupar los N códigos».
 
-Qué pasa cuando agrupás:
+**Varias del depósito = un código de SAP.** Cada base escribe el nombre a su manera, y a
+veces la misma base tiene dos renglones del mismo producto. Cuando otro ítem del depósito
+podría ser el mismo producto, aparece arriba de los candidatos un panel plegable que dice
+cuántos son y, en cada uno, la base, las unidades contadas y **por qué se propone**
+(«coincide en concentración, forma»). Se marcan con el mouse y se deciden juntos: una sola
+respuesta resuelve los dos renglones, y queda registrado que son equivalentes.
 
-- El ítem queda identificado con **todos** esos códigos, no con uno solo.
+**Las dos cosas a la vez.** Se pueden marcar varios ítems del depósito y varios códigos de
+SAP en la misma pantalla. La barra de abajo dice siempre, antes de confirmar, cuántas
+nomenclaturas del depósito y cuántos códigos de SAP quedan declarados el mismo producto, y
+los muestra como etiquetas para releerlos.
+
+Qué pasa cuando confirmás:
+
+- El ítem —y cada ítem equivalente que marcaste— queda identificado con **todos** esos
+  códigos, no con uno solo, y con el mismo nombre unificado.
 - Los códigos agrupados **dejan de ser candidatos a baja en esa base**, porque alguien los
   identificó. El contador del grupo 5 baja solo.
-- La agrupación queda listada en Inicio, en el Excel (hoja «Nomenclaturas unificadas» y dos
-  columnas en «Casos») y en el PDF.
+- Los ítems declarados equivalentes **salen de la cola**: no se vuelven a preguntar.
+- El grupo queda listado en Inicio, en el Excel (hoja «Equivalencias», con los dos lados y
+  el sentido de cada grupo, y dos columnas en «Casos») y en el PDF.
 
 Importante: la liberación es **por base**. Si agrupás un código en San Juan, su stock en
 Salta sigue siendo candidato a baja — identificar un material no es haber contado su stock
 en otro centro.
 
+#### De dónde sale la sugerencia (y de dónde no)
+
+**No del parecido del nombre.** Dos ítems se proponen como equivalentes sólo si comparten
+un candidato en SAP **y además** ninguna característica declarada por los dos está en
+conflicto, y coinciden en alguna característica verificable —concentración, forma
+farmacéutica fuerte, volumen, calibre, medidas—. Cuando ninguno declara características, se
+exige que las denominaciones sean casi iguales.
+
+La exigencia no es gratuita. Una primera versión proponía equivalencias por «comparten un
+candidato», y eso juntaba «Ácido acetilsalicílico 100 mg» con «N-acetilcisteína 600»: el
+candidato lo genera el parecido del nombre, no el producto. **Una sugerencia falsa es peor
+que ninguna**, porque invita justamente al error que este trabajo viene evitando. La
+propuesta sigue siendo una propuesta: la confirma una persona.
+
+#### El almacén, en la misma pantalla
+
+Cada candidato muestra **en qué almacén tiene el stock** y cuántas unidades, y si ese
+almacén es el propuesto para la base del ítem: en verde cuando coincide, en naranja cuando
+el stock está en otro almacén, y en gris cuando ese código **no tiene stock en esa base**.
+No hace falta ir a buscarlo a otra pantalla: parte de la decisión es si el código que estás
+por asignar tiene el stock donde debería.
+
+Recordá que la correspondencia base ↔ almacén es una **propuesta pendiente de validación**
+(ver el grupo 5): el color dice si coincide con esa propuesta, no que la propuesta esté
+confirmada.
+
 ### El orden de los grupos
 
 | | Grupo | Pendientes | Por qué va ahí |
 |---|---|---|---|
-| 1 | Resolver los casos en revisión | 402 | Es el trabajo real, y de él dependen otros grupos |
-| 2 | Verificar los que no aparecieron en SAP | 58 | Pocos y de alto impacto; se elige una de dos alternativas |
+| 1 | Resolver los casos en revisión | 401 | Es el trabajo real, y de él dependen otros grupos |
+| 2 | Verificar los que no aparecieron en SAP | 59 | Pocos y de alto impacto; se elige una de dos alternativas |
 | 3 | Registrar existencias que SAP no tiene | 48 | Hay stock físico sin respaldo en el sistema |
 | 4 | Confirmar las identificaciones | 179 | Rápido: ya están verificadas |
 | 5 | Corregir la ubicación en los almacenes | 363 | Problema de ubicación, no de identificación |
@@ -271,7 +316,9 @@ Cada ítem se cruza contra el maestro de SAP (1.038 códigos, 1.482 combinacione
 material-base). **Una coincidencia sólo se acepta si está justificada por las
 características del material**, nunca por el parecido del nombre: concentración,
 forma farmacéutica, volumen, calibre, medidas, talle, modelo o referencia, longitud,
-población y cantidades sin unidad.
+esterilidad, población y cantidades sin unidad.
+
+> **La esterilidad se agregó a esa lista.** Estaba tratada como palabra de relleno, y por eso «Apósitos estériles» del depósito traía «APOSITO NO ESTERIL» como primer candidato: las dos denominaciones quedaban en «apósito». Un apósito estéril y uno no estéril son dos productos con código propio. Ahora contradecirse en la esterilidad descarta el candidato. Sirve para descartar, no para confirmar: que dos cosas sean estériles no las hace el mismo producto.
 
 Tres reglas:
 
@@ -287,9 +334,9 @@ Tres reglas:
 | | Casos | Qué significa | Acción |
 |---|---|---|---|
 | **A** Identificado en SAP | 227 | Código verificado por nomenclatura y presentación | Mantener |
-| **B** Sin correspondencia | 58 | Existe físicamente, no está entre los materiales **con stock** | Elegir alternativa 1 o 2 |
+| **B** Sin correspondencia | 59 | Existe físicamente, no está entre los materiales **con stock** | Elegir alternativa 1 o 2 |
 | **C** Candidato a baja | 864 | Stock en SAP que ningún inventario identificó en esa base | Proponer baja |
-| **D** Requiere revisión | 402 | No se resuelve solo | Revisar y decidir |
+| **D** Requiere revisión | 401 | No se resuelve solo | Revisar y decidir |
 | **E** Fuera del alcance | 410 | Indumentaria, equipos y repuestos | **No concluir nada** |
 | **F** En SAP sin stock | 30 | Material de Farmacia con existencia **cero** | Depurar el maestro |
 
@@ -355,7 +402,8 @@ Quince hojas: `Resumen` (indicadores, todos fórmulas sobre `Casos`), `Casos` (e
 completo, **50 columnas**), las seis hojas operativas `A` a `F`, `Almacenes` (la propuesta
 por base y tipo, con lo observado y lo que hay que validar), `Depuración del maestro`
 (política, excepciones y decisiones individuales), `Lotes` (trazabilidad al lote original),
-`Nomenclaturas unificadas`, `Decisiones` (historial), `Control` (integridad contra las
+`Equivalencias` (los grupos declarados, con los dos lados y el sentido
+de cada uno), `Decisiones` (historial), `Control` (integridad contra las
 fuentes, con fórmulas vivas) y `Metodología`.
 
 En la hoja `Casos`, las columnas **AN a AS** son la ubicación del stock y las **AT a AX**,

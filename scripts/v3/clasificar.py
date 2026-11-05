@@ -254,6 +254,12 @@ def agregar_ubicacion(casos, det, prop):
     """
     import almacenes as AL
     for c in casos:
+        # El almacén que le correspondería a esta base y tipo se sabe ANTES de
+        # identificar el material: es una propiedad de la base, no del código.
+        # Se guarda aparte porque hace falta justo donde todavía no hay código
+        # asignado —al evaluar los candidatos—, y porque `almacen_esperado`
+        # pertenece al control de ubicación, que sólo existe con un código.
+        c["almacen_base"] = prop.get((c["base"], c.get("tipo")))
         mats = [c["material_sap"]] if c.get("material_sap") else []
         if not mats:
             c.update(almacen_estado=None, almacenes=[], almacen_esperado=None,

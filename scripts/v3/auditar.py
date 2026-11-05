@@ -94,7 +94,7 @@ def celdas(nombre):
 esperadas = ["Resumen", "Casos", "A Identificados", "B Verificar en el maestro",
              "C Propuestas de baja", "D A revisar", "E Fuera del alcance",
              "F Maestro sin stock", "Almacenes", "Depuración del maestro", "Lotes",
-             "Nomenclaturas unificadas", "Decisiones", "Control", "Metodología"]
+             "Equivalencias", "Decisiones", "Control", "Metodología"]
 ok(hojas == esperadas, "las 15 hojas, en orden", "%d hojas" % len(hojas))
 
 res = celdas("Resumen")
@@ -118,7 +118,7 @@ for cl, n in sorted(clases.items()):
     ok(v is not None and int(float(v)) == n, "clase «%s» en el Resumen" % cl[:1], "%s vs %d" % (v, n))
 ok(buscar("Casos de clase B") == str(T["B"]), "«Casos de clase B» coincide")
 ok(buscar("Sin alternativa elegida") == str(T["B"]),
-   "sin decisiones, los 58 casos B están sin alternativa elegida")
+   "sin decisiones, los %d casos B están sin alternativa elegida" % T["B"])
 for est, n in al.items():
     if est == "Sin stock, sin almacén":
         continue
@@ -177,13 +177,33 @@ codigos_dep = [dep[n]["A"] for n in sorted(dep) if re.fullmatch(r"\d+", dep[n].g
 ok(len(codigos_dep) == T["F"], "los %d materiales sin stock están listados" % T["F"],
    str(len(codigos_dep)))
 
+# La hoja de equivalencias tiene que mostrar los DOS sentidos, no sólo uno.
+equ = celdas("Equivalencias")
+txt_equ = " ".join(v for n in equ for v in equ[n].values())
+cab_equ = [equ[4].get(c, "") for c in ("A", "B", "C", "D", "E", "F", "G", "H", "I", "J")]
+ok(cab_equ == ["Nombre unificado", "Nomenclaturas del depósito", "Cuántas", "Bases",
+               "Códigos de SAP", "Cuántos", "Unidades contadas", "Sentido", "Revisor",
+               "Observaciones"],
+   "la hoja Equivalencias tiene las 10 columnas de los dos sentidos",
+   " | ".join(cab_equ))
+ok("VARIAS nomenclaturas del depósito" in txt_equ and "VARIOS" in txt_equ,
+   "la hoja Equivalencias explica los dos sentidos")
+ok("dejan de ser candidatos a baja" in txt_equ,
+   "la hoja Equivalencias dice qué consecuencia tiene agrupar códigos")
+
 # ---------------------------------------------------------------- PDF
 print("\n=== 3. EL PDF ===")
 txt = subprocess.run(["pdftotext", "-layout", PDF, "-"], capture_output=True,
                      check=True).stdout.decode("utf-8")
 paginas = txt.count("\f")
-plano = re.sub(r"\s+", " ", txt)        # una frase puede venir partida en dos líneas
-ok(paginas == 21, "21 páginas", str(paginas))
+# Dos lecturas del mismo PDF: con -layout se respetan las columnas (sirve para
+# ver la maqueta), y sin -layout se respeta el orden de lectura. Una frase dentro
+# de una celda de tabla sólo queda entera en la segunda, porque con -layout la
+# parte el texto de la columna de al lado. Se buscan las frases en las dos.
+crudo = subprocess.run(["pdftotext", PDF, "-"], capture_output=True,
+                       check=True).stdout.decode("utf-8")
+plano = re.sub(r"\s+", " ", txt) + " \u2016 " + re.sub(r"\s+", " ", crudo)
+ok(paginas == 22, "22 páginas", str(paginas))
 ok(paginas < 30, "es un informe ejecutivo, no un listado")
 
 def miles(n):
@@ -216,6 +236,18 @@ for frase, titulo in [
     ("modifica SAP", "el PDF aclara que nada modifica SAP"),
     ("no ejecuta ninguna modificación sobre SAP",
      "el PDF lo dice ya en la primera página"),
+    ("no es uno a uno en ninguno de los dos sentidos",
+     "el PDF dice que la correspondencia no es uno a uno en ninguno de los dos sentidos"),
+    ("Una del depósito = varios de SAP",
+     "el PDF explica el sentido «una del depósito = varios de SAP»"),
+    ("Varias del depósito = uno de SAP",
+     "el PDF explica el sentido «varias del depósito = uno de SAP»"),
+    ("no por el parecido del nombre",
+     "el PDF aclara que una equivalencia no se propone por el nombre"),
+    ("en qué almacén está su stock",
+     "el PDF dice que el almacén se ve donde se decide"),
+    ("la confirma una persona",
+     "el PDF deja claro que la equivalencia la confirma una persona"),
 ]:
     ok(frase.lower() in plano.lower(), titulo)
 
@@ -270,8 +302,41 @@ for frase, titulo in [
     ("v-depurar", "el sistema tiene la vista del maestro"),
     ("Almacén a cambiar", "el sistema clasifica la ubicación"),
     ("no es una suposición", "el sistema distingue lo observado de la propuesta"),
+    ("podrían ser este mismo producto",
+     "el sistema propone qué otros ítems del depósito serían el mismo producto"),
+    ("Comparten candidato en SAP",
+     "el sistema explica de dónde sale la propuesta de equivalencia"),
+    ("nomenclaturas del depósito",
+     "el sistema cuenta las nomenclaturas del depósito que se declaran equivalentes"),
+    ("códigos de SAP",
+     "el sistema cuenta los códigos de SAP del grupo"),
+    ("Declarar equivalentes",
+     "el sistema tiene la acción de declarar equivalentes"),
+    ("el stock está en el almacén propuesto para esta base y tipo",
+     "el sistema marca si el candidato tiene el stock en el almacén propuesto"),
+    ("propuesta pendiente de validación",
+     "el sistema recuerda que la correspondencia base-almacén está sin validar"),
+    ("sin stock en ",
+     "el sistema avisa cuando el candidato no tiene stock en esa base"),
 ]:
     ok(frase in h, titulo)
+
+# Las equivalencias se calculan en Python con comparación de atributos, no en el
+# navegador por parecido de nombres: es el arreglo de un falso positivo real.
+eqpy = io.open(RAIZ + "scripts/v3/equivalencias.py", encoding="utf-8").read()
+ok("UMBRAL_SIN_ATRIBUTOS" in eqpy and "DEBILES" in eqpy,
+   "las equivalencias exigen características verificables, no sólo nombre")
+ok("equivalencias" in m, "el dataset trae las equivalencias calculadas")
+eq = m.get("equivalencias", {})
+ok(len(eq) > 0, "hay equivalencias propuestas", "%d ítems" % len(eq))
+ok(all(x["fuertes"] or x["parecido"] >= 0.72 for v in eq.values() for x in v),
+   "ninguna propuesta se sostiene sólo en un atributo débil")
+ok(all(x["id"] in eq and any(y["id"] == a for y in eq[x["id"]])
+       for a, v in eq.items() for x in v),
+   "las equivalencias son simétricas: valen en los dos sentidos")
+ubic = m["almacenes"].get("ubicacion", {})
+ok(len(ubic) > 0, "el dataset dice en qué almacén figura cada material por base",
+   "%d pares base|material" % len(ubic))
 
 # ---------------------------------------------------------------- originales
 print("\n=== 5. LOS ORIGINALES ===")

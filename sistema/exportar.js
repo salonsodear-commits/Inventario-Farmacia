@@ -370,33 +370,73 @@ var Exportar = (function () {
              congelar: "A5", autofiltro: "A4:G" + Math.max(f.length, 5) };
   }
 
+  /* ---- Equivalencias de nomenclatura -------------------------------------
+     La correspondencia entre el depósito y SAP no es uno a uno en ninguno de
+     los dos sentidos, y la hoja tiene que mostrar los dos. */
   function hojaUnificadas() {
-    var f = [[{ v: "Nomenclaturas unificadas", s: E.TITULO }],
-             [{ v: "Casos en los que un mismo producto del inventario físico corresponde a " +
-                   "VARIOS códigos de SAP. Se agrupan bajo la nomenclatura del depósito. " +
-                   "Los códigos agrupados dejan de ser candidatos a baja en esa base.", s: E.TENUE }], [],
-             [["Nomenclatura unificada", 46], ["Base", 12], ["Ítem del inventario físico", 40],
-              ["Códigos SAP agrupados", 30], ["Cuántos", 9], ["Cantidad física", 13],
-              ["Revisor", 18], ["Observaciones", 40]]
+    var f = [[{ v: "Equivalencias de nomenclatura", s: E.TITULO }],
+             [{ v: "El depósito y SAP no nombran igual. Acá están los grupos declarados: " +
+                   "VARIAS nomenclaturas del depósito que son el mismo producto, VARIOS " +
+                   "códigos de SAP para un mismo producto, o las dos cosas a la vez. Los " +
+                   "códigos agrupados dejan de ser candidatos a baja.", s: E.TENUE }], [],
+             [["Nombre unificado", 40], ["Nomenclaturas del depósito", 52],
+              ["Cuántas", 8], ["Bases", 24], ["Códigos de SAP", 30], ["Cuántos", 8],
+              ["Unidades contadas", 14], ["Sentido", 30], ["Revisor", 18],
+              ["Observaciones", 40]]
              .map(function (c) { return { v: c[0], s: E.CAB }; })];
-    var n = 0;
+
+    // Se agrupan por el nombre unificado, que es lo que los declara el mismo
+    // producto. Un caso que agrupó códigos sin ponerle nombre va igual.
+    var porNombre = {}, sueltos = [], n = 0;
     D().casos.forEach(function (c) {
       var e = ef(c);
-      if (e.materiales.length < 2) return;
-      n++;
-      f.push([{ v: e.unificada || c.nombre_fisico, s: E.TEXTO }, { v: c.base },
-              { v: c.nombre_fisico || "", s: E.TEXTO },
-              { v: e.materiales.join(" · "), s: E.TEXTO },
-              { v: e.materiales.length, s: E.ENTERO },
-              { v: c.cantidad_fisica || 0, s: E.ENTERO },
-              { v: e.revisor || "" }, { v: e.observaciones || "", s: E.TEXTO }]);
+      if (e.unificada) {
+        var g = porNombre[e.unificada] || (porNombre[e.unificada] = {
+          nombre: e.unificada, items: [], mats: {}, bases: {}, un: 0,
+          revisor: "", obs: "" });
+        if (c.origen === "Inventario físico") { g.items.push(c); g.un += c.cantidad_fisica || 0; }
+        e.materiales.forEach(function (m) { g.mats[m] = 1; });
+        g.bases[c.base] = 1;
+        if (e.revisor) g.revisor = e.revisor;
+        if (e.observaciones && !g.obs) g.obs = e.observaciones;
+      } else if (e.materiales.length > 1) {
+        var h = { nombre: c.nombre_fisico || "(sin nombre)", items: [c], mats: {},
+                  bases: {}, un: c.cantidad_fisica || 0, revisor: e.revisor || "",
+                  obs: e.observaciones || "" };
+        e.materiales.forEach(function (m) { h.mats[m] = 1; });
+        h.bases[c.base] = 1;
+        sueltos.push(h);
+      }
     });
-    if (!n) f.push([{ v: "Todavía no se agrupó ningún caso.", s: E.TENUE }]);
-    return { nombre: "Nomenclaturas unificadas", filas: f,
-             anchos: [46, 12, 40, 30, 9, 13, 18, 40],
-             congelar: "A5", autofiltro: "A4:H" + Math.max(f.length, 5) };
-  }
 
+    Object.keys(porNombre).map(function (k) { return porNombre[k]; })
+      .concat(sueltos)
+      .sort(function (x, y) { return y.items.length - x.items.length; })
+      .forEach(function (g) {
+        n++;
+        var mats = Object.keys(g.mats).sort();
+        var sentido = g.items.length > 1 && mats.length > 1
+            ? "Varias del depósito = varios de SAP"
+          : g.items.length > 1 ? "Varias del depósito = un código de SAP"
+          : mats.length > 1 ? "Una del depósito = varios códigos de SAP"
+          : "Una a una";
+        f.push([
+          { v: g.nombre, s: E.TEXTO },
+          { v: g.items.map(function (c) { return c.nombre_fisico; }).join(" · "), s: E.TEXTO },
+          { v: g.items.length, s: E.ENTERO },
+          { v: Object.keys(g.bases).sort().join(" · ") },
+          { v: mats.join(" · "), s: E.TEXTO },
+          { v: mats.length, s: E.ENTERO },
+          { v: g.un, s: E.ENTERO },
+          { v: sentido, s: E.TEXTO },
+          { v: g.revisor }, { v: g.obs, s: E.TEXTO },
+        ]);
+      });
+    if (!n) f.push([{ v: "Todavía no se declaró ninguna equivalencia.", s: E.TENUE }]);
+    return { nombre: "Equivalencias", filas: f,
+             anchos: [40, 52, 8, 24, 30, 8, 14, 30, 18, 40],
+             congelar: "B5", autofiltro: "A4:J" + Math.max(f.length, 5) };
+  }
 
   /* ---- Almacenes -------------------------------------------------------
      Dos cosas distintas en la misma hoja, cada una rotulada como lo que es:
@@ -641,7 +681,8 @@ var Exportar = (function () {
     t("Cómo se valida una correspondencia");
     p("El parecido del nombre genera el candidato; las características deciden. De cada " +
       "material se extraen concentración, forma farmacéutica, volumen, calibre, medidas, " +
-      "talle, modelo o referencia, longitud, población y cantidades sin unidad.");
+      "talle, modelo o referencia, longitud, esterilidad, población y cantidades sin " +
+      "unidad.");
     p("Si los dos lados declaran la misma característica con valores distintos, no son el " +
       "mismo material: el candidato se descarta y queda registrado el motivo.");
     p("Si se declara una característica de un lado y no del otro, nada quedó verificado y el " +
