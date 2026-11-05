@@ -53,6 +53,8 @@ CREATE TABLE IF NOT EXISTS decision (
   observaciones          TEXT,
   almacen_decision       TEXT,
   almacen_propuesto      TEXT,
+  almacen_ajuste         TEXT,             -- en qué almacén tiene que cuadrar el ajuste
+  ajuste_stock           TEXT,             -- cuántas unidades se propone ajustar
   ruta_b                 TEXT,             -- la alternativa elegida en la clase B
   verificacion           TEXT,
   codigo_maestro         TEXT,
@@ -120,7 +122,8 @@ CREATE TABLE IF NOT EXISTS maestro (
 CREATE TABLE IF NOT EXISTS maestro_material (
   codigo TEXT PRIMARY KEY,
   texto  TEXT,
-  tipo   TEXT
+  tipo   TEXT,
+  precio REAL            -- importe de última compra; NULL = pendiente de valorizar
 );
 
 /* Quién entró y cuándo. Separado del historial de decisiones porque responde
@@ -137,7 +140,8 @@ CREATE TABLE IF NOT EXISTS acceso (
 `;
 
 const CAMPOS = ["materiales", "nomenclatura_unificada", "estado_revision", "aprobacion",
-  "observaciones", "almacen_decision", "almacen_propuesto", "ruta_b", "verificacion",
+  "observaciones", "almacen_decision", "almacen_propuesto", "almacen_ajuste", "ajuste_stock",
+  "ruta_b", "verificacion",
   "codigo_maestro", "riesgo_duplicado", "depuracion", "reclasificado", "material_corregido"];
 
 function ahora() { return new Date().toISOString(); }
@@ -147,6 +151,23 @@ class Base {
     fs.mkdirSync(path.dirname(archivo), { recursive: true });
     this.db = new DatabaseSync(archivo);
     this.db.exec(ESQUEMA);
+    this.migrar();
+  }
+  /* CREATE TABLE IF NOT EXISTS no agrega columnas a una tabla que ya existe,
+     así que una base creada con una versión anterior se queda sin ellas. Cada
+     columna nueva se agrega acá, una sola vez, mirando lo que la base tiene
+     hoy. Agregar una columna con valor nulo no pierde ni un dato. */
+  migrar() {
+    const faltantes = [
+      ["maestro_material", "precio", "REAL"],
+      ["decision", "almacen_ajuste", "TEXT"],
+      ["decision", "ajuste_stock", "TEXT"],
+    ];
+    for (const [tabla, col, tipo] of faltantes) {
+      const hay = this.db.prepare(`PRAGMA table_info(${tabla})`).all()
+        .some((c) => c.name === col);
+      if (!hay) this.db.exec(`ALTER TABLE ${tabla} ADD COLUMN ${col} ${tipo}`);
+    }
   }
   cerrar() { this.db.close(); }
 
@@ -346,26 +367,56 @@ class Base {
   // ------------------------------------------------------------- maestro
   maestro() {
     const m = this.db.prepare("SELECT * FROM maestro WHERE id = 1").get();
-    if (!m) return null;
     const filas = this.db.prepare(
-      "SELECT codigo, texto, tipo FROM maestro_material ORDER BY codigo").all();
-    return { nombre: m.nombre, total: m.total, cuando: m.cuando, quien: m.quien, filas };
+      "SELECT codigo, texto, tipo FROM maestro_material WHERE precio IS NULL ORDER BY codigo").all();
+    const precios = {};
+    for (const r of this.db.prepare(
+           "SELECT codigo, precio FROM maestro_material WHERE precio IS NOT NULL").all())
+      precios[r.codigo] = r.precio;
+    const hayPrecios = Object.keys(precios).length > 0;
+    if (!m && !hayPrecios) return null;
+    return { nombre: m ? m.nombre : "Importes de última compra",
+             total: m ? m.total : 0, cuando: m ? m.cuando : null,
+             quien: m ? m.quien : null, filas,
+             precios: hayPrecios ? precios : null };
   }
-  guardarMaestro(nombre, total, filas, usuario) {
+  /* El maestro y los importes entran por la misma puerta porque son el mismo
+     material visto de dos lados. Las filas sin stock se reemplazan enteras;
+     los importes se funden con los que ya había, para que importar una
+     planilla con la mitad de los precios no borre la otra mitad. */
+  guardarMaestro(nombre, total, filas, usuario, precios) {
     const t = ahora();
     this.db.exec("BEGIN IMMEDIATE");
     try {
-      this.db.prepare("DELETE FROM maestro_material").run();
-      const ins = this.db.prepare(
-        "INSERT OR REPLACE INTO maestro_material (codigo, texto, tipo) VALUES (?,?,?)");
-      for (const f of filas) ins.run(String(f.codigo), f.texto || null, f.tipo || null);
+      if (filas) {
+        this.db.prepare("DELETE FROM maestro_material WHERE precio IS NULL").run();
+        const ins = this.db.prepare(
+          `INSERT INTO maestro_material (codigo, texto, tipo) VALUES (?,?,?)
+           ON CONFLICT(codigo) DO UPDATE SET texto = excluded.texto, tipo = excluded.tipo`);
+        for (const f of filas) ins.run(String(f.codigo), f.texto || null, f.tipo || null);
+      }
+      if (precios === null) {
+        this.db.prepare("UPDATE maestro_material SET precio = NULL").run();
+        this.db.prepare("DELETE FROM maestro_material WHERE texto IS NULL AND tipo IS NULL").run();
+      } else if (precios) {
+        const pon = this.db.prepare(
+          `INSERT INTO maestro_material (codigo, precio) VALUES (?,?)
+           ON CONFLICT(codigo) DO UPDATE SET precio = excluded.precio`);
+        for (const [cod, v] of Object.entries(precios))
+          if (typeof v === "number" && isFinite(v)) pon.run(String(cod), v);
+      }
       this.db.prepare(
         `INSERT INTO maestro (id, nombre, total, usuario, quien, cuando) VALUES (1,?,?,?,?,?)
          ON CONFLICT(id) DO UPDATE SET nombre = excluded.nombre, total = excluded.total,
            usuario = excluded.usuario, quien = excluded.quien, cuando = excluded.cuando`)
         .run(nombre, total, usuario.oid, usuario.nombre, t);
-      this.anotarDep(`Se importó el maestro «${nombre}»: ${total} filas leídas, ` +
-                     `${filas.length} materiales sin stock`, usuario, t);
+      const nPre = precios ? Object.keys(precios).length : 0;
+      this.anotarDep(
+        precios === null ? "Se quitaron los importes de última compra"
+        : nPre ? `Se importó «${nombre}»: ${nPre} materiales con importe de última compra`
+        : `Se importó el maestro «${nombre}»: ${total} filas leídas, ` +
+          `${(filas || []).length} materiales sin stock`,
+        usuario, t);
       this.db.exec("COMMIT");
     } catch (e) { this.db.exec("ROLLBACK"); throw e; }
   }

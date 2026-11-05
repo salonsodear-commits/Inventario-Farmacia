@@ -265,11 +265,15 @@ var Almacen = (function () {
   }
   function fijarMaestro(m) {
     depu.maestro = m;
-    anotarDep("Se importó el maestro «" + m.nombre + "»: " + m.total +
-              " filas leídas, " + m.filas.length + " materiales sin stock");
+    var nPre = m.precios ? Object.keys(m.precios).length : 0;
+    anotarDep(m.precios === null ? "Se quitaron los importes de última compra"
+      : nPre ? "Se importó «" + m.nombre + "»: " + nPre +
+               " materiales con importe de última compra"
+      : "Se importó el maestro «" + m.nombre + "»: " + m.total +
+        " filas leídas, " + m.filas.length + " materiales sin stock");
     if (modo === "servidor") {
       escribir("PUT", "/api/maestro",
-               { nombre: m.nombre, total: m.total, filas: m.filas });
+               { nombre: m.nombre, total: m.total, filas: m.filas, precios: m.precios });
     } else guardarLocal();
   }
   function quitarMaestro() {

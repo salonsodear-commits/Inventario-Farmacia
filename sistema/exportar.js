@@ -786,5 +786,56 @@ var Exportar = (function () {
     setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
   }
 
-  return { excel: excel, informeHtml: function () { return Informe.html(); } };
+  /* ---- La planilla del maestro general ----------------------------------
+     Es la que se baja, se completa afuera con el importe de última compra y
+     se vuelve a subir. Por eso las tres columnas obligatorias van primero y
+     con el nombre exacto que busca la importación: lo que se baja tiene que
+     poder volver a entrar sin que nadie toque nada. */
+  function maestroGeneral(u) {
+    var f = [[{ v: "Maestro general de materiales", s: E.TITULO }],
+             [{ v: "Una fila por código de SAP. No se duplica por base ni por almacén. " +
+                   "Completá la columna «Importe última compra» y volvé a importar este " +
+                   "mismo archivo desde Maestro → Maestro general. Las columnas que vienen " +
+                   "después del importe son de contexto: la importación las ignora.",
+                s: E.TENUE }], [],
+             [["Código SAP", 14], ["Nomenclatura SAP", 52], ["Importe última compra", 20],
+              ["Nomenclatura del depósito", 46], ["Bases donde aparece", 24],
+              ["Almacenes donde figura", 22], ["De dónde sale", 40]]
+             .map(function (c) { return { v: c[0], s: E.CAB }; })];
+    u.filas.forEach(function (x) {
+      f.push([
+        { v: x.codigo }, { v: x.texto || "", s: E.TEXTO },
+        x.precio != null ? { v: x.precio, s: E.IMPORTE } : { v: "" },
+        { v: x.fisicos.join(" · "), s: E.TEXTO },
+        { v: x.bases.join(" · ") }, { v: x.almacenes.join(" · ") },
+        { v: x.fuente, s: E.TEXTO },
+      ]);
+    });
+    var hojas = [{ nombre: "Maestro general", filas: f,
+                   anchos: [14, 52, 20, 46, 24, 22, 40],
+                   congelar: "A5", autofiltro: "A4:G" + Math.max(f.length, 5) }];
+
+    // Los ítems del depósito que todavía no tienen código van en su propia
+    // hoja: todavía no son un material de SAP y mezclarlos sería inventar uno.
+    var g = [[{ v: "Ítems del depósito sin código de SAP asignado", s: E.TITULO }],
+             [{ v: "Están contados en un inventario físico y todavía no tienen una " +
+                   "correspondencia confirmada con SAP. No son materiales del maestro: " +
+                   "se resuelven en Inicio y recién entonces entran en la hoja anterior.",
+                s: E.TENUE }], [],
+             [["Nomenclatura del depósito", 52], ["Base", 14], ["Tipo", 16],
+              ["Unidades contadas", 18], ["Estado del análisis", 30]]
+             .map(function (c) { return { v: c[0], s: E.CAB }; })];
+    u.sinCodigo.forEach(function (c) {
+      g.push([{ v: c.nombre_fisico || "", s: E.TEXTO }, { v: c.base }, { v: c.tipo || "" },
+              { v: c.cantidad_fisica || 0, s: E.ENTERO }, { v: c.clasificacion, s: E.TEXTO }]);
+    });
+    hojas.push({ nombre: "Sin código asignado", filas: g, anchos: [52, 14, 16, 18, 30],
+                 congelar: "A5", autofiltro: "A4:E" + Math.max(g.length, 5) });
+
+    descargar(XLSXMin.construir(hojas, { titulo: "Maestro general de materiales" }),
+              "Inventario fisico vs SAP - maestro general " + hoy() + ".xlsx");
+  }
+
+  return { excel: excel, maestroGeneral: maestroGeneral,
+           informeHtml: function () { return Informe.html(); } };
 })();

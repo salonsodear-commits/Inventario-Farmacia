@@ -314,11 +314,18 @@ async function api(req, res, url, usuario) {
   if (r === "maestro") {
     if (req.method === "PUT") {
       const b = await leerCuerpo(req, 25 << 20);
-      if (!b.nombre || !Array.isArray(b.filas)) {
-        return json(res, 400, { error: "Falta el nombre del archivo o las filas." });
+      if (!b.nombre) return json(res, 400, { error: "Falta el nombre del archivo." });
+      if (!Array.isArray(b.filas) && b.precios === undefined) {
+        return json(res, 400, { error: "Falta la lista de filas o los importes." });
       }
-      db.guardarMaestro(b.nombre, Number(b.total) || b.filas.length, b.filas, usuario);
-      return json(res, 200, { ok: true, materiales: b.filas.length });
+      if (b.precios != null && typeof b.precios !== "object") {
+        return json(res, 400, { error: "Los importes tienen que venir como un objeto." });
+      }
+      const filas = Array.isArray(b.filas) ? b.filas : null;
+      db.guardarMaestro(b.nombre, Number(b.total) || (filas ? filas.length : 0),
+                        filas, usuario, b.precios === undefined ? undefined : b.precios);
+      return json(res, 200, { ok: true, materiales: filas ? filas.length : 0,
+                              precios: b.precios ? Object.keys(b.precios).length : 0 });
     }
     if (req.method === "DELETE") { db.quitarMaestro(usuario); return json(res, 200, { ok: true }); }
   }

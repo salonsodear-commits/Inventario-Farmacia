@@ -45,37 +45,37 @@ var App = (function () {
   /* Las colas son el corazón de la herramienta: ordenan el trabajo por
      prioridad y cada una tiene su propia forma de decidirse. */
   var COLAS = [
-    { id: "revision", titulo: "Resolver los casos en revisión",
+    { id: "revision", titulo: "Resolver los casos en revisión", corto: "Trazabilidad",
       desc: "Es el trabajo principal. Cada caso llega con el candidato más probable y el " +
             "motivo exacto por el que no se dio por confirmado, así que se decide rápido.",
       pred: function (c) { return L(c) === "D"; },
       porMotivo: true, lote: false, color: "D" },
-    { id: "altas", titulo: "Verificar los que no aparecieron en SAP",
+    { id: "altas", titulo: "Verificar los que no aparecieron en SAP", corto: "Verificar en el maestro",
       desc: "Existen físicamente y no se encontró correspondencia entre los materiales que " +
             "HOY tienen stock en SAP. Ojo: la bajada que tenemos no es el maestro completo, " +
             "así que el material puede existir en SAP con existencia cero. Antes de proponer " +
             "un alta hay que verificarlo contra el maestro.",
       pred: function (c) { return L(c) === "B"; }, lote: true, color: "B" },
-    { id: "existencias", titulo: "Registrar existencias que SAP no tiene",
+    { id: "existencias", titulo: "Registrar existencias que SAP no tiene", corto: "Ajustes de stock",
       desc: "Están identificados y el código existe, pero SAP no registra stock de ese " +
             "material en esa base. No son altas: falta registrar la existencia.",
       pred: function (c) { return L(c) === "A" && sinStock(c); }, lote: true, color: "A" },
-    { id: "identificados", titulo: "Confirmar las identificaciones",
+    { id: "identificados", titulo: "Confirmar las identificaciones", corto: "Confirmar",
       desc: "Ya tienen un código verificado por nomenclatura y presentación. Sólo hay que " +
             "confirmarlas o corregir las que no correspondan.",
       pred: function (c) { return L(c) === "A" && !sinStock(c); }, lote: true, color: "A" },
-    { id: "almacenes", titulo: "Corregir la ubicación en los almacenes",
+    { id: "almacenes", titulo: "Corregir la ubicación en los almacenes", corto: "Almacenes",
       desc: "Materiales identificados cuyo stock está en un almacén distinto del propuesto, " +
             "o repartido en varios. Son errores de ubicación, no de identificación: el " +
             "material está bien, el lugar donde figura no.",
       pred: function (c) { return c.almacen_estado === AL_CAMB || c.almacen_estado === AL_MULT; },
       lote: false, color: "D", esAlmacen: true },
-    { id: "depurar", titulo: "Depurar el maestro · materiales sin stock",
+    { id: "depurar", titulo: "Depurar el maestro · materiales sin stock", corto: "Maestro sin stock",
       desc: "Figuran en la bajada de SAP con existencia CERO. No hay stock que dar de baja: " +
             "lo que corresponde es decidir si el material se mantiene, se bloquea o se da de " +
             "baja del maestro. Son la punta visible del universo de depuración.",
       pred: function (c) { return L(c) === "F"; }, lote: true, color: "E" },
-    { id: "bajas", titulo: "Aprobar las bajas propuestas",
+    { id: "bajas", titulo: "Aprobar las bajas propuestas", corto: "Bajas propuestas",
       desc: "Material con stock en SAP que ningún inventario físico identificó en esa base. " +
             "Aprobar significa proponer la baja, no ejecutarla.",
       pred: function (c) { return L(c) === "C" && !resueltoPorAgrupacion(c); },
@@ -92,6 +92,11 @@ var App = (function () {
     fichaId: null, volverA: "casos",
     cola: null, motivo: null, triage: [], tIdx: 0, selCand: {}, selPar: {}, unif: "",
     sel: {}, depFiltro: "",
+    /* El panel: qué base se está mirando, qué segmento está abierto y con qué
+       filtros. El alcance (base) es aparte de los filtros a propósito: no es
+       un filtro más, es el encuadre, y se conserva al cambiar de segmento. */
+    base: "", seg: "revision", bpag: 1, bVer: "pend", mTab: "general",
+    bf: { texto: "", tipo: "", motivo: "", almacen: "", obs: "" },
   };
 
 
@@ -215,6 +220,56 @@ var App = (function () {
       });
   }
   /* Dónde está el stock de un material en una base. */
+  /* ---- Importe de última compra -----------------------------------------
+     No está en ninguno de los archivos recibidos: entra por el maestro general
+     unificado, que se importa desde Maestro. Mientras no esté, no se inventa
+     ningún valor: el caso queda PENDIENTE DE VALORIZACIÓN y se dice. */
+  function precios() {
+    var m = depuObj().maestro;
+    return (m && m.precios) || {};
+  }
+  function precioDe(cod) {
+    if (!cod) return null;
+    var p = precios()[cod];
+    return (typeof p === "number" && isFinite(p)) ? p : null;
+  }
+  function unidadesDe(c) {
+    return c.origen === "Inventario físico" ? (c.cantidad_fisica || 0) : (c.stock_sap || 0);
+  }
+  /* Qué se puede valorizar y qué no. La metodología, escrita: unidades del
+     caso por el importe de última compra del material decidido. Si falta el
+     importe, el caso cuenta como pendiente de valorizar y no suma cero: suma
+     nada, que no es lo mismo. */
+  function economia(lista) {
+    var casos = lista || D.casos.filter(enAlcance);
+    var pre = precios(), mats = {}, conPrecio = 0;
+    Object.keys(pre).forEach(function (k) {
+      if (typeof pre[k] === "number" && isFinite(pre[k])) conPrecio++; });
+    var r = { conPrecio: conPrecio, materiales: 0, valorizados: 0, pendientes: 0,
+              total: 0, porAccion: {} };
+    casos.forEach(function (c) {
+      var e = efectivo(c);
+      (e.materiales.length ? e.materiales : (c.material_sap ? [c.material_sap] : []))
+        .forEach(function (m) { mats[m] = 1; });
+      if (L(c) === "E") return;                   // fuera del alcance: no hay nada que valorizar
+      /* Sólo lo YA DECIDIDO tiene impacto económico: una decisión que todavía
+         no se tomó no vale plata. Los materiales del maestro sin stock se
+         deciden por código, no por caso, así que ahí se pregunta por la
+         depuración. */
+      if (L(c) === "F") { if (!accionDep(c.material_sap).accion) return; }
+      else if (pendiente(c)) return;
+      var cod = e.material || c.material_sap;
+      var pu = precioDe(cod), un = unidadesDe(c);
+      var acc = e.aprobacion;
+      var g = r.porAccion[acc] || (r.porAccion[acc] = { n: 0, un: 0, val: 0, sinPrecio: 0 });
+      g.n++; g.un += un;
+      if (pu == null) { g.sinPrecio++; r.pendientes++; return; }
+      g.val += un * pu; r.total += un * pu; r.valorizados++;
+    });
+    r.materiales = Object.keys(mats).length;
+    return r;
+  }
+
   function ubicacionDe(base, material) {
     var u = (D.meta.almacenes.ubicacion || {})[base + "|" + material];
     return u || [];
@@ -223,7 +278,7 @@ var App = (function () {
   /* Códigos que quedaron asignados a algún ítem físico, por base. Un material que
      fue agrupado deja de ser candidato a baja: alguien lo identificó. */
   var CACHE_ASIG = null;
-  function invalidar() { CACHE_ASIG = null; }
+  function invalidar() { CACHE_ASIG = null; CACHE_UNI = null; }
   function asignados() {
     if (CACHE_ASIG) return CACHE_ASIG;
     var m = {};
@@ -372,6 +427,13 @@ var App = (function () {
       esc(titulo) + '</div><div class="n">' + num(n) + '</div><div class="d">' +
       esc(det) + "</div></button>";
   }
+  /* El mismo indicador, pero para mirar: no finge ser un botón. */
+  function kpiFijo(color, titulo, n, det) {
+    return '<div class="kpi fijo ' + color + '">' +
+      '<div class="t"><i class="pt" style="background:var(--c' + color + ')"></i>' +
+      esc(titulo) + '</div><div class="n">' + num(n) + '</div><div class="d">' +
+      esc(det) + "</div></div>";
+  }
   function barraProgreso(hechos, total, color) {
     var p = total ? Math.round(hechos / total * 100) : 100;
     return '<div class="prog"><div class="pbar"><i style="width:' + p + "%;background:var(--c" +
@@ -394,7 +456,7 @@ var App = (function () {
     if (vista === "revisar") pintarTriage();
     if (vista === "casos") pintarCasos();
     if (vista === "ficha") { if (arg) estado.fichaId = arg; pintarFicha(); }
-    if (vista === "depurar") pintarDepurar();
+    if (vista === "depurar") pintarMaestro();
     if (vista === "informe") document.getElementById("v-informe").innerHTML = Exportar.informeHtml();
     if (vista === "ayuda") pintarAyuda();
     window.scrollTo(0, 0);
@@ -426,227 +488,906 @@ var App = (function () {
                        almacen: "", almacen_estado: "" };
   }
 
-  // ------------------------------------------------------------- INICIO
-  function pintarInicio() {
-    var decidibles = D.casos.filter(function (c) { return L(c) !== "E"; });
-    var hechos = decidibles.filter(function (c) { return !pendiente(c); }).length;
-    var k = D.kpis;
+  // ------------------------------------------------------------- ALCANCE
+  /* Todo lo que se ve y se decide respeta el alcance elegido: una base o las
+     tres. No es un filtro más entre otros —por eso está arriba de todo y se
+     conserva al cambiar de segmento—: es el encuadre del análisis. Una decisión
+     tomada con el alcance en una base vale igual en el análisis integral,
+     porque el caso es el mismo registro: lo que cambia es qué se ve, nunca
+     dónde se guarda. */
+  function enAlcance(c) { return !estado.base || c.base === estado.base; }
 
-    var h = '<div class="cabi"><div><h1>¿Por dónde empezar?</h1>' +
-      '<p class="sub"><b>' + num(k.items_fisicos) + ' ítems</b> contados en las tres bases ' +
-      '—<b>' + num(k.unidades_fisicas) + ' unidades</b> en total—, cruzados contra SAP. ' +
-      'Sumando los materiales de SAP que ningún inventario identificó, el trabajo es de ' +
-      '<b>' + num(k.total_casos) + ' casos</b>. Empezá por el grupo 1.</p>' +
-      '<p class="glosa">Un <b>ítem</b> es un producto contado; una <b>unidad</b> es cada ' +
-      'unidad de ese producto; un <b>caso</b> es una fila de este trabajo. Los números de ' +
-      'abajo son <b>casos</b>, salvo donde diga otra cosa.</p></div>' +
-      '<div class="globo">' + '<div class="k">Avance general</div><div class="n">' +
-      (decidibles.length ? Math.round(hechos / decidibles.length * 100) : 0) + "%</div>" +
-      '<div class="d">' + num(hechos) + " de " + num(decidibles.length) + " casos resueltos</div>" +
-      '<div class="pbar grande"><i style="width:' +
-      (decidibles.length ? hechos / decidibles.length * 100 : 0) + '%"></i></div></div></div>';
+  // ------------------------------------------------------------- SEGMENTOS
+  /* Los siete grupos de siempre, más los resueltos y lo que está fuera del
+     alcance. Dejan de ser siete tarjetas grandes apiladas y pasan a ser
+     solapas de una sola bandeja: la misma información, un solo lugar donde
+     trabajar. */
+  var SEG_HECHO = "hechos", SEG_FUERA = "fuera";
 
-    h += '<div class="colas">';
-    COLAS.forEach(function (q, i) {
-      var todos = deCola(q.id);
-      var pend = todos.filter(function (c) { return pendienteCola(c, q); });
-      var listo = pend.length === 0;
-      h += '<div class="cola' + (listo ? " listo" : "") + '" style="--cc:var(--c' + q.color + ')">' +
-        '<div class="cnum">' + (listo ? "✓" : i + 1) + "</div>" +
-        '<div class="ccuerpo"><div class="ctit">' + esc(q.titulo) +
-        (listo ? ' <span class="chip-ok">terminado</span>' : "") + "</div>" +
-        '<div class="cdesc">' + esc(q.desc) + "</div>";
-
-      if (q.porMotivo && !listo) {
-        var porM = {};
-        pend.forEach(function (c) { porM[c.motivo] = (porM[c.motivo] || 0) + 1; });
-        h += '<div class="submotivos">' + Object.keys(porM).sort(function (a, b) {
-          return porM[a] - porM[b];      // primero los grupos chicos: se cierran rápido
-        }).map(function (mo) {
-          return '<button class="submot" data-cola="' + q.id + '" data-motivo="' + esc(mo) +
-            '"><b>' + num(porM[mo]) + "</b> " + esc(mo) + "</button>";
-        }).join("") + "</div>";
-      }
-
-      if (q.id === "altas") {
-        var et = { ruta: 0, verificacion: 0, cerrado: 0 }, rb = { v: 0, c: 0, no: 0 };
-        todos.forEach(function (c) {
-          et[etapaB(c)]++;
-          var ee = efectivo(c);
-          if (ee.aprobacion === "Rechazado") rb.no++;
-          else if (ee.ruta_b === RB_CREAR) rb.c++;
-          else if (ee.ruta_b === RB_VERIF) rb.v++;
-        });
-        h += '<div class="paso2">' +
-          '<span class="p2 a">Sin alternativa elegida <b>' + num(et.ruta) + "</b></span>" +
-          '<span class="p2 b">Alternativa 1 · esperando el maestro <b>' + num(et.verificacion) + "</b></span>" +
-          '<span class="p2 c">Alternativa 2 · crear sin verificar <b>' + num(rb.c) + "</b></span>" +
-          '<span class="p2 d">Verificados y cerrados <b>' +
-          num(Math.max(0, et.cerrado - rb.c - rb.no)) + "</b></span>" +
-          '<span class="p2 e">No se dan de alta <b>' + num(rb.no) + "</b></span></div>";
-        if (rb.c) h += '<div class="cnota">⚠ ' + num(rb.c) + (rb.c === 1
-          ? " material se crea sin verificar el maestro: hay riesgo de código duplicado."
-          : " materiales se crean sin verificar el maestro: hay riesgo de código duplicado.") +
-          " Quedan ligados al plan de depuración.</div>";
-      }
-
-      if (q.id === "bajas" && !listo) {
-        var bloq = pend.filter(function (c) { return c.bloqueado_por_revision; }).length;
-        if (bloq) h += '<div class="cnota">⚠ ' + num(bloq) + " de estas bajas dependen de un " +
-          "caso del grupo 1. Conviene resolver esos primero: pueden dejar de ser bajas.</div>";
-      }
-      // El desglose va dentro del cuerpo de la tarjeta, antes de cerrarlo.
-      var mag = magnitudes(pend.length ? pend : todos);
-      var det = detalleMagnitud(mag);
-      if (det) h += '<div class="cmag">' + det + "</div>";
-      h += "</div>";
-
-      h += '<div class="cacc">' + (listo
-        ? '<div class="cpend ok">' + num(todos.length) +
-          "<small>casos resueltos</small></div>"
-        : '<div class="cpend">' + num(pend.length) +
-          "<small>casos pendientes</small></div>") +
-        (q.id === "depurar"
-          ? '<button class="btn pri" data-dep="1">Abrir la depuración</button>'
-          : listo ? "" :
-            '<button class="btn pri" data-rev="' + q.id + '">Revisar de a uno</button>' +
-            (q.lote ? '<button class="btn" data-lote="' + q.id + '">' +
-             (q.id === "altas" ? "Elegir alternativa en lote" : "Decidir en lote") +
-             "</button>" : "")) +
-        '<button class="btn chico" data-lista="' + q.id + '">Ver listado</button></div>';
-      h += barraProgreso(todos.length - pend.length, todos.length, q.color);
-      h += "</div>";
+  function pendDe(q) {
+    return deCola(q.id).filter(function (c) {
+      return enAlcance(c) && pendienteCola(c, q); });
+  }
+  function segmentos() {
+    var out = COLAS.map(function (q, i) {
+      var todos = deCola(q.id).filter(enAlcance);
+      return { id: q.id, q: q, n: String(i + 1), titulo: q.titulo, corto: q.corto,
+               pend: todos.filter(function (c) { return pendienteCola(c, q); }).length,
+               total: todos.length, color: q.color };
     });
-    h += "</div>";
+    var dec = D.casos.filter(function (c) {
+      return enAlcance(c) && L(c) !== "E" && !pendiente(c); });
+    out.push({ id: SEG_HECHO, n: "✓", titulo: "Ya decididos", corto: "Ya decididos",
+               pend: dec.length, total: dec.length, color: "A", hecho: true });
+    var fuera = D.casos.filter(function (c) { return enAlcance(c) && L(c) === "E"; });
+    out.push({ id: SEG_FUERA, n: "—", titulo: "Sin acción · fuera del alcance",
+               corto: "Fuera del alcance", pend: fuera.length, total: fuera.length,
+               color: "E", fuera: true });
+    return out;
+  }
+  function segPor(id) {
+    var s = segmentos().filter(function (x) { return x.id === id; })[0];
+    return s || segmentos()[0];
+  }
 
-    h += '<div class="cola apagada"><div class="cnum">—</div><div class="ccuerpo">' +
-      '<div class="ctit">Sin acción: ' + num(k.fuera_alcance) + ' casos fuera del alcance</div>' +
-      '<div class="cdesc">Indumentaria, equipamiento y repuestos. El inventario relevado es de ' +
-      'Farmacia, así que nunca iban a aparecer: su ausencia no prueba nada y no se propone ' +
-      'ninguna baja.</div></div><div class="cacc">' +
-      '<button class="btn chico" data-lista="fuera">Ver listado</button></div></div>';
-
-    var gs = grupos();
-    var liberadas = D.casos.filter(function (c) { return resueltoPorAgrupacion(c); }).length;
-    if (gs.length || liberadas) {
-      h += '<h2>Nomenclaturas unificadas</h2><div class="panelito">';
-      h += '<p class="pnota">El depósito y SAP no nombran igual. Acá quedan los grupos ya ' +
-        "declarados: <b>varias nomenclaturas del depósito</b> que son el mismo producto, " +
-        "<b>varios códigos de SAP</b> para un mismo producto, o las dos cosas a la vez. " +
-        "Los códigos agrupados dejan de ser candidatos a baja.</p>";
-      if (liberadas) h += '<div class="cnota ok">✓ ' + num(liberadas) +
-        (liberadas === 1 ? " candidato a baja quedó resuelto" : " candidatos a baja quedaron resueltos") +
-        " por una agrupación.</div>";
-      if (gs.length) {
-        h += '<table class="listalotes tequiv"><thead><tr>' +
-          "<th>Nombre unificado</th><th>Nomenclaturas del depósito</th>" +
-          "<th>Códigos de SAP</th><th>Quién</th></tr></thead><tbody>" +
-          gs.map(function (g) {
-            return "<tr><td><b>" + esc(g.nombre) + "</b>" +
-              (g.bases.length ? '<div class="mini">' + g.bases.map(esc).join(" · ") + "</div>" : "") +
-              "</td><td>" + (g.items.length
-                ? g.items.map(function (c) {
-                    return '<span class="cbchip fis">' + esc(c.nombre_fisico) + "</span>"; }).join(" ")
-                : '<span class="nohay">—</span>') +
-              "</td><td>" + g.materiales.map(function (m) {
-                return '<span class="cbchip">' + esc(m) + "</span>"; }).join(" ") +
-              "</td><td>" + esc(g.revisor || "—") + "</td></tr>";
-          }).join("") + "</tbody></table>";
+  /* Qué casos entran en la bandeja con el segmento y los filtros actuales. */
+  function bandeja() {
+    var id = estado.seg, bf = estado.bf;
+    var lista;
+    if (id === SEG_HECHO) {
+      lista = D.casos.filter(function (c) { return L(c) !== "E" && !pendiente(c); });
+    } else if (id === SEG_FUERA) {
+      lista = D.casos.filter(function (c) { return L(c) === "E"; });
+    } else {
+      var q = colaPor(id);
+      lista = deCola(id).filter(function (c) {
+        return estado.bVer === "todos" || pendienteCola(c, q); });
+    }
+    var txt = (bf.texto || "").trim().toLowerCase();
+    return lista.filter(function (c) {
+      if (!enAlcance(c)) return false;
+      if (bf.tipo && c.tipo !== bf.tipo) return false;
+      if (bf.motivo && c.motivo !== bf.motivo) return false;
+      if (bf.almacen && !(c.almacenes || []).some(function (x) {
+            return x.almacen === bf.almacen; })) return false;
+      if (bf.obs === "con" && !efectivo(c).observaciones) return false;
+      if (txt) {
+        var e = efectivo(c);
+        var heno = [c.nombre_fisico, c.texto_sap, c.codigo_fisico, c.material_sugerido,
+                    e.material, c.presentacion, c.base].join(" ").toLowerCase();
+        if (heno.indexOf(txt) === -1) return false;
       }
-      h += "</div>";
+      return true;
+    });
+  }
+
+  // ------------------------------------------------------------- HOJA DE RUTA
+  /* Seis etapas, calculadas del estado real: ninguna barra de avance inventada.
+     Cada etapa sabe decir qué le falta y cuál es el próximo paso concreto. */
+  function hojaDeRuta() {
+    var k = D.kpis;
+    var fisicos = D.casos.filter(function (c) { return c.origen === "Inventario físico"; });
+
+    // 1 · carga: está completa cuando las tres fuentes cuadran con el dataset.
+    var ctl = (D.control || []).filter(function (x) { return x.estado !== "Informativo"; });
+    var ctrl = ctl.filter(function (x) { return x.estado === "Coincide"; });
+    var e1 = { id: "carga", tit: "Carga y validación",
+               det: num(D.meta.fuentes.length) + " inventarios físicos y la bajada de SAP · " +
+                    num(ctrl.length) + " de " + num(ctl.length) + " controles cuadran",
+               hechos: ctrl.length, total: ctl.length || 1 };
+
+    // 2 · trazabilidad: qué ítems físicos ya tienen su código resuelto.
+    var conTraza = fisicos.filter(function (c) {
+      var e = efectivo(c);
+      return e.materiales.length || e.aprobacion !== "Sin decidir"; }).length;
+    var e2 = { id: "traza", tit: "Maestro y trazabilidad",
+               det: "qué código de SAP corresponde a cada nomenclatura del depósito",
+               hechos: conTraza, total: fisicos.length };
+
+    // 3 · cruce: lo hace el análisis; queda hecho apenas hay dataset.
+    var e3 = { id: "cruce", tit: "Cruce de inventarios",
+               det: num(k.total_casos) + " casos clasificados contra los almacenes de SAP",
+               hechos: 1, total: 1 };
+
+    // 4 · decisiones: todo lo que está dentro del alcance.
+    var decidibles = D.casos.filter(function (c) { return L(c) !== "E"; });
+    var listos = decidibles.filter(function (c) { return !pendiente(c); }).length;
+    var e4 = { id: "decidir", tit: "Toma de decisiones",
+               det: "individuales o en lote, por base o integral",
+               hechos: listos, total: decidibles.length };
+
+    // 5 · economía: cuántas decisiones se pueden valorizar.
+    var ec = economia();
+    var e5 = { id: "economia", tit: "Evaluación económica",
+               det: ec.conPrecio ? num(ec.conPrecio) + " materiales con importe de última compra"
+                                 : "falta importar los importes de última compra",
+               hechos: ec.conPrecio, total: ec.materiales || 1 };
+
+    // 6 · informe: se cierra cuando no queda nada pendiente.
+    var e6 = { id: "informe", tit: "Informe final",
+               det: "estado, decisiones, pendientes e impacto económico",
+               hechos: listos === decidibles.length ? 1 : 0, total: 1 };
+
+    var et = [e1, e2, e3, e4, e5, e6];
+    et.forEach(function (x) {
+      x.pct = x.total ? Math.round(x.hechos / x.total * 100) : 0;
+      x.listo = x.pct >= 100;
+    });
+    var actual = et.filter(function (x) { return !x.listo; })[0] || et[et.length - 1];
+    et.forEach(function (x) { x.actual = x === actual; });
+    return { etapas: et, actual: actual,
+             pct: Math.round(et.reduce(function (s, x) { return s + x.pct; }, 0) / et.length) };
+  }
+
+  /* La próxima acción concreta: el primer segmento con pendientes, en el orden
+     en que conviene trabajarlos. */
+  function proximaAccion() {
+    var ss = segmentos().filter(function (s) { return !s.hecho && !s.fuera && s.pend; });
+    if (!ss.length) return null;
+    return { seg: ss[0], txt: num(ss[0].pend) + " " +
+             (ss[0].pend === 1 ? "caso pendiente" : "casos pendientes") + " · " + ss[0].titulo };
+  }
+
+  function pintarRuta() {
+    var r = hojaDeRuta(), pa = proximaAccion();
+    var h = '<section class="ruta2"><header class="r2cab">' +
+      '<div><span class="k">Hoja de ruta</span><b>' + r.pct + "% del proceso</b></div>" +
+      (pa ? '<button class="btn pri chico" id="rSig">Seguir: ' + esc(pa.txt) + "</button>"
+          : '<span class="chip-ok">No queda nada pendiente</span>') +
+      "</header><ol class=\"r2pasos\">";
+    r.etapas.forEach(function (x, i) {
+      h += '<li class="r2p' + (x.listo ? " listo" : "") + (x.actual ? " acá" : "") + '">' +
+        '<span class="r2n">' + (x.listo ? "✓" : i + 1) + "</span>" +
+        '<div><b>' + esc(x.tit) + "</b>" +
+        '<span class="r2d">' + esc(x.det) + "</span>" +
+        '<div class="pbar"><i style="width:' + x.pct + '%"></i></div>' +
+        '<span class="r2pct">' + (x.total > 1 ? num(x.hechos) + " de " + num(x.total) + " · " : "") +
+        x.pct + "%</span></div></li>";
+    });
+    h += "</ol></section>";
+    return h;
+  }
+  // ------------------------------------------------------------- INICIO
+  /* Inicio es el panel de gestión, no un tablero que obliga a ir a otro lado.
+     Arriba, dónde está parado el trabajo; abajo, lo que hay que decidir, con
+     la decisión al alcance de un clic. Los siete grupos de siempre están: ya
+     no como siete tarjetas apiladas sino como solapas de una sola bandeja. */
+  function pintarInicio() {
+    var k = D.kpis;
+    var segs = segmentos(), s = segPor(estado.seg);
+    var decidibles = D.casos.filter(function (c) { return enAlcance(c) && L(c) !== "E"; });
+    var hechos = decidibles.filter(function (c) { return !pendiente(c); }).length;
+    var vistos = {};
+    COLAS.forEach(function (q) {
+      deCola(q.id).forEach(function (c) {
+        if (enAlcance(c) && pendienteCola(c, q)) vistos[c.id] = 1; }); });
+    var pend = Object.keys(vistos).length;
+    var fuera = D.casos.filter(function (c) { return enAlcance(c) && L(c) === "E"; }).length;
+
+    var h = pintarRuta();
+
+    // ---- alcance e indicadores, en una sola franja
+    h += '<section class="franja"><div class="alc"><span class="k">Alcance del análisis</span>' +
+      '<div class="alcbot">' +
+      '<button class="abot' + (estado.base ? "" : " on") + '" data-base="">Las tres bases</button>' +
+      D.meta.bases.map(function (b) {
+        return '<button class="abot' + (estado.base === b ? " on" : "") +
+          '" data-base="' + esc(b) + '">' + esc(b) + "</button>"; }).join("") +
+      "</div></div>";
+    h += '<div class="inds">' +
+      ind("pend", num(pend), "pendientes de decisión") +
+      ind("ok", num(hechos), "ya decididos") +
+      ind("", num(fuera), "fuera del alcance") +
+      ind("", (decidibles.length ? Math.round(hechos / decidibles.length * 100) : 0) + "%",
+          "avance del alcance elegido") +
+      "</div></section>";
+
+    // ---- segmentos
+    h += '<nav class="segs" aria-label="Qué hay que decidir">' + segs.map(function (x) {
+      return '<button class="seg' + (x.id === estado.seg ? " on" : "") +
+        (x.pend ? "" : " vacio") + '" data-seg="' + esc(x.id) +
+        '" style="--cc:var(--c' + x.color + ');--cct:var(--c' + x.color +
+        '-t)"><span class="segn">' + esc(x.n) + "</span>" +
+        '<span class="segt">' + esc(x.corto) + "</span>" +
+        '<span class="segc">' + num(x.pend) + "</span></button>";
+    }).join("") + "</nav>";
+
+    // ---- cabecera del segmento: qué es y cómo se trabaja
+    var lista = bandeja();
+    h += '<section class="segcab"><div><h1>' + esc(s.titulo) + "</h1>" +
+      '<p class="sub">' + esc(s.q ? s.q.desc : s.fuera
+        ? "Indumentaria, equipamiento y repuestos. El inventario relevado es de Farmacia, " +
+          "así que nunca iban a aparecer: su ausencia no prueba nada y no se propone ninguna baja."
+        : "Casos que ya tienen una decisión tomada. Se pueden revisar y cambiar.") + "</p></div>" +
+      '<div class="segacc">' +
+      (s.q && !s.fuera && !s.hecho && s.pend
+        ? '<button class="btn pri" id="bUnoAUno">Revisar de a uno</button>' +
+          (s.q.lote ? '<button class="btn" id="bLoteClasico">Decidir en lote por base</button>' : "")
+        : "") +
+      (s.id === "depurar" ? '<button class="btn" id="bMaestroVer">Abrir el maestro</button>' : "") +
+      "</div></section>";
+
+    // ---- filtros de la bandeja
+    h += '<div class="filtros chicos">' +
+      '<input type="text" id="bfTexto" placeholder="Buscar por nombre, código SAP o nomenclatura…" value="' +
+      esc(estado.bf.texto) + '">' +
+      sel("bfTipo", "Tipo", estado.bf.tipo, D.meta.tipos) +
+      (s.q && s.q.porMotivo ? sel("bfMotivo", "Motivo", estado.bf.motivo, D.meta.motivos_revision) : "") +
+      sel("bfAlm", "Almacén", estado.bf.almacen,
+          (D.meta.almacenes.por_base || {})[estado.base] || D.meta.almacenes.observados || []) +
+      sel("bfObs", "Observaciones", estado.bf.obs, ["con"], function () { return "Con observación"; }) +
+      (s.hecho || s.fuera ? "" :
+        '<label>Mostrar<select id="bfVer"><option value="pend"' +
+        (estado.bVer === "pend" ? " selected" : "") + ">Sólo pendientes</option>" +
+        '<option value="todos"' + (estado.bVer === "todos" ? " selected" : "") +
+        ">Todos los del grupo</option></select></label>") +
+      '<button class="btn chico" id="bfLimpiar">Limpiar</button>' +
+      '<span class="fcuenta">' + num(lista.length) + (lista.length === 1 ? " caso" : " casos") + "</span>" +
+      "</div>";
+
+    // ---- barra de lote
+    var idsSeg = lista.map(function (c) { return c.id; });
+    var nSel = idsSeg.filter(function (i) { return estado.sel[i]; }).length;
+    h += '<div class="lotebar' + (nSel ? " activa" : "") + '">' +
+      '<label class="ltodos"><input type="checkbox" id="selPag"' +
+        (nSel && nSel === idsSeg.length ? " checked" : "") + '> Elegir los ' +
+        num(idsSeg.length) + " del filtro</label>" +
+      (nSel ? '<b>' + num(nSel) + " elegidos</b>" +
+        '<button class="btn chico" id="selNada">Quitar la selección</button>' +
+        '<span class="lsep"></span>' + botonesLote(s) : '<span class="lhint">Elegí casos para ' +
+        "decidirlos todos juntos. Antes de aplicar se muestra a qué materiales, bases y " +
+        "almacenes alcanza.</span>") +
+      "</div>";
+
+    // ---- la bandeja
+    var porPag = 20;
+    var paginas = Math.max(1, Math.ceil(lista.length / porPag));
+    if (estado.bpag > paginas) estado.bpag = paginas;
+    var pag = lista.slice((estado.bpag - 1) * porPag, (estado.bpag - 1) * porPag + porPag);
+    h += '<div class="bandeja">';
+    if (!pag.length) {
+      h += '<div class="finito chico"><div class="ficono">✓</div><h2>' +
+        (lista.length ? "No hay casos con estos filtros" :
+         s.hecho ? "Todavía no hay decisiones tomadas" : "No queda nada pendiente acá") +
+        "</h2></div>";
+    } else {
+      pag.forEach(function (c) { h += tarjeta(c, estado.seg); });
+    }
+    h += "</div>";
+    if (paginas > 1) {
+      h += '<div class="pager"><button class="btn chico" id="bpPrev"' +
+        (estado.bpag <= 1 ? " disabled" : "") + ">← Anterior</button>" +
+        "<span>Página " + estado.bpag + " de " + paginas + " · " + num(lista.length) +
+        " casos</span><button class=\"btn chico\" id=\"bpNext\"" +
+        (estado.bpag >= paginas ? " disabled" : "") + ">Siguiente →</button></div>";
     }
 
-    // ---- ubicación del stock
-    var al = D.kpis.almacen || {};
-    h += '<h2>Ubicación del stock en los almacenes</h2>';
-    h += '<p class="pnota" style="max-width:90ch">Una cosa es que el material esté bien ' +
-      '<b>identificado</b>, otra que tenga <b>stock</b>, y otra que ese stock esté en el ' +
-      '<b>almacén que corresponde</b>. Son tres cuestiones independientes: un material puede ' +
-      'estar perfectamente identificado y aun así figurar en el almacén equivocado. Eso no lo ' +
-      'convierte en candidato a alta ni a baja.</p>';
-    h += '<div class="kpis">' +
-      kpi("A", "Ubicación correcta", al[AL_OK] || 0, "casos · en el almacén propuesto", AL_OK) +
-      kpi("C", "Ubicación a cambiar", al[AL_CAMB] || 0, "casos · figuran en otro almacén", AL_CAMB) +
-      kpi("D", "En varios almacenes", al[AL_MULT] || 0, "casos · material repartido", AL_MULT) +
-      kpi("E", "Pendiente de validar", (al[AL_VAL] || 0) + (al[AL_NOID] || 0),
-          "casos · falta definir el almacén", AL_VAL) +
-      "</div>";
-    h += '<p class="glosa">Son <b>casos</b>: cada combinación de un material con una base. ' +
-      "Un mismo material puede estar bien ubicado en una base y mal en otra, así que se " +
-      "cuenta una vez por base.</p>";
-    h += '<div class="aviso info" style="margin-top:12px"><b>La correspondencia almacén→base ' +
-      'está observada; el almacén esperado es una propuesta.</b>' +
-      'En la bajada, cada código de almacén aparece bajo un único centro: saber a qué base ' +
-      'pertenece cada almacén <b>no es una suposición</b>. Lo que no está en los archivos es ' +
-      'qué almacén <i>debería</i> tener el stock de farmacia. Eso se propuso a partir de la ' +
-      'composición observada de cada almacén y <b>hay que validarlo</b>. Tampoco viene la ' +
-      'descripción de los almacenes, sólo el código.</div>';
-    h += '<div class="panelito" style="margin-top:12px"><table><thead><tr>' +
-      '<th>Base</th><th>Tipo</th><th>Almacén propuesto</th><th>Confianza</th>' +
-      '<th>Otros almacenes de la base con stock de ese tipo</th></tr></thead><tbody>' +
-      (D.meta.almacenes.propuesta || []).map(function (p) {
-        var otros = (p.alternativas || []).filter(function (a) { return a.almacen !== p.almacen; });
-        return "<tr><td>" + esc(p.base) + "</td><td>" + esc(p.tipo) + "</td>" +
-          "<td><b>" + esc(p.almacen || "—") + "</b></td>" +
-          '<td><span class="estado ' + (p.confianza === "Clara" ? "ap" : "re") + '">' +
-          esc(p.confianza) + "</span>" +
-          (p.nota ? '<div class="mini">' + esc(p.nota) + "</div>" : "") + "</td>" +
-          '<td class="mini">' + (otros.length
-            ? otros.map(function (a) { return esc(a.almacen) + " (" + num(a.unidades) + " un.)"; }).join(" · ")
-            : "—") + "</td></tr>";
-      }).join("") + "</tbody></table>" +
-      '<p class="pnota" style="margin:12px 0 0"><b>Falta para cerrar esta parte:</b> ' +
-      (D.meta.almacenes.falta || []).map(esc).join(" · ") + ".</p></div>";
-
-    h += '<h2>Antes de cerrar, dos cosas</h2>';
-    h += '<div class="aviso"><b>No hay precio de última compra en los archivos recibidos.</b>' +
-      'Se revisaron la bajada de SAP (tiene valor de stock, no precio de compra), la ' +
-      'homologación (declara que los costos quedan fuera) y los tres PDF de inventario ' +
-      '(ninguna mención de precio). Por eso no se informa ninguna valorización. El sistema ' +
-      'la calcula sola apenas se cargue el dato.</div>';
-    h += '<div class="aviso"><b>La bajada de SAP son los materiales CON STOCK, no el maestro completo.</b>' +
-      "Un material dado de alta en SAP con existencia cero no figura en el archivo. Por eso los " +
-      num(k.pendientes_alta) + " ítems del grupo 2 <b>no son altas confirmadas</b>: son ítems " +
-      "que no aparecieron entre los que tienen stock. Verificar si ya existen en el maestro —y, " +
-      "si existen, decidir si se reutiliza el código o se da de baja y se crea de nuevo— " +
-      "<b>está fuera del alcance de este trabajo</b> y es el paso previo al alta.</div>";
-    h += '<div class="aviso info"><b>Nada de esto modifica SAP.</b>' +
-      'Aprobar un alta o una baja deja registrada una propuesta con tu nombre y la fecha. ' +
-      'La ejecución es un paso posterior, fuera de esta herramienta.</div>';
+    h += '<p class="pieaviso"><b>Nada de esto modifica SAP.</b> Cada decisión queda ' +
+      "registrada con tu nombre y la fecha; la ejecución es un paso posterior, fuera de " +
+      "esta herramienta. Las equivalencias de nomenclatura, la propuesta de almacén por base " +
+      "y el maestro general se administran en <b>Maestro</b>.</p>";
 
     var el = document.getElementById("v-inicio");
     el.innerHTML = h;
-    el.querySelectorAll("[data-alm]").forEach(function (b) {
+    cablearInicio(el, s, lista, idsSeg);
+  }
+
+  function ind(cls, n, txt) {
+    return '<div class="indi ' + cls + '"><b>' + n + "</b><span>" + esc(txt) + "</span></div>";
+  }
+
+  /* Qué decisiones se pueden aplicar en lote dentro de cada segmento. Son las
+     mismas que en la tarjeta: no hay acciones que existan sólo en lote. */
+  function botonesLote(s) {
+    var L2 = [];
+    function b(acc, txt, cls) {
+      L2.push('<button class="btn ' + (cls || "") + ' chico" data-lt="' + acc + '">' +
+              esc(txt) + "</button>");
+    }
+    switch (s.id) {
+      case "revision": b("uno", "Confirmar el candidato único", "ok");
+                       b("n", "Ninguno corresponde"); b("x", "Marcar pendientes"); break;
+      case "altas":    b("b1", "Verificar el maestro primero", "ok");
+                       b("r", "No dar de alta", "no"); break;
+      case "existencias": b("aj", "Proponer el ajuste de stock", "ok");
+                       b("r", "No ajustar", "no"); break;
+      case "identificados": b("a", "Confirmar la correspondencia", "ok");
+                       b("r", "No corresponde", "no"); break;
+      case "almacenes": b("al1", "Solicitar el cambio al almacén propuesto", "ok");
+                       b("al2", "Mantener la ubicación actual");
+                       b("al4", "Que lo valide la base"); break;
+      case "depurar":  b("dp0", "Mantener", "ok"); b("dp1", "Bloquear");
+                       b("dp2", "Dar de baja del maestro", "no"); break;
+      case "bajas":    b("a", "Aprobar las bajas", "ok"); b("r", "Rechazar", "no"); break;
+      case SEG_HECHO:  b("re", "Reabrir para volver a decidir"); break;
+      default: return '<span class="lhint">Estos casos no requieren decisión.</span>';
+    }
+    return L2.join("");
+  }
+
+  function cablearInicio(el, s, lista, idsSeg) {
+    function rp() { pintarInicio(); }
+    el.querySelectorAll("[data-base]").forEach(function (b) {
       b.addEventListener("click", function () {
-        if (!b.dataset.alm) return;
-        limpiarFiltros(); estado.filtros.almacen_estado = b.dataset.alm;
-        estado.pagina = 1; ir("casos"); }); });
-    el.querySelectorAll("[data-rev]").forEach(function (b) {
-      b.addEventListener("click", function () { abrirCola(b.dataset.rev); }); });
-    el.querySelectorAll("[data-dep]").forEach(function (b) {
-      b.addEventListener("click", function () { ir("depurar"); }); });
-    el.querySelectorAll("[data-lote]").forEach(function (b) {
-      b.addEventListener("click", function () { abrirLote(b.dataset.lote); }); });
-    el.querySelectorAll("[data-lista]").forEach(function (b) {
+        estado.base = b.dataset.base; estado.bpag = 1; estado.sel = {}; rp(); }); });
+    el.querySelectorAll("[data-seg]").forEach(function (b) {
       b.addEventListener("click", function () {
-        if (b.dataset.lista === "fuera") { limpiarFiltros(); estado.filtros.clase = "E";
-          estado.pagina = 1; return ir("casos"); }
-        verListado(b.dataset.lista); }); });
-    el.querySelectorAll(".submot").forEach(function (b) {
-      b.addEventListener("click", function () { abrirCola(b.dataset.cola, b.dataset.motivo); }); });
+        estado.seg = b.dataset.seg; estado.bpag = 1; estado.sel = {};
+        estado.bf.motivo = ""; rp(); }); });
+    var rs = el.querySelector("#rSig");
+    if (rs) rs.addEventListener("click", function () {
+      var pa = proximaAccion(); if (!pa) return;
+      estado.seg = pa.seg.id; estado.bpag = 1; estado.sel = {}; rp(); });
+    var b1 = el.querySelector("#bUnoAUno");
+    if (b1) b1.addEventListener("click", function () { abrirCola(estado.seg, estado.bf.motivo); });
+    var b2 = el.querySelector("#bLoteClasico");
+    if (b2) b2.addEventListener("click", function () { abrirLote(estado.seg); });
+    var b3 = el.querySelector("#bMaestroVer");
+    if (b3) b3.addEventListener("click", function () { ir("depurar"); });
+
+    var t = el.querySelector("#bfTexto");
+    t.addEventListener("input", function (ev) {
+      estado.bf.texto = ev.target.value; estado.bpag = 1;
+      var p = ev.target.selectionStart; rp();
+      var n2 = document.getElementById("bfTexto"); n2.focus(); n2.setSelectionRange(p, p); });
+    [["bfTipo", "tipo"], ["bfMotivo", "motivo"], ["bfAlm", "almacen"],
+     ["bfObs", "obs"]].forEach(function (par) {
+      var n3 = el.querySelector("#" + par[0]);
+      if (n3) n3.addEventListener("change", function (ev) {
+        estado.bf[par[1]] = ev.target.value; estado.bpag = 1; rp(); }); });
+    var bv = el.querySelector("#bfVer");
+    if (bv) bv.addEventListener("change", function (ev) {
+      estado.bVer = ev.target.value; estado.bpag = 1; rp(); });
+    el.querySelector("#bfLimpiar").addEventListener("click", function () {
+      estado.bf = { texto: "", tipo: "", motivo: "", almacen: "", obs: "" };
+      estado.bVer = "pend"; estado.bpag = 1; rp(); });
+    var pp = el.querySelector("#bpPrev"), pn = el.querySelector("#bpNext");
+    if (pp) pp.addEventListener("click", function () { estado.bpag--; rp(); });
+    if (pn) pn.addEventListener("click", function () { estado.bpag++; rp(); });
+
+    el.querySelectorAll(".selUno").forEach(function (i) {
+      i.addEventListener("change", function () {
+        if (i.checked) estado.sel[i.dataset.id] = 1; else delete estado.sel[i.dataset.id];
+        rp(); }); });
+    var sp = el.querySelector("#selPag");
+    if (sp) sp.addEventListener("change", function () {
+      idsSeg.forEach(function (id) {
+        if (sp.checked) estado.sel[id] = 1; else delete estado.sel[id]; });
+      rp(); });
+    var sn = el.querySelector("#selNada");
+    if (sn) sn.addEventListener("click", function () { estado.sel = {}; rp(); });
+
+    el.querySelectorAll("[data-ta]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        accionTarjeta(b.dataset.id, b.dataset.ta); }); });
+    el.querySelectorAll("[data-detalle]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        estado.volverA = "inicio"; ir("ficha", b.dataset.detalle); }); });
+    el.querySelectorAll("[data-lt]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var ids = lista.map(function (c) { return c.id; })
+                       .filter(function (i) { return estado.sel[i]; });
+        modalLote(ids, b.dataset.lt, s); }); });
+  }
+  // ------------------------------------------------------------- TARJETAS
+  /* Una situación no es una categoría: es una pregunta que alguien tiene que
+     contestar. Cada tarjeta trae lo que hace falta para contestarla —qué dice
+     el depósito, qué dice SAP, por qué el sistema la levantó— y las respuestas
+     posibles como botones. Detectar una diferencia y decidir qué hacer con
+     ella son dos cosas distintas, y acá sólo se hace la segunda. */
+
+  function bloqueFisico(c) {
+    if (c.origen !== "Inventario físico") {
+      return '<div class="fte fis vacia"><span class="fteh">Inventario físico</span>' +
+        '<p class="ftev">Ningún inventario físico declaró este material en ' +
+        esc(c.base) + ".</p></div>";
+    }
+    return '<div class="fte fis"><span class="fteh">Inventario físico</span>' +
+      '<div class="ftenom">' + esc(c.nombre_fisico || "—") + "</div>" +
+      '<dl class="fted">' +
+      ftd("Base", c.base + " · centro " + (c.centro || "—")) +
+      ftd("Fuente", c.sistema_origen || "—") +
+      ftd("Cantidad contada", num(c.cantidad_fisica || 0) + " unidades") +
+      ftd("Presentación", c.presentacion || "no declara características") +
+      (c.codigo_fisico ? ftd("Código del inventario", c.codigo_fisico) : "") +
+      "</dl></div>";
+  }
+
+  function bloqueSap(c, e) {
+    var mats = e.materiales;
+    if (!mats.length) {
+      var cand = (c.candidatos || []).filter(function (x) { return !x.conflictos.length; });
+      return '<div class="fte sap' + (cand.length ? "" : " vacia") + '">' +
+        '<span class="fteh">SAP</span>' +
+        (cand.length
+          ? '<p class="ftev">' + num(cand.length) +
+            (cand.length === 1 ? " código candidato, sin confirmar:" : " códigos candidatos, sin confirmar:") +
+            "</p><dl class=\"fted\">" + cand.slice(0, 4).map(function (x) {
+              var ub = ubicacionDe(c.base, x.material);
+              return ftd(x.material, x.texto + (ub.length
+                ? " · almacén " + ub.map(function (z) { return z.a + " (" + num(z.u) + " un.)"; }).join(", ")
+                : " · sin stock en " + c.base)); }).join("") + "</dl>"
+          : '<p class="ftev">No figura entre los materiales que HOY tienen stock en SAP. ' +
+            "La bajada no es el maestro completo: puede existir con existencia cero.</p>") +
+        "</div>";
+    }
+    var ubic = c.almacenes || [];
+    return '<div class="fte sap"><span class="fteh">SAP</span>' +
+      '<div class="ftenom">' + mats.map(esc).join(" · ") +
+      (e.unificada ? ' <span class="mini">«' + esc(e.unificada) + "»</span>" : "") + "</div>" +
+      '<dl class="fted">' +
+      ftd("Nomenclatura SAP", c.texto_sap || "—") +
+      ftd("Stock informado por SAP", c.origen === "Inventario físico"
+          ? (sinStock(c) ? "sin stock en " + c.base : num(c.stock_sap_en_base || 0) + " unidades")
+          : num(c.stock_sap || 0) + " unidades") +
+      ftd("Almacén SAP", ubic.length
+          ? ubic.map(function (x) { return x.almacen + " (" + num(x.stock) + " un.)"; }).join(" · ")
+          : (c.almacen_base ? "sin stock · el propuesto para esta base es " + c.almacen_base
+                            : "sin almacén")) +
+      (precioDe(mats[0]) != null
+        ? ftd("Importe última compra", pesos(precioDe(mats[0])) + " por unidad")
+        : ftd("Importe última compra", "pendiente de importar")) +
+      "</dl></div>";
+  }
+  function ftd(k, v) {
+    return "<dt>" + esc(k) + "</dt><dd>" + esc(v) + "</dd>";
+  }
+
+  /* Por qué el sistema levantó este caso, en una línea. */
+  function porQue(c, seg) {
+    var e = efectivo(c);
+    switch (seg) {
+      case "revision":
+        return (c.motivo || "Falta verificar la correspondencia") + ". " +
+          (c.justificacion || "El parecido del nombre genera el candidato; las " +
+           "características deciden, y acá no alcanzaron para cerrar solo.");
+      case "altas":
+        return "Se contó en el depósito y ninguno de los materiales con stock en SAP " +
+          "es compatible. Eso no prueba que no exista en el maestro: la bajada trae " +
+          "sólo los que tienen stock.";
+      case "existencias":
+        return "La correspondencia con SAP está identificada, pero SAP no registra " +
+          "stock de ese material en " + c.base + ". Hay existencia física sin respaldo " +
+          "en el sistema.";
+      case "identificados":
+        return "El código quedó verificado por nomenclatura y características" +
+          (c.atributos_verificados && c.atributos_verificados.length
+            ? " (" + c.atributos_verificados.join(", ") + ")" : "") + ". Falta que una persona lo confirme.";
+      case "almacenes":
+        return c.almacen_estado === AL_MULT
+          ? "El mismo material tiene stock repartido en " + (c.almacenes || []).length +
+            " almacenes de " + c.base + "."
+          : "El stock figura en un almacén distinto del propuesto para " + c.base +
+            " · " + c.tipo + ". Es un problema de ubicación, no de identificación.";
+      case "depurar":
+        return "Figura en la bajada de SAP con existencia CERO. No hay stock que dar " +
+          "de baja: lo que se decide es qué pasa con el registro del maestro.";
+      case "bajas":
+        return "SAP registra stock de este material en " + c.base + " y ningún " +
+          "inventario físico lo identificó ahí." +
+          (c.bloqueado_por_revision
+            ? " Ojo: depende de un caso en revisión, que puede dejarlo sin efecto."
+            : "");
+      case SEG_FUERA:
+        return "Es " + (c.tipo || "un rubro") + ": el inventario relevado es de Farmacia, " +
+          "así que nunca iba a aparecer. Su ausencia no prueba nada.";
+      default:
+        return e.historial.length ? e.historial[e.historial.length - 1].que : "";
+    }
+  }
+
+  /* La pregunta y sus respuestas. Cada respuesta es un clic: no hay que entrar
+     a ningún lado para contestarla. */
+  function preguntaY(c, seg) {
+    var e = efectivo(c), b = [];
+    var lim = (c.candidatos || []).filter(function (x) { return !x.conflictos.length; });
+    function bt(acc, txt, cls) {
+      b.push('<button class="btn ' + (cls || "") + ' chico" data-ta="' + acc +
+             '" data-id="' + esc(c.id) + '">' + esc(txt) + "</button>");
+    }
+    var preg = "";
+    switch (seg) {
+      case "revision":
+        if (lim.length === 1) {
+          preg = "¿«" + (c.nombre_fisico || "este ítem") + "» del depósito es el material " +
+                 lim[0].material + " de SAP?";
+          bt("uno", "Sí, es " + lim[0].material, "ok");
+          bt("n", "No corresponde ninguno");
+        } else if (lim.length > 1) {
+          preg = "Hay " + lim.length + " códigos de SAP posibles para este ítem. " +
+                 "¿Cuál corresponde, o son varios el mismo producto?";
+          bt("abrir", "Elegir entre los " + lim.length, "pri");
+          bt("n", "No corresponde ninguno");
+        } else {
+          preg = "Ningún material con stock en SAP es compatible. " +
+                 "¿Pasa a verificarse contra el maestro completo?";
+          bt("n", "Sí, verificar en el maestro", "ok");
+        }
+        bt("x", "No puedo decidirlo ahora");
+        break;
+      case "altas":
+        preg = "No apareció entre los materiales con stock. ¿Qué camino se toma " +
+               "antes de proponer un alta?";
+        bt("b1", "Verificar el maestro primero", "ok");
+        bt("b2", "Crear sin verificar…");
+        bt("r", "No se da de alta", "no");
+        break;
+      case "existencias":
+        var alm = almacenParaAjuste(c);
+        preg = "Hay " + num(c.cantidad_fisica || 0) + " unidades contadas en " + c.base +
+               " y SAP no registra stock del material " + (e.material || "—") +
+               " en esa base. ¿Se propone el ajuste de stock" +
+               (alm ? " en el almacén " + alm : "") + "?";
+        bt("aj", "Proponer el ajuste" + (alm ? " en " + alm : ""), "ok");
+        bt("r", "No ajustar", "no");
+        bt("x", "No puedo decidirlo ahora");
+        break;
+      case "identificados":
+        preg = "¿Se confirma que «" + (c.nombre_fisico || "este ítem") + "» es el material " +
+               (e.material || "—") + " de SAP?";
+        bt("a", "Confirmar la correspondencia", "ok");
+        bt("r", "No corresponde", "no");
+        break;
+      case "almacenes":
+        var esp = c.almacen_esperado || c.almacen_base, ub = c.almacenes || [];
+        var act = ub.length === 1 ? ub[0].almacen : null;
+        if (c.almacen_estado === AL_MULT) {
+          preg = "El stock está repartido en " + ub.length + " almacenes de " + c.base +
+                 ". ¿Se propone consolidarlo en uno solo o se deja como está?";
+          b.push(selAlmacen(c, ub, esp));
+          bt("al3", "Proponer la consolidación", "ok");
+        } else {
+          preg = "Este material figura en el almacén " + (act || "—") + " y el propuesto " +
+                 "para " + c.base + " · " + c.tipo + " es el " + (esp || "—") +
+                 ". ¿Solicitás el cambio de almacén o mantenés la ubicación actual?";
+          if (esp && act !== esp) bt("al1", "Solicitar el cambio a " + esp, "ok");
+          if (act) bt("al2", "Mantener en " + act + " · corregir la propuesta");
+        }
+        bt("al4", "Que lo valide el responsable de la base");
+        break;
+      case "depurar":
+        preg = "¿Qué se hace con el registro del material " + (c.material_sap || "—") +
+               " en el maestro?";
+        bt("dp0", "Mantener", "ok");
+        bt("dp1", "Bloquear");
+        bt("dp2", "Dar de baja del maestro", "no");
+        break;
+      case "bajas":
+        preg = "¿Se aprueba la PROPUESTA de baja de " + num(c.stock_sap || 0) +
+               " unidades del material " + (c.material_sap || "—") + " en " + c.base + "?";
+        bt("a", "Aprobar la propuesta de baja", "ok");
+        bt("r", "Rechazar · no dar de baja", "no");
+        bt("x", "No puedo decidirlo ahora");
+        break;
+      case SEG_FUERA:
+        preg = "No requiere ninguna decisión dentro de este análisis.";
+        break;
+      default:
+        preg = "Decidido: " + esc(e.aprobacion) +
+               (e.revisor ? " · " + esc(e.revisor) : "");
+        bt("re", "Cambiar la decisión");
+    }
+    return { preg: preg, botones: b.join("") };
+  }
+
+  /* El almacén donde tiene que cuadrar un ajuste de stock. Si SAP ya registra
+     stock del material en esa base, es ése; si no, el propuesto para la base y
+     el tipo, que es una propuesta y se puede cambiar en la misma tarjeta. */
+  function almacenParaAjuste(c) {
+    var ub = c.almacenes || [];
+    if (ub.length === 1) return ub[0].almacen;
+    var d = dec(c.id) || {};
+    return d.almacen_ajuste || c.almacen_esperado || c.almacen_base || null;
+  }
+  function selAlmacen(c, ub, esp) {
+    var dis = (D.meta.almacenes.por_base || {})[c.base] || [];
+    var opts = {};
+    (ub || []).forEach(function (x) { opts[x.almacen] = num(x.stock) + " un."; });
+    dis.forEach(function (a) { if (!(a in opts)) opts[a] = "sin stock de este material"; });
+    if (esp && !(esp in opts)) opts[esp] = "el propuesto";
+    return '<label class="tjsel2">Almacén<select data-alm-sel="' + esc(c.id) + '">' +
+      Object.keys(opts).sort().map(function (a) {
+        return '<option value="' + esc(a) + '"' + (a === esp ? " selected" : "") + ">" +
+          esc(a) + " · " + esc(opts[a]) + (a === esp ? " · el propuesto" : "") + "</option>";
+      }).join("") + "</select></label>";
+  }
+
+  function tarjeta(c, seg) {
+    var e = efectivo(c), l = L(c);
+    var py = preguntaY(c, seg);
+    var sel = !!estado.sel[c.id];
+    var h = '<article class="tj' + (sel ? " elegida" : "") + '" data-tj="' + esc(c.id) + '">';
+    h += '<label class="tjchk"><input type="checkbox" class="selUno" data-id="' + esc(c.id) +
+      '"' + (sel ? " checked" : "") + (seg === SEG_FUERA ? " disabled" : "") +
+      '><span class="sr">Elegir para decidir en lote</span></label>';
+    h += '<div class="tjc"><header class="tjcab">' +
+      '<b class="tjnom">' + esc(c.nombre_fisico || c.texto_sap || "—") + "</b>" +
+      '<span class="et ' + l + '"><i class="pt" style="background:var(--c' + l + ')"></i>' +
+      l + " · " + CORTO[l] + "</span>" +
+      '<span class="tjb">' + esc(c.base) + " · " + esc(c.tipo || "—") + "</span>" +
+      (e.observaciones ? '<span class="tjobs" title="' + esc(e.observaciones) + '">con observación</span>' : "") +
+      "</header>";
+    h += '<div class="fuentes">' + bloqueFisico(c) + bloqueSap(c, e) + "</div>";
+    h += '<p class="tjpor"><span class="k">Por qué aparece acá</span>' + esc(porQue(c, seg)) + "</p>";
+    if (py.preg) h += '<p class="tjpreg">' + esc(py.preg) + "</p>";
+    h += '<div class="tjacc">' + py.botones +
+      '<button class="btn chico fant" data-detalle="' + esc(c.id) + '">Ver el detalle completo</button>' +
+      "</div>";
+    if (seg === SEG_HECHO && e.historial.length) {
+      h += '<p class="tjhist">' + esc(e.historial[e.historial.length - 1].que) +
+        " · " + esc(e.revisor || "—") + " · " + esc(fecha(e.actualizado)) + "</p>";
+    }
+    h += "</div></article>";
+    return h;
+  }
+  // ------------------------------------------------------------- DECISIONES
+  /* Una sola implementación de cada decisión, usada igual desde la tarjeta de
+     Inicio, desde el modo de a uno y desde el lote. Si la misma situación se
+     resolviera en dos lugares con dos códigos distintos, tarde o temprano
+     diría dos cosas distintas. Devuelve "pantalla" cuando la acción no se
+     puede cerrar con un clic y necesita abrir algo. */
+  function aplicar(c, a, ctx) {
+    ctx = ctx || {};
+    function d(cambios, txt) {
+      if (ctx.obs) cambios.observaciones = ctx.obs;
+      decidir(c.id, cambios, txt);
+    }
+    var e = efectivo(c);
+    var lim = (c.candidatos || []).filter(function (x) { return !x.conflictos.length; });
+
+    // ---- identificación
+    if (a === "uno") {
+      if (!lim.length) return "nada";
+      d({ materiales: [lim[0].material], estado_revision: "Revisado",
+          aprobacion: "Correspondencia confirmada" },
+        "Se asignó el código SAP " + lim[0].material + " (único candidato compatible)");
+      return "ok";
+    }
+    if (a === "a") {
+      d({ aprobacion: L(c) === "A" ? "Correspondencia confirmada" : "Aprobado",
+          estado_revision: "Revisado" },
+        L(c) === "A" ? "Se confirmó la correspondencia con SAP"
+        : L(c) === "C" ? "Se aprobó la PROPUESTA de baja (no ejecuta nada en SAP)"
+        : "Se aprobó la propuesta (no ejecuta nada en SAP)");
+      return "ok";
+    }
+    if (a === "r") {
+      d({ aprobacion: "Rechazado", estado_revision: "Revisado" }, "Se rechazó la propuesta");
+      return "ok";
+    }
+    if (a === "x") {
+      d({ estado_revision: "Pendiente de validación" }, "Se marcó como pendiente de validación");
+      return "ok";
+    }
+    if (a === "n") {
+      d({ aprobacion: "Aprobado", estado_revision: "Revisado",
+          reclasificado: "Candidato a alta" },
+        "Ningún material con stock corresponde: pasa a verificar contra el maestro de SAP");
+      return "ok";
+    }
+    if (a === "re") {                       // reabrir: vuelve a quedar pendiente
+      d({ aprobacion: "Sin decidir", estado_revision: "En revisión" },
+        "Se reabrió el caso para volver a decidirlo");
+      return "ok";
+    }
+
+    // ---- clase B
+    if (a === "b1") {
+      d({ ruta_b: RB_VERIF, estado_revision: "Pendiente de validación",
+          aprobacion: "Pendiente de verificación en el maestro" },
+        "Alternativa 1 · se verifica el maestro completo de SAP antes de crear");
+      return "ok";
+    }
+    if (a === "b2") return "pantalla";
+
+    // ---- ajuste de stock: cuadra un almacén, no una existencia global
+    if (a === "aj") {
+      var alm = ctx.almacen || almacenParaAjuste(c);
+      if (!alm) return "sinalmacen";
+      d({ aprobacion: "Aprobado", estado_revision: "Revisado",
+          ajuste_stock: num(c.cantidad_fisica || 0) + " un.",
+          almacen_ajuste: alm, almacen_propuesto: alm },
+        "AJUSTE DE STOCK en SAP: sumar " + num(c.cantidad_fisica || 0) +
+        " unidades del material " + (e.material || "—") + " en el almacén " + alm +
+        " de " + c.base + ". Es una propuesta de ajuste, no un movimiento ejecutado");
+      return "ok";
+    }
+
+    // ---- ubicación: no toca el código SAP, decide el almacén
+    if (a === "al1" || a === "al2" || a === "al3" || a === "al4") {
+      var ub = c.almacenes || [];
+      var act = ub.length === 1 ? ub[0].almacen : null;
+      var esp = c.almacen_esperado || c.almacen_base;
+      if (a === "al1" && !esp) return "nada";
+      if (a === "al2" && !act) return "nada";
+      var destino = a === "al1" ? esp : a === "al2" ? act
+                  : a === "al3" ? (ctx.almacen || esp) : null;
+      var txt = { al1: "Solicitar el cambio al almacén propuesto (" + esp + ")",
+                  al2: "El almacén " + act + " es el correcto: se corrige la propuesta",
+                  al3: "Consolidar el stock en el almacén " + destino,
+                  al4: "Lo valida el responsable de la base" }[a];
+      d({ almacen_decision: txt, almacen_propuesto: destino },
+        "Ubicación · " + txt + " (propuesta, no mueve stock en SAP)");
+      return "ok";
+    }
+    return "nada";
+  }
+
+  /* Las acciones de la tarjeta. Las que se cierran con un clic se cierran acá;
+     las que necesitan elegir entre varias cosas abren la pantalla que
+     corresponde, con el caso ya puesto. */
+  function accionTarjeta(id, a) {
+    if (Almacen.soloConsulta()) return avisarConsulta();
+    var c = caso(id);
+    if (!c) return;
+    if (a === "abrir") {                    // elegir entre varios códigos
+      estado.cola = "revision"; estado.motivo = null;
+      estado.triage = [c]; estado.tIdx = 0;
+      estado.selCand = {}; estado.selPar = {}; estado.unif = "";
+      estado.volverA = "inicio";
+      return ir("revisar");
+    }
+    if (a === "b2") return modalCrearSinVerificar([c], function () { ir("inicio"); });
+    if (a === "dp0" || a === "dp1" || a === "dp2") {
+      var cod = c.material_sap;
+      if (!cod) return aviso("Este caso no tiene código de SAP.");
+      decidirMaterial(cod, DP_ACCIONES[+a.slice(2)]);
+      return pintarInicio();
+    }
+    var ctx = {};
+    var s2 = document.querySelector('[data-alm-sel="' + CSS.escape(id) + '"]');
+    if (s2) ctx.almacen = s2.value;
+    var r = aplicar(c, a, ctx);
+    if (r === "sinalmacen") return aviso("Elegí el almacén donde tiene que cuadrar el ajuste.");
+    if (r === "nada") return;
+    pintarInicio();
+  }
+
+  // ------------------------------------------------------------- LOTE
+  /* Una decisión en lote tiene que decir, antes de ejecutarse, a qué alcanza:
+     cuántos materiales, qué bases, qué almacenes, y cuáles de los elegidos no
+     cumplen las condiciones y van a quedar afuera. Lo que no se ve no se puede
+     controlar, y deshacer 300 decisiones de a una no es una opción. */
+  function alcanceLote(ids, a, s) {
+    var mats = {}, bases = {}, alms = {}, aptos = [], fuera = [];
+    ids.forEach(function (id) {
+      var c = caso(id); if (!c) return;
+      var e = efectivo(c);
+      var lim = (c.candidatos || []).filter(function (x) { return !x.conflictos.length; });
+      var ok = true, pq = "";
+      if (a === "uno" && lim.length !== 1) {
+        ok = false; pq = lim.length ? "tiene " + lim.length + " candidatos: hay que elegir"
+                                    : "no tiene ningún candidato compatible";
+      }
+      if (a === "al1" && !(c.almacen_esperado || c.almacen_base)) {
+        ok = false; pq = "no hay almacén propuesto para " + c.base + " · " + c.tipo;
+      }
+      if (a === "al2" && (c.almacenes || []).length !== 1) {
+        ok = false; pq = "el stock está en " + (c.almacenes || []).length + " almacenes";
+      }
+      if (a === "aj" && !almacenParaAjuste(c)) {
+        ok = false; pq = "no se sabe en qué almacén cuadrar el ajuste";
+      }
+      if ((a === "dp0" || a === "dp1" || a === "dp2") && !c.material_sap) {
+        ok = false; pq = "no tiene código de SAP";
+      }
+      if (!ok) { fuera.push({ c: c, pq: pq }); return; }
+      aptos.push(c);
+      var queda = a === "uno" ? [lim[0].material]
+                : e.materiales.length ? e.materiales
+                : [c.material_sap];
+      queda.forEach(function (m) { if (m) mats[m] = 1; });
+      bases[c.base] = 1;
+      var dst = a === "al1" ? (c.almacen_esperado || c.almacen_base)
+              : a === "aj" ? almacenParaAjuste(c)
+              : null;
+      (dst ? [dst] : (c.almacenes || []).map(function (x) { return x.almacen; }))
+        .forEach(function (x) { if (x) alms[x] = 1; });
+    });
+    return { aptos: aptos, fuera: fuera, materiales: Object.keys(mats).sort(),
+             bases: Object.keys(bases).sort(), almacenes: Object.keys(alms).sort() };
+  }
+
+  /* Cuánto riesgo tiene cada decisión. Las que sólo registran una propuesta
+     reversible no merecen un cartel: avisar de todo es no avisar de nada. */
+  function riesgoLote(seg, a) {
+    if (a === "dp2") return "Dar de baja un registro del maestro es la decisión menos " +
+      "reversible de todas, y el universo visible no es el maestro completo.";
+    if (a === "b2") return "Crear un material sin verificar el maestro puede dejar un " +
+      "código duplicado, con el stock y el histórico partidos en dos.";
+    if (a === "aj") return "Un ajuste de stock cambia las existencias informadas de un " +
+      "almacén. Si el almacén elegido no es el correcto, el ajuste descuadra otro.";
+    if (seg === "bajas" && a === "a") return "Aprobar una baja propone sacar del sistema " +
+      "stock que SAP hoy registra. Conviene haber resuelto antes los casos en revisión: " +
+      "algunos pueden dejar de ser bajas.";
+    return null;      // lo demás registra una propuesta reversible: no merece cartel
+  }
+
+  function modalLote(ids, a, s) {
+    if (Almacen.soloConsulta()) return avisarConsulta();
+    if (!ids.length) return aviso("No hay casos elegidos.");
+    var al = alcanceLote(ids, a, s);
+    var nom = { uno: "Confirmar el candidato único",
+                a: s.id === "bajas" ? "Aprobar la propuesta de baja"
+                 : s.id === "identificados" ? "Confirmar la correspondencia con SAP"
+                 : s.id === "altas" ? "Aprobar la propuesta de alta"
+                 : "Confirmar / aprobar",
+                r: "Rechazar", x: "Marcar como pendiente de validación",
+                n: "Ninguno corresponde · verificar en el maestro",
+                b1: "Verificar el maestro antes de crear",
+                aj: "Proponer el ajuste de stock",
+                al1: "Solicitar el cambio al almacén propuesto",
+                al2: "Mantener la ubicación actual y corregir la propuesta",
+                al4: "Que lo valide el responsable de la base",
+                dp0: "Mantener en el maestro", dp1: "Bloquear en el maestro",
+                dp2: "Dar de baja del maestro", re: "Reabrir para volver a decidir" }[a] || a;
+    var grave = riesgoLote(s.id, a);
+
+    var h = '<div class="modal"><div class="mcaja ancha"><h2>' + esc(nom) + "</h2>" +
+      '<p class="sub">Antes de aplicar, esto es a lo que alcanza.</p>' +
+      '<div class="lalc">' +
+      lalc(num(al.aptos.length), al.aptos.length === 1 ? "caso" : "casos") +
+      lalc(num(al.materiales.length), "materiales de SAP") +
+      lalc(num(al.bases.length), al.bases.length === 1 ? "base" : "bases") +
+      lalc(num(al.almacenes.length), al.almacenes.length === 1 ? "almacén" : "almacenes") +
+      "</div>";
+    h += '<dl class="ldet">' +
+      "<dt>Bases</dt><dd>" + (al.bases.map(esc).join(" · ") || "—") + "</dd>" +
+      "<dt>Almacenes</dt><dd>" + (al.almacenes.map(esc).join(" · ") || "—") + "</dd>" +
+      "<dt>Qué queda registrado</dt><dd>" + esc(nom) +
+      ", con tu nombre y la fecha. No modifica SAP.</dd></dl>";
+    if (al.fuera.length) {
+      h += '<div class="aviso"><b>' + num(al.fuera.length) +
+        (al.fuera.length === 1 ? " caso elegido no cumple las condiciones y queda afuera."
+                               : " casos elegidos no cumplen las condiciones y quedan afuera.") +
+        "</b><ul class=\"lfuera\">" + al.fuera.slice(0, 8).map(function (x) {
+          return "<li>" + esc(x.c.nombre_fisico || x.c.texto_sap || x.c.id) +
+            ' <span class="mini">' + esc(x.pq) + "</span></li>"; }).join("") +
+        (al.fuera.length > 8 ? "<li class=\"mini\">y " + (al.fuera.length - 8) + " más</li>" : "") +
+        "</ul></div>";
+    }
+    if (grave) {
+      h += '<div class="aviso grave"><b>Esto conviene mirarlo dos veces.</b>' + esc(grave) +
+        '<label class="mchk"><input type="checkbox" id="lOk"> Entiendo el alcance y ' +
+        "quiero aplicarlo a los " + num(al.aptos.length) + " casos</label></div>";
+    }
+    h += '<div class="macc"><button class="btn" id="lCancel">Cancelar</button>' +
+      '<button class="btn pri" id="lGo"' + (grave ? " disabled" : "") + ">Aplicar a " +
+      num(al.aptos.length) + (al.aptos.length === 1 ? " caso" : " casos") + "</button></div>";
+    h += "</div></div>";
+
+    var cap = document.createElement("div");
+    cap.innerHTML = h; document.body.appendChild(cap);
+    function cerrar() { cap.remove(); }
+    cap.querySelector("#lCancel").addEventListener("click", cerrar);
+    var chk = cap.querySelector("#lOk");
+    if (chk) chk.addEventListener("change", function () {
+      cap.querySelector("#lGo").disabled = !chk.checked; });
+    cap.querySelector("#lGo").addEventListener("click", function () {
+      if (a === "dp0" || a === "dp1" || a === "dp2") {
+        al.aptos.forEach(function (c) {
+          decidirMaterial(c.material_sap, DP_ACCIONES[+a.slice(2)], "",
+            "Decisión en lote desde Inicio: " + nom); });
+      } else {
+        al.aptos.forEach(function (c) { aplicar(c, a, {}); });
+      }
+      estado.sel = {}; cerrar();
+      aviso(nom + " · " + al.aptos.length + (al.aptos.length === 1 ? " caso" : " casos") +
+            (al.fuera.length ? " · " + al.fuera.length + " quedaron afuera" : ""));
+      pintarInicio();
+    });
+  }
+  function lalc(n, t) {
+    return '<div class="lalci"><b>' + n + "</b><span>" + esc(t) + "</span></div>";
   }
 
   // ------------------------------------------------------------- MODO REVISIÓN
   function pintarTriage() {
     var el = document.getElementById("v-revisar");
-    if (!estado.cola || !estado.triage.length) {
-      el.innerHTML = '<div class="finito"><div class="ficono">✓</div>' +
-        "<h1>No queda nada pendiente en este grupo</h1>" +
-        '<p class="sub">Volvé al inicio para seguir con el siguiente.</p>' +
-        '<button class="btn pri" id="bInicio">Volver al inicio</button></div>';
-      el.querySelector("#bInicio").addEventListener("click", function () { ir("inicio"); });
-      return;
-    }
+    /* Se puede llegar acá por el menú, sin haber elegido ningún grupo. Decir
+       «no queda nada pendiente» sería mentira y dejaría la pantalla muerta:
+       lo que corresponde es preguntar qué se revisa. */
+    if (!estado.cola || !estado.triage.length) { el.innerHTML = elegirQueRevisar(el); return; }
     if (estado.tIdx >= estado.triage.length) {
       var q0 = colaPor(estado.cola);
       el.innerHTML = '<div class="finito"><div class="ficono">✓</div>' +
@@ -797,6 +1538,7 @@ var App = (function () {
     h += '<section class="decidir">';
     if (estado.cola === "altas") h += panelB(c, e);
     if (q.esAlmacen) h += panelAlmacen(c, e);
+    if (estado.cola === "existencias") h += panelAjuste(c, e);
     /* La barra resume la equivalencia completa antes de confirmarla: cuántas
        nomenclaturas del depósito y cuántos códigos de SAP quedan declarados el
        mismo producto. Si hay más de uno de cualquiera de los dos lados, el
@@ -853,7 +1595,9 @@ var App = (function () {
       h += bot("ok", "a", "Aprobar la baja", "A") +
            bot("no", "r", "Rechazar · el material se usa", "R");
     } else if (estado.cola === "existencias") {
-      h += bot("ok", "a", "Registrar la existencia", "A") + bot("no", "r", "No corresponde", "R");
+      var alAj = almacenParaAjuste(c);
+      h += bot("ok", "aj", "Proponer el ajuste de stock" + (alAj ? " en " + alAj : ""), "A") +
+           bot("no", "r", "No ajustar", "R");
     } else {
       h += bot("ok", "a", "Confirmar la identificación", "A") +
            bot("no", "r", "No corresponde", "R");
@@ -907,6 +1651,47 @@ var App = (function () {
      los dos sentidos. Este panel resuelve el sentido que faltaba: varios ítems
      del depósito que son el mismo material. Va plegado y en una sola línea
      cuando no hay nada que mirar, para no robarle pantalla a la decisión. */
+  /* La portada de Revisar cuando se entra por el menú: qué hay para resolver,
+     en el orden en que conviene hacerlo, y de a cuántos. */
+  function elegirQueRevisar(el) {
+    var ss = segmentos().filter(function (x) { return !x.hecho && !x.fuera; });
+    var hay = ss.some(function (x) { return x.pend; });
+    var h = '<div class="cabi"><div><h1>¿Qué querés revisar?</h1>' +
+      '<p class="sub">El modo de a uno muestra un caso por pantalla, con el candidato más ' +
+      "probable y el motivo exacto por el que no se cerró solo, y se decide con el teclado. " +
+      "Es para avanzar rápido sobre un grupo entero. Para ver y decidir sin cambiar de " +
+      "pantalla está <b>Inicio</b>." +
+      (estado.base ? " Alcance: <b>" + esc(estado.base) + "</b>." : "") + "</p></div>" +
+      '<button class="btn" id="rvInicio">← Ir al inicio</button></div>';
+    if (!hay) {
+      h += '<div class="finito"><div class="ficono">✓</div>' +
+        "<h1>No queda nada pendiente</h1><p class=\"sub\">" +
+        (estado.base ? "En " + esc(estado.base) + " no quedan casos por decidir."
+                     : "Todos los grupos están resueltos.") + "</p></div>";
+      setTimeout(function () {
+        var b0 = el.querySelector("#rvInicio");
+        if (b0) b0.addEventListener("click", function () { ir("inicio"); }); }, 0);
+      return h;
+    }
+    h += '<div class="elegir">' + ss.map(function (x, i) {
+      return '<button class="eleg' + (x.pend ? "" : " vacio") + '" data-rv="' + esc(x.id) +
+        '" style="--cc:var(--c' + x.color + ');--cct:var(--c' + x.color + '-t)"' +
+        (x.pend ? "" : " disabled") + ">" +
+        '<span class="elegn">' + (i + 1) + "</span>" +
+        '<span class="elegt"><b>' + esc(x.titulo) + "</b>" +
+        '<span class="mini">' + esc(x.q.desc) + "</span></span>" +
+        '<span class="elegc">' + num(x.pend) + '<small>' +
+        (x.pend === 1 ? "pendiente" : "pendientes") + "</small></span></button>";
+    }).join("") + "</div>";
+    setTimeout(function () {
+      var b0 = el.querySelector("#rvInicio");
+      if (b0) b0.addEventListener("click", function () { ir("inicio"); });
+      el.querySelectorAll("[data-rv]").forEach(function (b) {
+        b.addEventListener("click", function () { abrirCola(b.dataset.rv); }); });
+    }, 0);
+    return h;
+  }
+
   function panelEquivalencias(c) {
     var otros = parientes(c);
     if (!otros.length) return "";
@@ -1087,7 +1872,7 @@ var App = (function () {
       ", a validar con la base</span></div></div></div>";
     h += '<div class="rres"><span class="k">¿Qué se hace?</span><div class="tacc">' +
       (esp && actual !== esp
-        ? bot("ok", "al1", "Mover el stock al almacén " + esp, "1") : "") +
+        ? bot("ok", "al1", "Solicitar el cambio al almacén " + esp, "1") : "") +
       (actual ? bot("", "al2", "El almacén " + actual + " es el correcto · corregir la propuesta", "2") : "") +
       (ubic.length > 1 ? bot("", "al3", "Consolidar en un solo almacén", "3") : "") +
       bot("", "al4", "Lo valida el responsable de la base", "4") +
@@ -1106,6 +1891,41 @@ var App = (function () {
         " almacenes. Consolidar es una propuesta de movimiento, no un movimiento.</span></div>";
     }
     h += "</div></div>";
+    return h;
+  }
+
+  /* ---- Ajuste de stock ---------------------------------------------------
+     Hay dos cosas distintas que se confunden seguido: que un material NO ESTÉ
+     en el maestro de SAP, y que esté en el maestro pero sin existencias
+     registradas en esa base. Lo primero es un alta —y no se puede afirmar con
+     una bajada que sólo trae los materiales con stock—. Lo segundo es un
+     AJUSTE DE STOCK, y es lo que se decide acá: el código ya está
+     identificado, lo que falta es la existencia. Un ajuste sin almacén no
+     cuadra nada, así que el almacén es parte de la decisión. */
+  function panelAjuste(c, e) {
+    var alm = almacenParaAjuste(c);
+    var esp = c.almacen_esperado || c.almacen_base;
+    var dis = (D.meta.almacenes.por_base || {})[c.base] || [];
+    var h = '<div class="rutas"><div class="rpreg"><b>Esto es un ajuste de stock, no un alta.</b> ' +
+      "El material <b>" + esc(e.material || "—") + "</b> está identificado y existe en SAP: " +
+      "lo que SAP no registra es <b>existencia en " + esc(c.base) + "</b>. Ajustar significa " +
+      "proponer que el stock del almacén quede cuadrado con lo contado.</div>";
+    h += '<div class="alcomp"><div class="alcol"><span class="k">Lo contado en el depósito</span>' +
+      '<div class="alesp"><b>' + num(c.cantidad_fisica || 0) + " unidades</b>" +
+      '<span class="mini">' + esc(c.sistema_origen || "—") + " · " + esc(c.base) + "</span></div></div>";
+    h += '<div class="alcol"><span class="k">Lo que registra SAP en esa base</span>' +
+      '<div class="alesp"><b>sin stock</b><span class="mini">material ' +
+      esc(e.material || "—") + (c.stock_sap_otras_bases
+        ? " · " + num(c.stock_sap_otras_bases) + " unidades en otras bases" : "") +
+      "</span></div></div></div>";
+    h += '<div class="alsel"><span class="k">¿En qué almacén tiene que cuadrar?</span>' +
+      '<select id="almDest">' + dis.map(function (x) {
+        return '<option value="' + esc(x) + '"' + (x === alm ? " selected" : "") + ">" +
+          esc(x) + (x === esp ? " · el propuesto para " + esc(c.base) + " · " + esc(c.tipo) : "") +
+          "</option>"; }).join("") + "</select>" +
+      '<span class="mini">El ajuste se propone sobre ese almacén. La correspondencia ' +
+      "base→almacén está observada; cuál debería tener el stock de farmacia es una " +
+      "propuesta a validar.</span></div></div>";
     return h;
   }
 
@@ -1128,6 +1948,14 @@ var App = (function () {
   }
   function avanzar() {
     estado.tIdx++; estado.selCand = {}; estado.selPar = {}; estado.unif = "";
+    /* Si se entró a resolver UN caso desde una tarjeta de Inicio, al cerrarlo
+       se vuelve ahí: mostrar «terminaste la tanda» por un solo caso es sacar a
+       la persona de donde estaba trabajando. */
+    if (estado.triage.length === 1 && estado.volverA === "inicio" &&
+        estado.tIdx >= estado.triage.length) {
+      estado.cola = null; estado.triage = []; estado.volverA = "casos";
+      return ir("inicio");
+    }
     pintarTriage();
   }
 
@@ -1197,15 +2025,9 @@ var App = (function () {
     if (a === "s") return avanzar();        // saltear no decide nada
     if (Almacen.soloConsulta()) return avisarConsulta();
     if (a === "confirmar") return confirmarSeleccion(c);
-    // ---- clase B: elegir alternativa y registrar el resultado de la verificación
-    if (a === "b1") {
-      decidir(c.id, conObs({ ruta_b: RB_VERIF, estado_revision: "Pendiente de validación",
-                             aprobacion: "Pendiente de verificación en el maestro" }),
-              "Alternativa 1 · se verifica el maestro completo de SAP antes de crear");
-      aviso("Alternativa 1 registrada. Cargá el resultado cuando lo tengas.");
-      return pintarTriage();
-    }
     if (a === "b2") return modalCrearSinVerificar([c], function () { avanzar(); });
+
+    // ---- clase B: registrar el resultado de la verificación contra el maestro
     if (a === "v1" || a === "v2" || a === "v3") {
       var ci = document.getElementById("codMaestro");
       var cod = ci ? ci.value.trim() : "";
@@ -1226,46 +2048,19 @@ var App = (function () {
           ". Se propone darlo de baja y crear uno nuevo, ligado al plan de depuración");
       return avanzar();
     }
-    // ---- ubicación: no toca el código SAP, decide el almacén
-    if (a === "al1" || a === "al2" || a === "al3" || a === "al4") {
-      var ub = c.almacenes || [];
-      var act = ub.length === 1 ? ub[0].almacen : null;
-      var dst = document.getElementById("almDest");
-      var destino = a === "al1" ? c.almacen_esperado
-                  : a === "al2" ? act
-                  : a === "al3" ? (dst ? dst.value : null) : null;
-      var txt = { al1: "Mover el stock al almacén propuesto (" + c.almacen_esperado + ")",
-                  al2: "El almacén " + act + " es el correcto: se corrige la propuesta",
-                  al3: "Consolidar el stock en el almacén " + destino,
-                  al4: "Lo valida el responsable de la base" }[a];
-      decidir(c.id, conObs({ almacen_decision: txt, almacen_propuesto: destino }),
-              "Ubicación · " + txt + " (propuesta, no mueve stock en SAP)");
-      return avanzar();
+
+    /* Todo lo demás es la misma decisión que se toma desde la tarjeta de
+       Inicio, y la toma el mismo código. La diferencia es qué pasa después:
+       acá se avanza al caso siguiente. */
+    var dst = document.getElementById("almDest");
+    var r = aplicar(c, a, { obs: obsActual(), almacen: dst ? dst.value : null });
+    if (r === "nada") return;
+    if (a === "b1") {
+      aviso("Alternativa 1 registrada. Cargá el resultado cuando lo tengas.");
+      return pintarTriage();
     }
-    if (a === "x") {
-      decidir(c.id, conObs({ estado_revision: "Pendiente de validación" }),
-              "Se marcó como pendiente de validación"); return avanzar();
-    }
-    if (a === "n") {
-      decidir(c.id, conObs({ aprobacion: "Aprobado", estado_revision: "Revisado",
-                             reclasificado: "Candidato a alta" }),
-              "Ningún material con stock corresponde: pasa a verificar contra el maestro de SAP");
-      aviso("Pasa a verificación contra el maestro de SAP."); return avanzar();
-    }
-    if (a === "a") {
-      var txt = { altas: "Verificado contra el maestro: se propone el alta (no ejecuta nada en SAP)",
-                  bajas: "Se aprobó la PROPUESTA de baja (no ejecuta nada en SAP)",
-                  existencias: "Se marcó para registrar la existencia en SAP",
-                  identificados: "Se confirmó la correspondencia con SAP" }[estado.cola];
-      decidir(c.id, conObs({ aprobacion: estado.cola === "identificados"
-                             ? "Correspondencia confirmada" : "Aprobado",
-                             estado_revision: "Revisado" }), txt);
-      return avanzar();
-    }
-    if (a === "r") {
-      decidir(c.id, conObs({ aprobacion: "Rechazado", estado_revision: "Revisado" }),
-              "Se rechazó la propuesta"); return avanzar();
-    }
+    if (a === "n") aviso("Pasa a verificación contra el maestro de SAP.");
+    return avanzar();
   }
 
   function teclas(ev) {
@@ -1915,22 +2710,18 @@ var App = (function () {
   function accionFicha(c, a) {
     if (Almacen.soloConsulta()) return avisarConsulta();
     var o = document.getElementById("obs") ? document.getElementById("obs").value : "";
+    /* Las decisiones que también se pueden tomar desde Inicio las toma el mismo
+       código, con el mismo texto en el historial. Si la ficha escribiera su
+       propia versión, el mismo hecho quedaría contado de dos maneras. */
+    var COMPARTIDAS = { confirmar: "a", aprobar: "a", rechazar: "r",
+                        validar: "x", reabrir: "re" };
+    if (COMPARTIDAS[a]) {
+      aplicar(c, COMPARTIDAS[a], {});
+      if (a === "confirmar") aviso("Confirmado.");
+      if (a === "aprobar") aviso("Aprobado.");
+      return pintarFicha();
+    }
     switch (a) {
-      case "confirmar":
-        decidir(c.id, { aprobacion: "Correspondencia confirmada", estado_revision: "Revisado" },
-                "Se confirmó la correspondencia con SAP"); aviso("Confirmado."); break;
-      case "aprobar":
-        decidir(c.id, { aprobacion: "Aprobado", estado_revision: "Revisado" },
-                "Se aprobó la PROPUESTA (no ejecuta nada en SAP)"); aviso("Aprobado."); break;
-      case "rechazar":
-        decidir(c.id, { aprobacion: "Rechazado", estado_revision: "Revisado" },
-                "Se rechazó la propuesta"); break;
-      case "validar":
-        decidir(c.id, { estado_revision: "Pendiente de validación" },
-                "Se marcó como pendiente de validación"); break;
-      case "reabrir":
-        decidir(c.id, { estado_revision: "En revisión", aprobacion: "Sin decidir" },
-                "Se reabrió el caso"); break;
       case "corregir": {
         var v = document.getElementById("codManual").value.trim();
         var av = document.getElementById("avisoCod");
@@ -2025,6 +2816,504 @@ var App = (function () {
      el viejo —si existe— hay que encontrarlo y limpiarlo. */
   function ligadosDep() {
     return D.casos.filter(function (c) { return !!efectivo(c).depuracion; });
+  }
+
+  var MTABS = [
+    { id: "general", t: "Maestro general" },
+    { id: "equiv", t: "Equivalencias de nomenclatura" },
+    { id: "almacenes", t: "Almacenes por base" },
+    { id: "depurar", t: "Materiales sin stock" },
+  ];
+  /* Maestro administra: el catálogo de materiales, cómo se llaman de cada
+     lado, qué almacén le corresponde a cada base y qué pasa con los registros
+     sin stock. No decide casos: eso es Inicio. La separación importa porque
+     antes las mismas cosas se tocaban desde dos lados. */
+  function pintarMaestro() {
+    var el = document.getElementById("v-depurar");
+    var h = '<div class="cabi"><div><h1>Maestro</h1>' +
+      '<p class="sub">La administración del catálogo: qué materiales hay, cómo se llaman de ' +
+      "cada lado, qué almacén le corresponde a cada base y qué se hace con los registros sin " +
+      "stock. Las decisiones sobre cada caso se toman en <b>Inicio</b>.</p></div></div>";
+    h += '<nav class="mtabs">' + MTABS.map(function (t) {
+      return '<button class="mtab' + (estado.mTab === t.id ? " on" : "") +
+        '" data-mtab="' + t.id + '">' + esc(t.t) + "</button>"; }).join("") + "</nav>";
+    el.innerHTML = h + '<div id="mcuerpo"></div>';
+    el.querySelectorAll("[data-mtab]").forEach(function (b) {
+      b.addEventListener("click", function () { estado.mTab = b.dataset.mtab; pintarMaestro(); }); });
+    var c = el.querySelector("#mcuerpo");
+    if (estado.mTab === "general") return panelGeneral(c);
+    if (estado.mTab === "equiv") return panelEquivTabla(c);
+    if (estado.mTab === "almacenes") return panelAlmacenesTabla(c);
+    return pintarDepurar();
+  }
+
+  /* ---- El maestro general unificado --------------------------------------
+     Un material es un material: no se duplica por aparecer en tres bases ni
+     por tener stock en dos almacenes. Esta lista reúne todo lo que se conoce
+     de cada código —de la bajada de SAP, de los candidatos del análisis y del
+     maestro importado— en una fila por código.
+
+     No confundir con el universo que hay que analizar: acá pueden figurar
+     materiales que el análisis no toca. Son dos cosas distintas y por eso
+     están en dos lugares distintos. */
+  var CACHE_UNI = null;
+  function invalidarUni() { CACHE_UNI = null; }
+  function maestroUnificado() {
+    if (CACHE_UNI) return CACHE_UNI;
+    var por = {};
+    function pon(cod, texto, tipo, fuente) {
+      if (!cod) return;
+      var r = por[cod] || (por[cod] = { codigo: cod, texto: "", tipo: "",
+                                        fuentes: {}, bases: {}, almacenes: {},
+                                        stock: 0, fisicos: {} });
+      if (texto && (!r.texto || r.texto.length < texto.length)) r.texto = texto;
+      if (tipo && !r.tipo) r.tipo = tipo;
+      r.fuentes[fuente] = 1;
+      return r;
+    }
+    D.casos.forEach(function (c) {
+      var e = efectivo(c);
+      if (c.origen === "Stock SAP") {
+        var r = pon(c.material_sap, c.texto_sap, c.tipo_sap || c.tipo, "Bajada de SAP");
+        if (r) {
+          r.bases[c.base] = 1; r.stock += c.stock_sap || 0;
+          (c.almacenes || []).forEach(function (x) { r.almacenes[x.almacen] = 1; });
+        }
+      }
+      (c.candidatos || []).forEach(function (x) {
+        pon(x.material, x.texto, c.tipo, "Candidato del análisis"); });
+      e.materiales.forEach(function (m) {
+        var r2 = pon(m, c.texto_sap, c.tipo, "Identificado en el inventario físico");
+        if (r2 && c.nombre_fisico) {
+          r2.fisicos[c.nombre_fisico] = 1; r2.bases[c.base] = 1;
+          (c.almacenes || []).forEach(function (x) { r2.almacenes[x.almacen] = 1; });
+        }
+      });
+    });
+    var m = depuObj().maestro;
+    if (m && m.filas) m.filas.forEach(function (f) {
+      pon(f.codigo, f.texto, f.tipo, "Maestro importado"); });
+
+    var pre = precios();
+    var filas = Object.keys(por).sort().map(function (k) {
+      var r = por[k];
+      r.bases = Object.keys(r.bases).sort();
+      r.almacenes = Object.keys(r.almacenes).sort();
+      r.fisicos = Object.keys(r.fisicos).sort();
+      r.fuente = Object.keys(r.fuentes).sort().join(" · ");
+      r.precio = (typeof pre[k] === "number" && isFinite(pre[k])) ? pre[k] : null;
+      return r;
+    });
+    // Los ítems del depósito que todavía no tienen código no entran como
+    // material de SAP: entran aparte, porque todavía no son uno.
+    var sinCod = D.casos.filter(function (c) {
+      return c.origen === "Inventario físico" && !efectivo(c).materiales.length; });
+    CACHE_UNI = { filas: filas, sinCodigo: sinCod };
+    return CACHE_UNI;
+  }
+
+  function panelGeneral(el) {
+    var u = maestroUnificado(), ec = economia(D.casos);
+    var conPrecio = u.filas.filter(function (f) { return f.precio != null; }).length;
+    var q = (estado.mq || "").trim().toLowerCase();
+    var vista = u.filas.filter(function (f) {
+      if (estado.mSolo === "sinprecio" && f.precio != null) return false;
+      if (estado.mSolo === "conprecio" && f.precio == null) return false;
+      if (!q) return true;
+      return (f.codigo + " " + f.texto + " " + f.fisicos.join(" ")).toLowerCase()
+             .indexOf(q) !== -1;
+    });
+
+    var h = '<div class="panelito"><p class="pnota">Una fila por <b>código de SAP</b>, ' +
+      "reuniendo todo lo que se sabe de él: la bajada de SAP, los candidatos del análisis, " +
+      "lo que quedó identificado en los inventarios físicos y el maestro que se importe. " +
+      "<b>No se duplica</b> por aparecer en varias bases ni en varios almacenes.</p>" +
+      '<div class="lalc">' +
+      lalc(num(u.filas.length), "códigos de SAP") +
+      lalc(num(conPrecio), "con importe de última compra") +
+      lalc(num(u.filas.length - conPrecio), "pendientes de valorizar") +
+      lalc(num(u.sinCodigo.length), "ítems del depósito sin código aún") +
+      "</div></div>";
+
+    // ---- importar / exportar
+    h += '<h2>Planilla de materiales e importes</h2><div class="panelito">' +
+      '<p class="pnota">La planilla trae <b>Código SAP</b>, <b>Nomenclatura SAP</b> e ' +
+      "<b>Importe última compra</b>. El importe sale vacío: se completa afuera —con el " +
+      "cruce de compras— y se vuelve a importar el mismo archivo. La importación " +
+      "<b>no toca ninguna decisión ni ninguna equivalencia</b>: sólo carga importes y " +
+      "materiales nuevos.</p>" +
+      '<div class="impfila">' +
+      '<button class="btn pri" id="mExp">Descargar la planilla (Excel)</button>' +
+      '<label class="btnarch">Importar la planilla' +
+      '<input type="file" id="mImp" accept=".xlsx,.csv,.txt,.tsv"></label>' +
+      (depuObj().maestro && depuObj().maestro.precios
+        ? '<button class="btn chico" id="mQuitarPre">Quitar los importes importados</button>' : "") +
+      "</div><div id=\"mMsg\" class=\"mini\"></div>" +
+      '<p class="pnota" style="margin-top:9px">Se puede subir el <b>.xlsx</b> tal cual se ' +
+      "descargó, o un <b>.csv</b> con las mismas columnas. El archivo se lee en esta misma " +
+      "computadora: no se sube a ningún lado.</p></div>";
+
+    // ---- impacto económico
+    h += "<h2>Impacto económico de las decisiones</h2>";
+    if (!conPrecio) {
+      h += '<div class="aviso"><b>Todavía no hay ningún importe de última compra cargado.</b>' +
+        "Ninguno de los archivos recibidos lo trae: se revisaron la bajada de SAP (tiene " +
+        "valor de stock, no precio de compra), la homologación (declara que los costos " +
+        "quedan fuera) y los tres PDF de inventario. Por eso <b>no se informa ninguna " +
+        "valorización</b> y todos los casos figuran como pendientes de valorizar. " +
+        "Apenas se importe la planilla con importes, el cálculo sale solo.</div>";
+    } else {
+      h += '<div class="panelito"><p class="pnota"><b>Cómo se calcula:</b> unidades del caso ' +
+        "× importe de última compra del material decidido. Las unidades son las " +
+        "<b>contadas en el depósito</b> para los ítems físicos y las de <b>stock en SAP</b> " +
+        "para los materiales que ningún inventario identificó. Un caso sin importe " +
+        "<b>no suma cero</b>: queda contado aparte como pendiente de valorizar.</p>" +
+        '<table class="listalotes"><thead><tr><th>Decisión</th><th class="num">Casos</th>' +
+        '<th class="num">Unidades</th><th class="num">Importe</th>' +
+        '<th class="num">Sin valorizar</th></tr></thead><tbody>' +
+        Object.keys(ec.porAccion).sort().map(function (a) {
+          var g = ec.porAccion[a];
+          return "<tr><td>" + esc(a) + '</td><td class="num">' + num(g.n) +
+            '</td><td class="num">' + num(g.un) + '</td><td class="num">' +
+            (g.val ? pesos(g.val) : "—") + '</td><td class="num">' +
+            (g.sinPrecio ? num(g.sinPrecio) : "—") + "</td></tr>";
+        }).join("") +
+        '<tr class="tot"><td><b>Total valorizado</b></td><td class="num">' + num(ec.valorizados) +
+        '</td><td class="num">—</td><td class="num"><b>' + pesos(ec.total) +
+        '</b></td><td class="num">' + num(ec.pendientes) + "</td></tr>" +
+        "</tbody></table></div>";
+    }
+
+    // ---- la tabla
+    h += "<h2>Los materiales</h2>" +
+      '<div class="filtros chicos"><input type="text" id="mBuscar" placeholder="Buscar por código o nomenclatura…" value="' +
+      esc(estado.mq || "") + '">' +
+      sel("mSolo", "Mostrar", estado.mSolo || "", ["sinprecio", "conprecio"], function (v) {
+        return v === "sinprecio" ? "Sin importe" : "Con importe"; }) +
+      '<span class="fcuenta">' + num(vista.length) + " de " + num(u.filas.length) + "</span></div>";
+    h += '<div class="tablabox"><table><thead><tr><th>Código SAP</th>' +
+      "<th>Nomenclatura SAP</th><th>Nomenclatura del depósito</th>" +
+      '<th class="num">Importe última compra</th><th>De dónde sale</th>' +
+      "</tr></thead><tbody>";
+    vista.slice(0, 400).forEach(function (f) {
+      h += '<tr><td><b class="dcod">' + esc(f.codigo) + "</b>" +
+        (f.bases.length ? '<div class="mini">' + f.bases.map(esc).join(" · ") + "</div>" : "") +
+        "</td><td>" + esc(f.texto || "—") + "</td>" +
+        '<td class="cfis">' + (f.fisicos.length ? f.fisicos.map(esc).join(" · ")
+          : '<span class="nohay">sin correspondencia confirmada</span>') + "</td>" +
+        '<td class="num">' + (f.precio != null ? pesos(f.precio)
+          : '<span class="nohay">pendiente</span>') + "</td>" +
+        '<td class="mini">' + esc(f.fuente) + "</td></tr>";
+    });
+    h += "</tbody></table>" +
+      (vista.length > 400 ? '<p class="pnota">Se muestran los primeros 400. ' +
+        "La planilla completa sale con el botón de descargar.</p>" : "") + "</div>";
+
+    el.innerHTML = h;
+    el.querySelector("#mExp").addEventListener("click", function () {
+      Exportar.maestroGeneral(maestroUnificado());
+      aviso("Planilla descargada. Completá la columna del importe y volvé a importarla."); });
+    el.querySelector("#mImp").addEventListener("change", function (ev) {
+      importarPlanilla(ev.target); });
+    var qp = el.querySelector("#mQuitarPre");
+    if (qp) qp.addEventListener("click", function () {
+      if (!confirm("Se quitan los importes importados. Las decisiones se conservan. ¿Seguir?")) return;
+      guardarPrecios(null); aviso("Importes quitados."); pintarMaestro(); });
+    var bq = el.querySelector("#mBuscar");
+    bq.addEventListener("input", function (ev) {
+      estado.mq = ev.target.value;
+      var p = ev.target.selectionStart; panelGeneral(el);
+      var n2 = document.getElementById("mBuscar"); n2.focus(); n2.setSelectionRange(p, p); });
+    el.querySelector("#mSolo").addEventListener("change", function (ev) {
+      estado.mSolo = ev.target.value; panelGeneral(el); });
+  }
+
+  /* Los importes van donde van las demás cosas del maestro: a la base
+     compartida, junto al maestro importado, y no al archivo de datos, que es
+     de sólo lectura y se regenera cuando se rehace el análisis. */
+  function guardarPrecios(pre, nombre, resumen) {
+    var m = depuObj().maestro || { nombre: "", total: 0, filas: [] };
+    var nuevo = { nombre: nombre || m.nombre || "Maestro general",
+                  total: m.total || 0, filas: m.filas || [],
+                  precios: pre || null, resumen: resumen || null,
+                  cuando: new Date().toISOString() };
+    Almacen.fijarMaestro(nuevo);
+    invalidarUni();
+  }
+
+  /* ---- Leer la planilla --------------------------------------------------
+     Un .xlsx es un ZIP, y el navegador sabe descomprimir desde hace años con
+     DecompressionStream. Así se puede subir el mismo archivo que se bajó, sin
+     pedirle a nadie que lo convierta a CSV ni instalar ninguna librería. Si el
+     navegador fuera viejo, el CSV sigue andando y se dice por qué. */
+  function leerPlanilla(file) {
+    var nom = (file.name || "").toLowerCase();
+    if (nom.slice(-5) === ".xlsx") return leerXlsx(file);
+    return file.text().then(function (t) { return filasCsv(t); });
+  }
+  function filasCsv(txt) {
+    var sep = (txt.split("\n")[0].split(";").length > txt.split("\n")[0].split(",").length)
+              ? ";" : ",";
+    return txt.replace(/\r/g, "").split("\n").filter(function (l) { return l.trim(); })
+      .map(function (l) {
+        var out = [], cur = "", q = false;
+        for (var i = 0; i < l.length; i++) {
+          var ch = l[i];
+          if (ch === '"') { if (q && l[i + 1] === '"') { cur += '"'; i++; } else q = !q; }
+          else if (ch === sep && !q) { out.push(cur); cur = ""; }
+          else cur += ch;
+        }
+        out.push(cur);
+        return out.map(function (x) { return x.trim(); });
+      });
+  }
+  function leerXlsx(file) {
+    if (typeof DecompressionStream === "undefined") {
+      return Promise.reject(new Error(
+        "Este navegador no puede abrir archivos .xlsx. Guardá la planilla como CSV " +
+        "(Archivo → Guardar como → CSV) y subila así."));
+    }
+    return file.arrayBuffer().then(function (buf) {
+      var z = descomprimirZip(new Uint8Array(buf));
+      var sst = [], hoja = null;
+      return Promise.all(Object.keys(z).map(function (n) {
+        if (n === "xl/sharedStrings.xml" || /^xl\/worksheets\/sheet1\.xml$/.test(n)) {
+          return inflar(z[n]).then(function (t) {
+            if (n.indexOf("shared") !== -1) sst = cadenasXlsx(t); else hoja = t; });
+        }
+        return null;
+      })).then(function () {
+        if (!hoja) throw new Error("El archivo no tiene ninguna hoja legible.");
+        return filasXlsx(hoja, sst);
+      });
+    });
+  }
+  /* Lo mínimo del formato ZIP: dónde empieza cada archivo y con qué método. */
+  function descomprimirZip(u8) {
+    var dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength), out = {}, i = 0;
+    while (i < u8.length - 4) {
+      if (dv.getUint32(i, true) !== 0x04034b50) { i++; continue; }
+      var metodo = dv.getUint16(i + 8, true);
+      var comp = dv.getUint32(i + 18, true);
+      var nLen = dv.getUint16(i + 26, true), eLen = dv.getUint16(i + 28, true);
+      var nombre = new TextDecoder().decode(u8.subarray(i + 30, i + 30 + nLen));
+      var ini = i + 30 + nLen + eLen;
+      if (comp) out[nombre] = { metodo: metodo, datos: u8.subarray(ini, ini + comp) };
+      i = ini + comp;
+    }
+    return out;
+  }
+  function inflar(e) {
+    if (e.metodo === 0) return Promise.resolve(new TextDecoder().decode(e.datos));
+    var ds = new DecompressionStream("deflate-raw");
+    return new Response(new Blob([e.datos]).stream().pipeThrough(ds)).text();
+  }
+  function cadenasXlsx(xml) {
+    return (xml.match(/<si>[\s\S]*?<\/si>/g) || []).map(function (si) {
+      return (si.match(/<t[^>]*>([\s\S]*?)<\/t>/g) || []).map(function (t) {
+        return t.replace(/<[^>]+>/g, ""); }).join("")
+        .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+    });
+  }
+  function filasXlsx(xml, sst) {
+    var filas = [];
+    (xml.match(/<row[\s\S]*?<\/row>/g) || []).forEach(function (r) {
+      var f = [];
+      (r.match(/<c[\s\S]*?(?:\/>|<\/c>)/g) || []).forEach(function (c) {
+        var ref = (c.match(/r="([A-Z]+)\d+"/) || [])[1] || "";
+        var col = 0;
+        for (var i = 0; i < ref.length; i++) col = col * 26 + (ref.charCodeAt(i) - 64);
+        var v = (c.match(/<v>([\s\S]*?)<\/v>/) || [])[1];
+        var inl = (c.match(/<is>[\s\S]*?<t[^>]*>([\s\S]*?)<\/t>/) || [])[1];
+        var val = inl != null ? inl
+                : v == null ? ""
+                : / t="s"/.test(c) ? (sst[+v] != null ? sst[+v] : v) : v;
+        f[Math.max(0, col - 1)] = String(val).trim();
+      });
+      for (var j = 0; j < f.length; j++) if (f[j] == null) f[j] = "";
+      filas.push(f);
+    });
+    return filas;
+  }
+
+  /* Un número escrito por una persona en Excel puede venir como «1.234,50»,
+     «1,234.50», «$ 1234,5» o «1234.5». Todo eso es el mismo importe. */
+  function aNumero(x) {
+    var t = String(x == null ? "" : x).replace(/[^\d.,-]/g, "").trim();
+    if (!t) return null;
+    var coma = t.lastIndexOf(","), punto = t.lastIndexOf(".");
+    if (coma > punto) t = t.replace(/\./g, "").replace(",", ".");
+    else t = t.replace(/,/g, "");
+    var n = parseFloat(t);
+    return isFinite(n) ? n : null;
+  }
+
+  function importarPlanilla(input) {
+    var f = input.files && input.files[0];
+    var msg = document.getElementById("mMsg");
+    if (!f) return;
+    msg.textContent = "Leyendo " + f.name + "…";
+    leerPlanilla(f).then(function (filas) {
+      if (!filas.length) throw new Error("El archivo está vacío.");
+      // Encabezado: se busca por nombre, no por posición, para que no importe
+      // si alguien agregó o movió una columna.
+      var cab = null, iCod = -1, iTxt = -1, iPre = -1;
+      for (var r = 0; r < Math.min(filas.length, 12); r++) {
+        var L2 = filas[r].map(function (x) {
+          return String(x).toLowerCase().replace(/\s+/g, " ").trim(); });
+        var a = L2.findIndex(function (x) {
+          return /c[oó]digo\s*sap|^c[oó]digo$|^material$|n[uú]mero de material/.test(x); });
+        var b2 = L2.findIndex(function (x) {
+          return /nomenclatura sap|descripci|denominaci|texto breve/.test(x); });
+        var c2 = L2.findIndex(function (x) {
+          return /importe.*compra|precio.*compra|[uú]ltima compra/.test(x); });
+        if (a >= 0) { cab = r; iCod = a; iTxt = b2; iPre = c2; break; }
+      }
+      if (cab === null) throw new Error(
+        "No se encontró la columna del código de SAP. La planilla tiene que tener un " +
+        "encabezado con «Código SAP» (y, si se cargan importes, «Importe última compra»).");
+      if (iPre < 0) throw new Error(
+        "No se encontró la columna «Importe última compra». Si todavía no tenés los " +
+        "importes, descargá la planilla de nuevo y completá esa columna.");
+
+      var u = maestroUnificado();
+      var conocidos = {};
+      u.filas.forEach(function (x) { conocidos[x.codigo] = 1; });
+      var pre = {}, viejos = precios();
+      Object.keys(viejos).forEach(function (k) { pre[k] = viejos[k]; });
+
+      var nuevos = 0, actualizados = 0, iguales = 0, vacios = 0, malos = [], dup = {};
+      var desconocidos = [];
+      for (var i = cab + 1; i < filas.length; i++) {
+        var fila = filas[i];
+        var cod = String(fila[iCod] == null ? "" : fila[iCod]).trim();
+        if (!cod) continue;
+        if (dup[cod]) { malos.push(cod + " · repetido en la planilla"); continue; }
+        dup[cod] = 1;
+        if (!conocidos[cod]) desconocidos.push(cod);
+        var crudo = fila[iPre];
+        if (crudo == null || String(crudo).trim() === "") { vacios++; continue; }
+        var v = aNumero(crudo);
+        if (v == null) { malos.push(cod + " · «" + crudo + "» no es un importe"); continue; }
+        if (v < 0) { malos.push(cod + " · importe negativo"); continue; }
+        if (pre[cod] == null) { pre[cod] = v; nuevos++; }
+        else if (pre[cod] !== v) { pre[cod] = v; actualizados++; }
+        else iguales++;
+      }
+      var res = { archivo: f.name, cuando: new Date().toISOString(),
+                  nuevos: nuevos, actualizados: actualizados, iguales: iguales,
+                  vacios: vacios, rechazados: malos.length,
+                  desconocidos: desconocidos.length };
+      guardarPrecios(pre, "Planilla de materiales · " + f.name, res);
+      msg.innerHTML = '<span class="ok">Importado.</span> ' +
+        num(nuevos) + " importes nuevos · " + num(actualizados) + " actualizados · " +
+        num(iguales) + " sin cambio · " + num(vacios) + " filas sin importe" +
+        (malos.length ? " · <b>" + num(malos.length) + " rechazadas</b>" : "") +
+        (desconocidos.length ? " · " + num(desconocidos.length) +
+          " códigos que no figuran en el análisis" : "") +
+        (malos.length ? "<br>" + esc(malos.slice(0, 6).join(" · ")) +
+          (malos.length > 6 ? " …" : "") : "");
+      aviso("Importes cargados: " + (nuevos + actualizados) + " materiales.");
+      setTimeout(function () { pintarMaestro(); }, 1400);
+    }).catch(function (e) {
+      msg.innerHTML = '<span class="mal">No se pudo importar.</span> ' + esc(e.message);
+    });
+  }
+
+  /* ---- Equivalencias, administradas ------------------------------------- */
+  function panelEquivTabla(el) {
+    var gs = grupos();
+    var liberadas = D.casos.filter(function (c) { return resueltoPorAgrupacion(c); }).length;
+    var h = '<div class="panelito"><p class="pnota">El depósito y SAP no nombran igual, y la ' +
+      "correspondencia <b>no es uno a uno en ninguno de los dos sentidos</b>. Acá están los " +
+      "grupos ya declarados: varias nomenclaturas del depósito que son el mismo producto, " +
+      "varios códigos de SAP para un mismo producto, o las dos cosas a la vez. Se declaran " +
+      "al resolver un caso, en <b>Inicio</b>; una vez confirmada, la equivalencia vale para " +
+      "todas las bases y no hay que volver a resolverla.</p>";
+    if (liberadas) h += '<div class="cnota ok">✓ ' + num(liberadas) +
+      (liberadas === 1 ? " candidato a baja quedó resuelto" : " candidatos a baja quedaron resueltos") +
+      " por una agrupación.</div>";
+    h += "</div>";
+    if (!gs.length) {
+      h += '<div class="finito chico"><div class="ficono">—</div>' +
+        "<h2>Todavía no se declaró ninguna equivalencia</h2></div>";
+    } else {
+      h += '<div class="tablabox"><table class="tequiv"><thead><tr>' +
+        "<th>Nombre unificado</th><th>Nomenclaturas del depósito</th>" +
+        "<th>Códigos de SAP</th><th>Sentido</th><th>Quién</th></tr></thead><tbody>" +
+        gs.map(function (g) {
+          var sen = g.items.length > 1 && g.materiales.length > 1
+              ? "Varias del depósito = varios de SAP"
+            : g.items.length > 1 ? "Varias del depósito = un código de SAP"
+            : g.materiales.length > 1 ? "Una del depósito = varios códigos de SAP"
+            : "Una a una";
+          return "<tr><td><b>" + esc(g.nombre) + "</b>" +
+            (g.bases.length ? '<div class="mini">' + g.bases.map(esc).join(" · ") + "</div>" : "") +
+            "</td><td>" + (g.items.length
+              ? g.items.map(function (c) {
+                  return '<span class="cbchip fis">' + esc(c.nombre_fisico) + "</span>"; }).join(" ")
+              : '<span class="nohay">—</span>') +
+            "</td><td>" + g.materiales.map(function (m) {
+              return '<span class="cbchip">' + esc(m) + "</span>"; }).join(" ") +
+            '</td><td class="mini">' + esc(sen) + "</td>" +
+            "<td>" + esc(g.revisor || "—") + "</td></tr>";
+        }).join("") + "</tbody></table></div>";
+    }
+    el.innerHTML = h;
+  }
+
+  /* ---- Almacenes por base ------------------------------------------------
+     Lo observado y lo propuesto, separados, y «Ambigua» explicado: una
+     etiqueta que hay que interpretar para poder resolverla no sirve. */
+  function panelAlmacenesTabla(el) {
+    var al = D.kpis.almacen || {};
+    var h = '<div class="aviso info"><b>La correspondencia almacén→base está observada; ' +
+      "el almacén esperado es una propuesta.</b>En la bajada, cada código de almacén " +
+      "aparece bajo un único centro: saber a qué base pertenece cada almacén <b>no es una " +
+      "suposición</b>. Lo que no está en los archivos es qué almacén <i>debería</i> tener " +
+      "el stock de farmacia. Eso se propuso a partir de la composición observada de cada " +
+      "almacén y <b>hay que validarlo con cada base</b>. Tampoco viene la descripción de " +
+      "los almacenes, sólo el código.</div>";
+    h += '<div class="panelito"><table><thead><tr>' +
+      "<th>Base</th><th>Tipo</th><th>Almacén propuesto</th><th>Confianza</th>" +
+      "<th>Otros almacenes de la base con stock de ese tipo</th></tr></thead><tbody>" +
+      (D.meta.almacenes.propuesta || []).map(function (p) {
+        var otros = (p.alternativas || []).filter(function (a) { return a.almacen !== p.almacen; });
+        return "<tr><td>" + esc(p.base) + "</td><td>" + esc(p.tipo) + "</td>" +
+          "<td><b>" + esc(p.almacen || "—") + "</b></td>" +
+          '<td><span class="estado ' + (p.confianza === "Clara" ? "ap" : "re") + '">' +
+          esc(p.confianza) + "</span>" +
+          '<div class="mini">' + esc(p.confianza === "Clara"
+            ? "Un solo almacén concentra el stock de este tipo en la base: no hay duda de " +
+              "cuál es el candidato."
+            : "Hay más de un almacén con stock de este tipo en la base y ninguno concentra " +
+              "claramente el conjunto, así que de los datos no sale cuál debería ser. " +
+              "Lo ambiguo es el almacén, no el material ni su código.") + "</div>" +
+          (p.nota ? '<div class="mini">' + esc(p.nota) + "</div>" : "") + "</td>" +
+          '<td class="mini">' + (otros.length
+            ? otros.map(function (a) { return esc(a.almacen) + " (" + num(a.unidades) + " un.)"; }).join(" · ")
+            : "—") + "</td></tr>";
+      }).join("") + "</tbody></table>" +
+      '<p class="pnota" style="margin:12px 0 0"><b>Falta para cerrar esta parte:</b> ' +
+      (D.meta.almacenes.falta || []).map(esc).join(" · ") + ".</p></div>";
+
+    h += "<h2>Cómo está hoy la ubicación del stock</h2>" +
+      '<p class="pnota" style="max-width:92ch">Una cosa es que el material esté bien ' +
+      "<b>identificado</b>, otra que tenga <b>stock</b>, y otra que ese stock esté en el " +
+      "<b>almacén que corresponde</b>. Son tres cuestiones independientes. Las diferencias " +
+      "de ubicación se deciden en <b>Inicio</b>, en la solapa <b>Almacenes</b>: detectar " +
+      "una diferencia no implica cambiarla.</p>" +
+      '<div class="kpis">' +
+      kpiFijo("A", "Ubicación correcta", al[AL_OK] || 0, "casos · en el almacén propuesto") +
+      kpiFijo("C", "Ubicación a cambiar", al[AL_CAMB] || 0, "casos · figuran en otro almacén") +
+      kpiFijo("D", "En varios almacenes", al[AL_MULT] || 0, "casos · material repartido") +
+      kpiFijo("E", "Pendiente de validar", (al[AL_VAL] || 0) + (al[AL_NOID] || 0),
+              "casos · falta definir el almacén") +
+      "</div>" +
+      '<p class="glosa">Son <b>casos</b>: cada combinación de un material con una base. ' +
+      "Un mismo material puede estar bien ubicado en una base y mal en otra, así que se " +
+      "cuenta una vez por base.</p>";
+    el.innerHTML = h;
   }
 
   function pintarDepurar() {
@@ -2213,14 +3502,14 @@ var App = (function () {
         }).join("") + "</div>";
     }
 
-    var el = document.getElementById("v-depurar");
+    var el = document.getElementById("mcuerpo") || document.getElementById("v-depurar");
     el.innerHTML = h;
     var arch = el.querySelector("#depArch");
     if (arch) arch.addEventListener("change", function () { importarMaestro(arch); });
     var q = el.querySelector("#depQuitar");
     if (q) q.addEventListener("click", function () {
       if (!confirm("Se quita el maestro importado. Las decisiones ya tomadas se conservan. ¿Seguir?")) return;
-      Almacen.quitarMaestro(); pintarDepurar();
+      Almacen.quitarMaestro(); pintarMaestro();
     });
     var bp = el.querySelector("#depPol");
     if (bp) bp.addEventListener("click", modalPolitica);
@@ -2409,13 +3698,58 @@ var App = (function () {
       'nombre y la fecha.</p></div>' +
       '<div class="bloque"><h3>El camino corto</h3><ol style="padding-left:19px;color:var(--tinta2)">' +
       "<li>Escribí tu nombre arriba, en <b>Revisor</b>.</li>" +
-      "<li>Andá a <b>Inicio</b>. Está el trabajo en siete grupos, ordenados por prioridad.</li>" +
-      "<li>Apretá <b>Revisar de a uno</b> en el grupo 1: te muestra un caso por pantalla con " +
-      "los candidatos. Elegís con el teclado y pasa solo al siguiente.</li>" +
-      "<li>Los grupos grandes (bajas, identificaciones) tienen <b>Decidir en lote</b>: se " +
-      "resuelven por base de una sola vez.</li>" +
+      "<li>Andá a <b>Inicio</b>: ahí se trabaja. Arriba está la <b>hoja de ruta</b>, que dice " +
+      "en qué etapa está el proceso y cuál es el próximo paso.</li>" +
+      "<li>Elegí el <b>alcance</b>: las tres bases o una sola. Todo lo de abajo lo respeta.</li>" +
+      "<li>Elegí una <b>solapa</b> (son los siete grupos de siempre). Abajo aparece cada caso " +
+      "como una pregunta, con lo que dice el depósito, lo que dice SAP, por qué se levantó y " +
+      "las respuestas posibles. <b>Se contesta con un clic</b>, sin entrar a ningún lado.</li>" +
+      "<li>Para decidir muchos juntos, tildá los que quieras y usá la barra de arriba: antes " +
+      "de aplicar se muestra a qué materiales, bases y almacenes alcanza.</li>" +
+      "<li>Cuando un caso tiene <b>varios códigos posibles</b>, el botón te lleva al modo de " +
+      "a uno, que es donde se elige entre ellos y se declaran equivalencias.</li>" +
       "<li>Al terminar, <b>Descargar Excel</b>: es tu respaldo y la forma de compartirlo.</li>" +
       "</ol></div>" +
+      '<div class="bloque"><h3>Para qué es cada solapa de arriba</h3>' +
+      '<table class="listalotes"><tbody>' +
+      '<tr><td style="white-space:nowrap"><b>Inicio</b></td><td>Donde se gestiona: estado del ' +
+      "análisis, filtros, decisiones de a una o en lote, por base o integral. Es el panel " +
+      "central; lo demás son apoyos.</td></tr>" +
+      '<tr><td style="white-space:nowrap"><b>Revisar</b></td><td>El modo de a uno: un caso por ' +
+      "pantalla, con el teclado. Sirve para avanzar rápido sobre un grupo entero y para los " +
+      "casos que necesitan elegir entre varios códigos.</td></tr>" +
+      '<tr><td style="white-space:nowrap"><b>Buscar</b></td><td>Encontrar un material puntual ' +
+      "y ver su ficha. No es otro panel de gestión.</td></tr>" +
+      '<tr><td style="white-space:nowrap"><b>Maestro</b></td><td>La administración del ' +
+      "catálogo: el maestro general con los importes de última compra, las equivalencias " +
+      "declaradas, el almacén propuesto para cada base y los materiales sin stock. " +
+      "<b>No se deciden casos acá.</b></td></tr>" +
+      '<tr><td style="white-space:nowrap"><b>Informe</b></td><td>El informe ejecutivo, con el ' +
+      "estado actualizado. Se imprime o se guarda en PDF.</td></tr>" +
+      "</tbody></table></div>" +
+      '<div class="bloque"><h3>La hoja de ruta</h3>' +
+      "<p>Seis etapas, en el orden en que conviene hacerlas. El avance <b>se calcula del " +
+      "estado real</b> del sistema: no hay porcentajes puestos a mano.</p>" +
+      '<table class="listalotes"><tbody>' +
+      '<tr><td style="white-space:nowrap"><b>1 · Carga</b></td><td>Los tres inventarios ' +
+      "físicos y la bajada de SAP, con los controles que tienen que cuadrar contra las " +
+      "fuentes.</td></tr>" +
+      '<tr><td style="white-space:nowrap"><b>2 · Trazabilidad</b></td><td>Qué código de SAP ' +
+      "corresponde a cada nomenclatura del depósito. <b>Va antes del cruce definitivo:</b> " +
+      "cruzar con una correspondencia dudosa es arrastrar la duda a todo lo que sigue. Una " +
+      "equivalencia confirmada vale para todas las bases y no se vuelve a preguntar.</td></tr>" +
+      '<tr><td style="white-space:nowrap"><b>3 · Cruce</b></td><td>Cada inventario contra los ' +
+      "almacenes de SAP de su base, y la clasificación de las diferencias.</td></tr>" +
+      '<tr><td style="white-space:nowrap"><b>4 · Decisiones</b></td><td>Lo que se hace en ' +
+      "Inicio, de a una o en lote.</td></tr>" +
+      '<tr><td style="white-space:nowrap"><b>5 · Economía</b></td><td>Con el importe de ' +
+      "última compra cargado desde Maestro, cuánto representa cada decisión. Lo que no tiene " +
+      "importe queda contado aparte, no en cero.</td></tr>" +
+      '<tr><td style="white-space:nowrap"><b>6 · Informe</b></td><td>El cierre: estado, ' +
+      "decisiones, pendientes e impacto económico.</td></tr>" +
+      "</tbody></table>" +
+      "<p><b>Ninguna etapa bloquea a la siguiente.</b> El maestro general se puede ir " +
+      "completando mientras el análisis avanza con lo que ya hay.</p></div>" +
       '<div class="bloque"><h3>Ítems, unidades y casos: tres cosas distintas</h3>' +
       "<p>Son tres maneras de contar lo mismo y dan números muy distintos. Donde hay una " +
       "cifra, el sistema dice siempre de cuál se trata.</p>" +
@@ -2675,7 +4009,11 @@ var App = (function () {
     }
     document.querySelectorAll("#nav button").forEach(function (b) {
       b.addEventListener("click", function () {
-        if (b.dataset.vista === "revisar" && !estado.triage.length) return ir("inicio");
+        /* Entrar por el menú es empezar de nuevo: si quedó una tanda vieja
+           abierta, se suelta y se vuelve a preguntar qué se revisa. Antes esto
+           mandaba a Inicio sin decir nada, y la solapa parecía rota. */
+        if (b.dataset.vista === "revisar") { estado.cola = null; estado.triage = []; }
+        estado.sel = {};
         ir(b.dataset.vista); }); });
     document.getElementById("bTema").addEventListener("click", function () {
       var r = document.documentElement, hay = r.getAttribute("data-theme");

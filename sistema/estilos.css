@@ -40,6 +40,13 @@
   --s1:0 1px 2px rgba(0,0,0,.4); --s2:0 1px 3px rgba(0,0,0,.45),0 8px 24px -12px rgba(0,0,0,.6);
   --s3:0 24px 70px -18px rgba(0,0,0,.8);
 }
+/* El texto que va ENCIMA de un color pleno. No puede ser blanco fijo: en
+   oscuro los acentos son claros y el blanco sobre claro no se lee. */
+:root{ --sobreAcento:#ffffff; --sobreColor:#ffffff; }
+@media (prefers-color-scheme: dark){ :root:where(:not([data-theme="light"])){
+  --sobreAcento:#07121d; --sobreColor:#0d0d0c; } }
+:root[data-theme="dark"]{ --sobreAcento:#07121d; --sobreColor:#0d0d0c; }
+
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--tinta);
@@ -88,7 +95,8 @@ h2{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--tinta
   padding:9px 15px;cursor:pointer;font-size:14px;font-weight:500;white-space:nowrap;
   transition:border-color .12s,background .12s,color .12s;box-shadow:var(--s1)}
 .btn:hover{border-color:var(--tinta3)}
-.btn.pri{background:var(--acento);border-color:var(--acento);color:#fff;font-weight:650}
+.btn.pri{background:var(--acento);border-color:var(--acento);
+  color:var(--sobreAcento);font-weight:650}
 .btn.pri:hover{filter:brightness(1.1)}
 .btn.ok{border-color:var(--cA);color:var(--ok)}
 .btn.ok:hover{background:var(--cA-f)}
@@ -99,7 +107,6 @@ h2{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--tinta
 kbd{font:600 11px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   background:var(--sup3);border:1px solid var(--linea2);border-bottom-width:2px;
   border-radius:5px;padding:1px 6px;color:var(--tinta2);white-space:nowrap}
-.btn.pri kbd{background:rgba(255,255,255,.17);border-color:rgba(255,255,255,.3);color:#fff}
 
 /* ===================== cabecera de vista ===================== */
 .cabi{display:flex;gap:26px;align-items:flex-start;justify-content:space-between;
@@ -127,7 +134,8 @@ kbd{font:600 11px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
 .cola.listo{opacity:.68}
 .cola.apagada{opacity:.75;margin-top:14px;grid-template-columns:40px 1fr 150px}
 .cola.apagada::before{background:var(--cE)}
-.cnum{width:32px;height:32px;border-radius:50%;background:var(--cc,var(--acento));color:#fff;
+.cnum{width:32px;height:32px;border-radius:50%;background:var(--cct,var(--cc,var(--acento)));
+  color:var(--sobreColor);
   display:grid;place-items:center;font-weight:700;font-size:15px}
 .cola.listo .cnum{background:var(--ok)}
 .cola.apagada .cnum{background:var(--cE)}
@@ -215,7 +223,7 @@ kbd{font:600 11px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
 .cand.marcado{border-color:var(--sap);background:var(--sap-f)}
 .cmarca{flex:none;width:20px;height:20px;border-radius:6px;border:1.5px solid var(--linea2);
   background:var(--sup);display:grid;place-items:center;font-size:12px;font-weight:700;
-  color:#fff;margin-top:1px}
+  color:var(--sobreAcento);margin-top:1px}
 .cand.marcado .cmarca{background:var(--sap);border-color:var(--sap)}
 .ckey{flex:none;width:20px;height:20px;border-radius:5px;background:var(--sup3);
   color:var(--tinta3);display:grid;place-items:center;font-size:11px;font-weight:700;margin-top:1px}
@@ -448,7 +456,7 @@ input[type=text].cod:focus{outline:2px solid var(--acento2);outline-offset:-1px}
 .ruta .btn{margin-top:auto}
 .rtit{display:flex;gap:10px;align-items:center;font-size:15.5px;font-weight:650;
   letter-spacing:-.015em;line-height:1.3}
-.rnum{flex:none;width:23px;height:23px;border-radius:50%;color:#fff;font-size:12.5px;
+.rnum{flex:none;width:23px;height:23px;border-radius:50%;color:var(--sobreColor);font-size:12.5px;
   font-weight:700;display:flex;align-items:center;justify-content:center}
 .ruta.r1 .rnum{background:var(--cA)}
 .ruta.r2 .rnum{background:var(--cC)}
@@ -536,7 +544,8 @@ input[type=text].cod:focus{outline:2px solid var(--acento2);outline-offset:-1px}
 .dbot{background:var(--sup2);border:1px solid var(--linea2);border-radius:99px;
   padding:5px 12px;font-size:12px;cursor:pointer;color:var(--tinta2);white-space:nowrap}
 .dbot:hover{border-color:var(--tinta3);color:var(--tinta)}
-.dbot.on{background:var(--acento);border-color:var(--acento);color:#fff;font-weight:600}
+.dbot.on{background:var(--acento);border-color:var(--acento);
+  color:var(--sobreAcento);font-weight:600}
 .dfil{font-size:13px;color:var(--tinta2);margin-bottom:10px}
 .dfil b{color:var(--tinta)}
 .falta{margin:0;padding-left:19px;color:var(--tinta2);font-size:13.5px;line-height:1.65}
@@ -630,3 +639,258 @@ tr.clic:hover{background:var(--sup2)}
 .tequiv td{vertical-align:top}
 .tequiv .cbchip{display:inline-block;margin:0 3px 3px 0;max-width:220px;overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap;vertical-align:top}
+
+/* ===================================================================== */
+/* EL PANEL DE GESTIÓN                                                   */
+/* Inicio dejó de ser un tablero que manda a otras pantallas: la hoja de */
+/* ruta dice dónde está parado el trabajo, las solapas reemplazan a las  */
+/* siete tarjetas apiladas y la bandeja trae la decisión al alcance de   */
+/* un clic.                                                             */
+/* ===================================================================== */
+
+/* El texto de un botón de color no puede ser blanco fijo: en oscuro los
+   acentos son claros y el blanco sobre claro no se lee. Se calcula contra el
+   propio fondo del botón. */
+.btn.pri{color:var(--sobreAcento)}
+.btn.pri kbd{background:rgba(0,0,0,.14);border-color:rgba(0,0,0,.22);color:var(--sobreAcento)}
+
+/* ---- hoja de ruta ---- */
+.ruta2{background:var(--sup);border:1px solid var(--linea);border-radius:var(--r);
+  padding:15px 17px;margin-bottom:14px;box-shadow:var(--s1)}
+.r2cab{display:flex;align-items:center;justify-content:space-between;gap:14px;
+  flex-wrap:wrap;margin-bottom:13px}
+.r2cab b{display:block;font-size:17px;letter-spacing:-.01em}
+.r2pasos{list-style:none;display:grid;grid-template-columns:repeat(6,1fr);gap:8px;
+  margin:0;padding:0}
+.r2p{display:flex;gap:8px;align-items:flex-start;background:var(--sup2);
+  border:1px solid var(--linea);border-radius:var(--r2);padding:9px 10px}
+.r2p.listo{background:var(--cA-f);border-color:var(--cA)}
+.r2p.acá{border-color:var(--acento2);box-shadow:0 0 0 2px var(--acentoSuave)}
+.r2n{flex:none;width:21px;height:21px;border-radius:50%;background:var(--sup3);
+  color:var(--tinta2);display:grid;place-items:center;font-size:11px;font-weight:700}
+.r2p.listo .r2n{background:var(--cA);color:var(--sobreColor)}
+.r2p.acá .r2n{background:var(--acento);color:var(--sobreAcento)}
+.r2p b{display:block;font-size:12.5px;line-height:1.3}
+.r2d{display:block;font-size:11px;color:var(--tinta3);line-height:1.35;margin:3px 0 6px}
+.r2pct{font-size:10.5px;color:var(--tinta3);font-variant-numeric:tabular-nums}
+.r2p .pbar{height:3px;margin-bottom:3px}
+
+/* ---- alcance e indicadores ---- */
+.franja{display:flex;gap:16px;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;background:var(--sup);border:1px solid var(--linea);
+  border-radius:var(--r);padding:12px 16px;margin-bottom:12px;box-shadow:var(--s1)}
+.alcbot{display:flex;gap:6px;margin-top:5px;flex-wrap:wrap}
+.abot{background:var(--sup2);border:1px solid var(--linea2);border-radius:99px;
+  padding:6px 14px;font-size:13px;cursor:pointer;color:var(--tinta2);font-weight:500}
+.abot:hover{border-color:var(--tinta3);color:var(--tinta)}
+.abot.on{background:var(--acento);border-color:var(--acento);color:var(--sobreAcento);
+  font-weight:650}
+.inds{display:flex;gap:22px;flex-wrap:wrap}
+.indi{text-align:right}
+.indi b{display:block;font-size:24px;letter-spacing:-.02em;line-height:1.1;
+  font-variant-numeric:tabular-nums}
+.indi span{font-size:11px;color:var(--tinta3)}
+.indi.pend b{color:var(--cD)} .indi.ok b{color:var(--ok)}
+
+/* ---- solapas de segmento ---- */
+.segs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.seg{display:flex;align-items:center;gap:8px;background:var(--sup);
+  border:1px solid var(--linea);border-radius:99px;padding:7px 14px 7px 8px;
+  cursor:pointer;font-size:13px;color:var(--tinta2);font-weight:500}
+.seg:hover{border-color:var(--tinta3)}
+.seg.on{border-color:var(--cc);background:var(--sup);box-shadow:0 0 0 2px var(--cc) inset,
+  var(--s1);color:var(--tinta);font-weight:650}
+.seg.vacio{opacity:.55}
+.segn{width:20px;height:20px;border-radius:50%;background:var(--cc);color:var(--sobreColor);
+  display:grid;place-items:center;font-size:11px;font-weight:700;flex:none}
+.segc{font-variant-numeric:tabular-nums;font-weight:700;color:var(--tinta);
+  background:var(--sup3);border-radius:99px;padding:1px 8px;font-size:12px}
+.seg.on .segc{background:var(--cc);color:var(--sobreColor)}
+
+.segcab{display:flex;gap:16px;align-items:flex-start;justify-content:space-between;
+  flex-wrap:wrap;margin-bottom:12px}
+.segcab h1{margin-bottom:5px}
+.segacc{display:flex;gap:8px;flex-wrap:wrap}
+.filtros.chicos{margin-bottom:10px}
+.fcuenta{font-size:12px;color:var(--tinta3);align-self:center;
+  font-variant-numeric:tabular-nums}
+
+/* ---- barra de lote ---- */
+.lotebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  background:var(--sup2);border:1px solid var(--linea);border-radius:var(--r2);
+  padding:9px 13px;margin-bottom:12px;font-size:13px}
+.lotebar.activa{background:var(--acentoSuave);border-color:var(--acento2)}
+.ltodos{display:flex;align-items:center;gap:7px;cursor:pointer;color:var(--tinta2)}
+.lhint{color:var(--tinta3);font-size:12px}
+.lsep{flex:1}
+
+/* ---- la bandeja de tarjetas ---- */
+.bandeja{display:flex;flex-direction:column;gap:10px}
+.tj{display:flex;gap:11px;background:var(--sup);border:1px solid var(--linea);
+  border-radius:var(--r);padding:13px 15px;box-shadow:var(--s1)}
+.tj.elegida{border-color:var(--acento2);box-shadow:0 0 0 2px var(--acentoSuave)}
+.tjchk{flex:none;padding-top:2px}
+.tjc{flex:1;min-width:0}
+.tjcab{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:10px}
+.tjnom{font-size:15.5px;letter-spacing:-.01em}
+.tjb{font-size:12px;color:var(--tinta3)}
+.tjobs{font-size:11px;color:var(--cC);border:1px solid var(--cC);border-radius:99px;
+  padding:1px 8px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* Las dos fuentes, siempre distinguibles de un vistazo y nunca mezcladas. */
+.fuentes{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:10px}
+.fte{border:1px solid;border-radius:var(--r2);padding:9px 11px;min-width:0}
+.fte.fis{border-color:var(--fis-b);background:var(--fis-f)}
+.fte.sap{border-color:var(--sap-b);background:var(--sap-f)}
+.fte.vacia{opacity:.85}
+.fteh{display:block;font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;
+  font-weight:700;margin-bottom:6px}
+.fte.fis .fteh{color:var(--fis)} .fte.sap .fteh{color:var(--sap)}
+.ftenom{font-weight:650;font-size:13.5px;line-height:1.35;margin-bottom:6px;
+  overflow-wrap:anywhere}
+.ftev{font-size:12.5px;color:var(--tinta2);margin:0;line-height:1.5}
+.fted{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:0;font-size:12px}
+.fted dt{color:var(--tinta3);white-space:nowrap}
+.fted dd{margin:0;color:var(--tinta);overflow-wrap:anywhere}
+
+.tjpor{font-size:12.5px;color:var(--tinta2);margin:0 0 9px;line-height:1.5}
+.tjpor .k{display:block;margin-bottom:1px}
+.tjpreg{font-size:14.5px;font-weight:600;margin:0 0 10px;line-height:1.45;
+  letter-spacing:-.005em}
+.tjacc{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.btn.fant{background:transparent;border-color:transparent;color:var(--tinta3);
+  text-decoration:underline;text-underline-offset:3px}
+.btn.fant:hover{color:var(--tinta);border-color:transparent}
+.tjsel2{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--tinta3)}
+.tjsel2 select{font-size:12.5px;padding:5px 8px;border-radius:7px;
+  border:1px solid var(--linea2);background:var(--sup);color:var(--tinta)}
+.tjhist{font-size:11.5px;color:var(--tinta3);margin:9px 0 0;line-height:1.45}
+.finito.chico{padding:34px 20px}
+.finito.chico h2{font-size:15px;letter-spacing:0;text-transform:none;color:var(--tinta2)}
+.pieaviso{font-size:12.5px;color:var(--tinta3);line-height:1.6;margin:18px 0 0;
+  max-width:95ch}
+.pieaviso b{color:var(--tinta2)}
+
+/* ---- elegir qué revisar ---- */
+.elegir{display:flex;flex-direction:column;gap:8px}
+.eleg{display:flex;align-items:center;gap:13px;text-align:left;background:var(--sup);
+  border:1px solid var(--linea);border-left:4px solid var(--cc);border-radius:var(--r);
+  padding:13px 16px;cursor:pointer;box-shadow:var(--s1);color:var(--tinta)}
+.eleg:hover{border-color:var(--tinta3);border-left-color:var(--cc)}
+.eleg[disabled]{opacity:.45;cursor:default}
+.elegn{flex:none;width:28px;height:28px;border-radius:50%;background:var(--cc);
+  color:var(--sobreColor);display:grid;place-items:center;font-weight:700;font-size:13px}
+.elegt{flex:1;min-width:0}
+.elegt b{display:block;font-size:14.5px;margin-bottom:2px}
+.elegt .mini{display:block;max-width:85ch}
+.elegc{flex:none;text-align:right;font-size:22px;font-weight:700;
+  font-variant-numeric:tabular-nums;line-height:1}
+.elegc small{display:block;font-size:10.5px;font-weight:400;color:var(--tinta3)}
+
+/* ---- alcance de una decisión en lote ---- */
+.mcaja.ancha{max-width:620px}
+.lalc{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:14px 0}
+.lalci{background:var(--sup2);border:1px solid var(--linea);border-radius:var(--r2);
+  padding:10px;text-align:center}
+.lalci b{display:block;font-size:21px;font-variant-numeric:tabular-nums;line-height:1.15}
+.lalci span{font-size:10.5px;color:var(--tinta3)}
+.ldet{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:12.5px;margin:0 0 14px}
+.ldet dt{color:var(--tinta3)} .ldet dd{margin:0}
+.lfuera{margin:7px 0 0;padding-left:17px;font-size:12.5px;line-height:1.6}
+.lfuera .mini{display:inline}
+.aviso.grave{border-color:var(--cC);background:var(--cC-f)}
+.mchk{display:flex;align-items:center;gap:8px;margin-top:10px;font-weight:600;
+  cursor:pointer;color:var(--tinta)}
+
+@media (max-width:1100px){
+  .r2pasos{grid-template-columns:repeat(3,1fr)}
+  .fuentes{grid-template-columns:1fr}
+  .lalc{grid-template-columns:repeat(2,1fr)}
+}
+
+/* ---- Maestro, por solapas ---- */
+.mtabs{display:flex;gap:4px;border-bottom:1px solid var(--linea);margin-bottom:16px;
+  flex-wrap:wrap}
+.mtab{background:none;border:none;border-bottom:2px solid transparent;padding:9px 14px;
+  font-size:14px;font-weight:500;color:var(--tinta2);cursor:pointer;margin-bottom:-1px}
+.mtab:hover{color:var(--tinta)}
+.mtab.on{color:var(--acento);border-bottom-color:var(--acento);font-weight:650}
+.kpi.fijo{cursor:default}
+.kpi.fijo:hover{border-color:var(--linea)}
+.btnarch{position:relative;overflow:hidden;display:inline-flex;align-items:center;
+  background:var(--sup);border:1px solid var(--linea2);border-radius:9px;
+  padding:9px 15px;cursor:pointer;font-size:14px;font-weight:500;color:var(--tinta)}
+.btnarch:hover{border-color:var(--tinta3)}
+.btnarch input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
+#mMsg{margin-top:9px;line-height:1.6}
+#mMsg .ok{color:var(--ok);font-weight:650}
+#mMsg .mal{color:var(--alerta);font-weight:650}
+tr.tot td{border-top:2px solid var(--linea2);font-weight:650}
+
+/* ===================================================================== */
+/* CONTRASTE                                                             */
+/* Medido, no estimado: un recorrido automático mide cada texto contra   */
+/* el fondo que de verdad tiene detrás, en los dos temas, y lo que baja  */
+/* del mínimo de la WCAG (4.5:1, o 3:1 en texto grande) se corrige acá.  */
+/* El color de un texto sobre un color pleno no puede ser blanco fijo:   */
+/* en oscuro los acentos son claros y el blanco sobre claro no se lee.   */
+/* ===================================================================== */
+:root{
+  --tinta3:#6b6960;                       /* 5.5:1 sobre blanco, 4.7:1 sobre gris */
+  --cA-t:#0e8a5e; --cB-t:#1b5fb0; --cC-t:#b84a18; --cD-t:#4a39b5; --cE-t:#6b6a64;
+}
+@media (prefers-color-scheme: dark){ :root:where(:not([data-theme="light"])){
+  --tinta3:#9d9c92;                       /* 5.2–6.3:1 sobre los fondos oscuros */
+  --cE:#86857d;                           /* para que el número en negro se lea */
+  --cA-t:#34c397; --cB-t:#62a8f0; --cC-t:#f07c47; --cD-t:#a79ef2; --cE-t:#a3a29a;
+} }
+:root[data-theme="dark"]{
+  --tinta3:#9d9c92; --cE:#86857d;
+  --cA-t:#34c397; --cB-t:#62a8f0; --cC-t:#f07c47; --cD-t:#a79ef2; --cE-t:#a3a29a;
+}
+/* Las etiquetas de clasificación llevan el tono legible, no el pleno. */
+.et.A,.estado.ap{color:var(--cA-t)} .et.B{color:var(--cB-t)}
+.et.C{color:var(--cC-t)} .et.D{color:var(--cD-t)} .et.E,.et.F{color:var(--cE-t)}
+.alm.ok,.marcaest.ok,.btn.ok,.cnota.ok{color:var(--cA-t)}
+.estado.re,.exc,.mal{color:var(--cC-t)}
+/* El número dentro de un círculo de color: tinta oscura en los dos temas,
+   porque todos los círculos son colores medios o claros. */
+.segn,.elegn,.cmarca{color:var(--sobreColor)}
+.seg.on .segc{color:var(--sobreColor)}
+.btn.pri kbd{background:rgba(0,0,0,.2);border-color:rgba(0,0,0,.28);
+  color:var(--sobreAcento)}
+.ckey{color:var(--tinta2)}
+.r2p.listo .r2d,.r2p.listo .r2pct{color:var(--tinta2)}
+
+/* El informe es un documento para imprimir: va siempre en blanco con tinta
+   negra, en los dos temas. En oscuro se veía texto claro sobre papel claro. */
+#v-informe{color-scheme:light;
+  --bg:#f5f5f3; --sup:#ffffff; --sup2:#f7f7f4; --sup3:#eeeeea;
+  --linea:#e6e5e0; --linea2:#d5d4ce;
+  --tinta:#13120f; --tinta2:#55534d; --tinta3:#6b6960;
+  --acento:#1F4E78; --acento2:#2a78d6; --acentoSuave:#eaf1fa;
+  --cA:#1baf7a; --cB:#2a78d6; --cC:#eb6834; --cD:#6250d6; --cE:#9b9a94;
+  --cA-f:#e6f6f0; --cB-f:#e9f1fc; --cC-f:#fdeee7; --cD-f:#eeecfb; --cE-f:#f0f0ed;
+  --cA-t:#0e8a5e; --cB-t:#1b5fb0; --cC-t:#b84a18; --cD-t:#4a39b5; --cE-t:#6b6a64;
+  --fis:#0f7f58; --fis-f:#edf8f3; --fis-b:#bfe6d6;
+  --sap:#1d5fae; --sap-f:#edf3fb; --sap-b:#c3d8f0;
+  --ok:#0f7f58; --alerta:#b8431f;
+  --sobreAcento:#ffffff; --sobreColor:#ffffff;
+  color:var(--tinta)}
+#v-informe .k,#v-informe .d,#v-informe .pp,#v-informe .mini{color:var(--tinta2)}
+
+/* El círculo numerado lleva el tono que aguanta texto encima (--cct), no el
+   pleno: el pleno sirve para bordes y barras, donde nada se lee arriba. */
+:root{ --cA-t:#0b6b48; }
+#v-informe{ --cA-t:#0b6b48; }
+.segn,.elegn{background:var(--cct,var(--cc))}
+.e-coincide .marcaest{color:var(--cA-t)}
+.e-difiere .marcaest{color:var(--cC-t)}
+.cmarca{color:var(--sobreAcento)}
+.seg.on .segc{background:var(--cct,var(--cc))}
+.r2p.listo .r2n{background:var(--cA-t)}
+.ruta.r1 .rnum{background:var(--cA-t)}
+.ruta.r2 .rnum{background:var(--cC-t)}
+.ckey{background:var(--sup3);border:1px solid var(--linea2)}
+.cand.marcado .ckey{background:var(--sup);border-color:var(--acento)}

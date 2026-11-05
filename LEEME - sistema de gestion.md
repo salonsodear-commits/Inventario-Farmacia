@@ -69,28 +69,71 @@ INVSAP_AUTH=off node servidor/servidor.js
 
 ## Cómo trabajar
 
-El sistema está armado como un **flujo de trabajo**, no como un listado. No hay que
-decidir por dónde empezar: la pantalla de inicio lo dice.
+El sistema está armado como un **proceso guiado**, no como un listado. No hay que decidir
+por dónde empezar: la pantalla de inicio lo dice.
 
-1. Entrá con tu cuenta de Emergencias. Tu nombre queda en cada decisión que
-   tomes: no hay campo que completar, y por eso el registro es confiable.
-2. **Inicio** muestra el trabajo en siete grupos, numerados por prioridad, cada uno con
-   cuántos quedan pendientes y su barra de avance. Arriba a la derecha, el avance general.
-3. En cada grupo hay dos formas de trabajar:
-   - **Revisar de a uno** → modo revisión: un caso por pantalla, con los candidatos
-     listados y los botones de decisión al lado. Se decide con el teclado y pasa solo al
-     siguiente.
-   - **Decidir en lote** → para los grupos grandes: elegís las bases y resolvés cientos
-     de casos de una vez, con una observación común.
-4. **Buscar** es para encontrar algo puntual. También tiene casillas de selección y
-   acciones en lote sobre lo seleccionado.
-5. Al terminar, **Descargar Excel**.
+1. Entrá con tu cuenta de Emergencias. Tu nombre queda en cada decisión que tomes: no hay
+   campo que completar, y por eso el registro es confiable.
+2. **Inicio es el panel de gestión.** Arriba, la **hoja de ruta**: seis etapas, en qué
+   etapa está el proceso, cuánto avanzó cada una y cuál es el próximo paso concreto.
+3. Elegí el **alcance**: las tres bases o una sola. Todo lo que está abajo lo respeta —los
+   indicadores, los pendientes y las decisiones en lote—.
+4. Elegí una **solapa**. Son los siete grupos de siempre, en el mismo orden de prioridad,
+   ahora como solapas de una única bandeja en vez de siete tarjetas apiladas.
+5. Abajo aparece **cada caso como una pregunta**, con lo que dice el depósito de un lado,
+   lo que dice SAP del otro, por qué el sistema lo levantó, y las respuestas posibles como
+   botones. **Se contesta con un clic**, sin entrar a ninguna pantalla.
+6. Para resolver muchos juntos: tildá los que quieras —o «elegir los N del filtro»— y usá
+   la barra de arriba. Antes de aplicar, el sistema muestra **a cuántos materiales, bases y
+   almacenes alcanza** y cuáles de los elegidos no cumplen las condiciones.
+7. Al terminar, **Descargar Excel**.
 
-### El modo revisión
+### Qué hace cada solapa de arriba
 
-Es donde se hace el trabajo de verdad. Muestra un caso por pantalla con todo lo necesario
-para decidir: la cantidad contada, la presentación detectada, por qué el caso llegó ahí, y
-los candidatos de SAP con **en qué coincide cada uno**. Debajo, los descartados con el
+| | |
+|---|---|
+| **Inicio** | Donde se gestiona: estado, filtros, decisiones de a una o en lote, por base o integral. Es el panel central. |
+| **Revisar** | El modo de a uno: un caso por pantalla, con el teclado. Para avanzar rápido sobre un grupo entero y para los casos que necesitan elegir entre varios códigos. |
+| **Buscar** | Encontrar un material puntual y ver su ficha. No es otro panel de gestión. |
+| **Maestro** | La administración del catálogo: el maestro general con los importes de última compra, las equivalencias declaradas, el almacén propuesto de cada base y los materiales sin stock. **No se deciden casos acá.** |
+| **Informe** | El informe ejecutivo con el estado actualizado. |
+| **Cómo se usa** | Esto mismo, dentro del sistema. |
+
+### La hoja de ruta
+
+Seis etapas, en el orden en que conviene hacerlas. **El avance se calcula del estado real
+del sistema**: no hay ningún porcentaje puesto a mano.
+
+| | Etapa | Qué mide |
+|---|---|---|
+| 1 | Carga y validación | Los tres inventarios físicos y la bajada de SAP, con los controles que tienen que cuadrar contra las fuentes. |
+| 2 | Maestro y trazabilidad | Cuántas nomenclaturas del depósito ya tienen resuelto su código de SAP. |
+| 3 | Cruce de inventarios | Cada inventario contra los almacenes de SAP de su base. |
+| 4 | Toma de decisiones | Cuántos casos del alcance ya se decidieron. |
+| 5 | Evaluación económica | Cuántos materiales tienen importe de última compra cargado. |
+| 6 | Informe final | Se cierra cuando no queda nada pendiente. |
+
+**Ninguna etapa bloquea a la siguiente.** El maestro general se puede completar mientras el
+análisis avanza con lo que ya hay: esperar a tenerlo todo sería no empezar nunca.
+
+### El orden importa: trazabilidad antes del cruce definitivo
+
+La etapa 2 va antes de la 3 por una razón de fondo. Cruzar el inventario de una base contra
+los almacenes de SAP usando una correspondencia dudosa **arrastra la duda a todo lo que
+sigue**: una baja propuesta sobre un código que en realidad era otro producto es una baja
+mal propuesta, y nadie la va a poder distinguir después.
+
+Por eso los casos sin trazabilidad resuelta quedan identificados y se gestionan aparte, sin
+bloquear al resto del análisis. Y **una equivalencia confirmada vale para todas las bases**:
+no hay que resolverla tres veces.
+
+### El modo de a uno
+
+Es donde se resuelve lo que no se puede contestar con un clic: elegir entre varios códigos
+de SAP, declarar equivalencias, cargar el resultado de una verificación en el maestro.
+Muestra un caso por pantalla con todo lo necesario para decidir: la cantidad contada, la
+presentación detectada, por qué el caso llegó ahí, y los candidatos de SAP con **en qué
+coincide cada uno** y **en qué almacén tienen el stock**. Debajo, los descartados con el
 motivo.
 
 Atajos: <kbd>1</kbd>…<kbd>9</kbd> marcar un código · <kbd>Enter</kbd> confirmar lo marcado ·
@@ -99,6 +142,31 @@ Atajos: <kbd>1</kbd>…<kbd>9</kbd> marcar un código · <kbd>Enter</kbd> confir
 completa.
 
 Después de cada decisión pasa solo al siguiente. Una tanda de 50 casos lleva pocos minutos.
+
+### Análisis por base e integral
+
+La misma decisión vale en los dos lados, porque es el mismo registro: lo que cambia es qué
+se ve, nunca dónde se guarda. Si trabajás con el alcance en Neuquén y aprobás 300 casos,
+esos 300 aparecen en el análisis integral sin hacer nada.
+
+Lo que **no** hace el sistema es aplicar una decisión global cuando las bases tienen
+situaciones distintas. Un mismo material puede estar bien ubicado en una base y mal en
+otra, y cada caso es la combinación de un material con una base: por eso se deciden por
+separado y el resumen del lote dice siempre a qué bases y almacenes alcanza.
+
+### Decisiones en lote: qué se muestra antes de aplicar
+
+| | |
+|---|---|
+| **Cuántos casos** | Los que cumplen las condiciones de esa decisión. |
+| **Cuántos materiales de SAP** | Sin duplicar por base ni por almacén. |
+| **Qué bases y qué almacenes** | Listados, no contados nada más. |
+| **Qué queda registrado** | La frase exacta que va al historial. |
+| **Qué queda afuera** | Los elegidos que no cumplen, **con el motivo de cada uno**. |
+
+Las decisiones que pueden dejar algo difícil de revertir —dar de baja un registro del
+maestro, crear un material sin verificar, ajustar stock, aprobar bajas— piden además una
+confirmación expresa. Las demás, no: avisar de todo es no avisar de nada.
 
 ### Una nomenclatura no corresponde a una sola: los dos sentidos
 
@@ -200,7 +268,37 @@ El resultado de la alternativa 1 se carga después, cuando se tenga la respuesta
 maestro: *no existe* (se propone el alta), *existe sin stock y se reutiliza el código*, o
 *existe sin stock, se da de baja y se crea de nuevo*.
 
-### La solapa «Maestro»: depuración de los materiales sin stock
+### La solapa «Maestro»: la administración del catálogo
+
+Maestro tiene cuatro apartados y ninguno decide casos: eso es Inicio. Acá se administra
+**lo que es cada material**, no qué se hace con cada diferencia.
+
+**Maestro general.** Una fila por **código de SAP**, reuniendo todo lo que se sabe de él:
+la bajada de SAP, los candidatos del análisis, lo que quedó identificado en los
+inventarios y el maestro que se importe. **No se duplica** por aparecer en varias bases ni
+en varios almacenes. Los ítems del depósito que todavía no tienen código van aparte,
+porque todavía no son un material de SAP.
+
+La planilla se **baja en Excel** con tres columnas obligatorias —Código SAP, Nomenclatura
+SAP e Importe última compra—, se completa el importe afuera y **se vuelve a subir el mismo
+archivo**. También acepta CSV. La importación:
+
+- busca las columnas por nombre, así que no importa si alguien agregó o movió alguna;
+- informa cuántos importes entraron nuevos, cuántos se actualizaron, cuántas filas venían
+  vacías y **cuáles se rechazaron, con el motivo**;
+- avisa si hay códigos que no figuran en el análisis, sin descartarlos;
+- **no toca ninguna decisión ni ninguna equivalencia.**
+
+**Equivalencias de nomenclatura.** Los grupos ya declarados, con los dos lados y el
+sentido de cada uno. Se declaran al resolver un caso, en Inicio; una vez confirmada, la
+equivalencia vale para todas las bases.
+
+**Almacenes por base.** Lo observado y lo propuesto, separados, con la confianza de cada
+propuesta explicada: cuando dice «Ambigua» dice también **qué es lo ambiguo** —que hay más
+de un almacén con stock de ese tipo en la base y de los datos no sale cuál debería ser;
+lo ambiguo es el almacén, no el material ni su código—.
+
+### Materiales sin stock: depuración del maestro
 
 Los materiales que figuran en SAP con **existencia cero** no son candidatos a baja de
 stock —no hay stock que dar de baja— sino **registros del maestro** sobre los que hay que
@@ -370,9 +468,19 @@ ningún total. No se estimó ningún precio.
 Lo que sí se muestra, siempre rotulado como tal, es la valorización de stock de SAP.
 **No es lo mismo** y no debe presentarse como precio de compra.
 
-**Para completarla**, hace falta una bajada por material con: código SAP, precio
-unitario, moneda, fecha de la compra, documento de respaldo y proveedor. El sistema la
-admite y recalcula solo; las fórmulas del Excel ya están puestas para eso.
+**Ya hay por dónde cargarlo.** En **Maestro → Maestro general** se baja la planilla con
+los 1.038 códigos, se completa la columna «Importe última compra» y se vuelve a subir. En
+cuanto entra, el sistema calcula el impacto económico de las decisiones tomadas:
+
+- **Cómo se calcula:** unidades del caso × importe de última compra del material decidido.
+  Las unidades son las **contadas en el depósito** para los ítems físicos y las de **stock
+  en SAP** para los materiales que ningún inventario identificó.
+- **Sólo lo ya decidido** suma: una decisión que todavía no se tomó no vale plata.
+- Un caso sin importe **no suma cero**: queda contado aparte como pendiente de valorizar.
+  Un cero sería una afirmación falsa sobre su valor.
+
+Para que el dato sea auditable conviene que la bajada traiga además moneda, fecha de la
+compra, documento de respaldo y proveedor.
 
 ### 2. Las altas y las bajas son propuestas, no acciones
 

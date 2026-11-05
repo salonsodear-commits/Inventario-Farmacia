@@ -334,6 +334,56 @@ ok(all(x["fuertes"] or x["parecido"] >= 0.72 for v in eq.values() for x in v),
 ok(all(x["id"] in eq and any(y["id"] == a for y in eq[x["id"]])
        for a, v in eq.items() for x in v),
    "las equivalencias son simétricas: valen en los dos sentidos")
+# El panel de gestión: que Inicio sea donde se decide y no un tablero que
+# obliga a entrar a otro lado.
+for frase, titulo in [
+    ("Hoja de ruta", "Inicio abre con la hoja de ruta"),
+    ("Alcance del análisis", "se puede acotar el análisis a una base"),
+    ("Por qué aparece acá", "cada caso dice por qué el sistema lo levantó"),
+    ("tjpreg", "cada caso se presenta como una pregunta concreta"),
+    ("Antes de aplicar, esto es a lo que alcanza",
+     "una decisión en lote muestra su alcance antes de ejecutarse"),
+    ("no cumplen las condiciones y quedan afuera",
+     "y dice qué registros quedan afuera"),
+    ("Entiendo el alcance", "las decisiones de riesgo piden confirmación expresa"),
+    ("¿Qué querés revisar?", "Revisar desde el menú ofrece elegir el grupo"),
+    ("Maestro general", "Maestro tiene el maestro general unificado"),
+    ("Importe última compra", "con el importe de última compra"),
+    ("Equivalencias de nomenclatura", "y las equivalencias declaradas"),
+    ("Almacenes por base", "y la propuesta de almacén por base"),
+    ("Lo ambiguo es el almacén", "«Ambigua» explica qué es lo ambiguo"),
+    ("ajuste de stock, no un alta",
+     "el sistema distingue el ajuste de stock del alta de un material"),
+    ("¿En qué almacén tiene que cuadrar?",
+     "y el ajuste contempla el almacén donde tiene que cuadrar"),
+    ("pendiente de valorizar",
+     "lo que no tiene importe se informa como pendiente, no como cero"),
+    ("INVENTARIO FÍSICO", "los bloques distinguen el inventario físico"),
+]:
+    ok(frase.lower() in h.lower(), titulo)
+
+# El modo oscuro: que ninguna pieza se defina con texto blanco fijo sobre un
+# color que en oscuro es claro.
+css = io.open(RAIZ + "sistema/estilos.css", encoding="utf-8").read()
+ok("--sobreAcento" in css and "--sobreColor" in css,
+   "el texto sobre un color se calcula, no se fija en blanco")
+ok(css.count("prefers-color-scheme: dark") >= 3,
+   "el modo oscuro redefine la paleta completa")
+ok("#v-informe{color-scheme:light" in css.replace(" ", ""),
+   "el informe se imprime en blanco con tinta negra en los dos temas")
+import re as _re
+pri = _re.search(r"\.btn\.pri\{[^}]*\}", css)
+ok(bool(pri) and "color:#fff" not in (pri.group(0) if pri else ""),
+   "el botón primario no lleva blanco fijo")
+
+# Una sola implementación de cada decisión.
+ap = io.open(RAIZ + "sistema/app.js", encoding="utf-8").read()
+ok("function aplicar(c, a, ctx)" in ap, "las decisiones tienen una sola implementación")
+ok(ap.count("almacen_decision:") == 1,
+   "la decisión de ubicación se escribe en un solo lugar",
+   "%d lugares" % ap.count("almacen_decision:"))
+ok("COMPARTIDAS[a]" in ap, "la ficha usa esa misma implementación")
+
 ubic = m["almacenes"].get("ubicacion", {})
 ok(len(ubic) > 0, "el dataset dice en qué almacén figura cada material por base",
    "%d pares base|material" % len(ubic))

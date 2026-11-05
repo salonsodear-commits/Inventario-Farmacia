@@ -628,7 +628,10 @@ var Informe = (function () {
       desactualizadas apenas se toma la primera decisión. El detalle vive donde se puede
       filtrar, ordenar y actualizar.</p>` +
       tabla(["Si hace falta…", "Dónde está"], [
+        ["Tomar las decisiones", "En el <b>sistema</b>, solapa «Inicio»: cada caso aparece como una pregunta concreta, con lo que dice el depósito de un lado y lo que dice SAP del otro, y se contesta con un clic. Se puede acotar a una base, filtrar y decidir en lote."],
+        ["Saber por dónde va el proceso", "En «Inicio», la <b>hoja de ruta</b>: seis etapas con el avance calculado del estado real y la próxima acción recomendada."],
         ["Ver un material puntual con toda su justificación", "En el <b>sistema</b>, solapa «Buscar»: filtra por base, tipo, clasificación, almacén, estado y texto libre. Cada ficha trae la comparación característica por característica."],
+        ["Cargar el importe de última compra", "En el sistema, <b>Maestro → Maestro general</b>: se baja la planilla con un renglón por código de SAP, se completa la columna del importe y se vuelve a subir el mismo archivo."],
         ["Trabajar una lista completa en Excel", "En el archivo <b>«Inventario fisico vs SAP - analisis.xlsx»</b>, hoja «Casos»: una fila por caso, " + num(50) + " columnas, con autofiltro y fórmulas vivas."],
         ["Una lista por clasificación", "Mismo Excel, hojas «A Identificados», «B Verificar en el maestro», «C Propuestas de baja», «D A revisar», «E Fuera del alcance» y «F Maestro sin stock»."],
         ["Qué nomenclaturas quedaron declaradas equivalentes", "Excel, hoja «Equivalencias»: los nombres del depósito de un lado, los códigos de SAP del otro, y en qué sentido va cada grupo."],
@@ -675,9 +678,12 @@ var Informe = (function () {
         revisión</b> antes que el resto, porque pueden dejar de ser bajas.</li>
         <li><b>Definir la política de depuración del maestro</b> sobre los
         ` + num(t.F) + ` materiales sin stock a la vista, con sus excepciones.</li>
-        <li><b>Conseguir el precio de última compra.</b> Es lo único que impide valorizar:
-        hace falta una bajada por material con precio unitario, fecha y documento. Con eso el
-        sistema valoriza los ` + num(k.pendientes_valorizacion) + ` casos sin más trabajo.</li>
+        <li><b>Conseguir el precio de última compra.</b> Es lo único que impide valorizar.
+        El sistema ya tiene por dónde cargarlo: en <i>Maestro → Maestro general</i> se baja
+        una planilla con un renglón por código de SAP, se completa la columna del importe y
+        se vuelve a subir el mismo archivo. Con eso valoriza los
+        ` + num(k.pendientes_valorizacion) + ` casos sin más trabajo, y lo que quede sin
+        importe se informa como pendiente, nunca como cero.</li>
         <li><b>Recién después, aprobar las ` + num(t.C) + ` bajas restantes</b> y elevar el
         paquete para su ejecución en SAP.</li>
       </ol>`, "Parte 3");
@@ -832,8 +838,8 @@ var Informe = (function () {
   }
 
   var ESTILO = `<style>
-  .informe{--ia:#1F4E78;--itx:#111;--itx2:#444;--itx3:#777;--ilin:#d8d7d2;
-    --iA:#0f7f58;--iB:#1d5fae;--iC:#b8431f;--iD:#4a3bb5;--iE:#777;--iF:#0e6b73;
+  .informe{--ia:#1F4E78;--itx:#111;--itx2:#444;--itx3:#6f6f6f;--ilin:#d8d7d2;
+    --iA:#0f7f58;--iB:#1d5fae;--iC:#b8431f;--iD:#4a3bb5;--iE:#6b6b6b;--iF:#0e6b73;
     background:#e9e9e6;padding:16px 0;color:var(--itx)}
   .informe *{box-sizing:border-box}
   .hoja{width:210mm;min-height:297mm;background:#fff;margin:0 auto 14px;padding:18mm 16mm 16mm;
