@@ -104,14 +104,20 @@ por dónde empezar: la pantalla de inicio lo dice.
 Seis etapas, en el orden en que conviene hacerlas. **El avance se calcula del estado real
 del sistema**: no hay ningún porcentaje puesto a mano.
 
+**Tres las hace el sistema y tres las decidís vos.** Por eso al abrir no estás en la etapa
+1: leer los tres inventarios, cruzarlos contra SAP y clasificar las 1.991 diferencias ya
+está hecho. **Tu trabajo empieza en la etapa 2**, y la hoja de ruta lo dice arriba de todo,
+con la próxima acción concreta al lado. La primera vez se abre sola una guía de arranque;
+después queda en el botón **«¿Cómo se usa esto?»**.
+
 | | Etapa | Qué mide |
 |---|---|---|
-| 1 | Carga y validación | Los tres inventarios físicos y la bajada de SAP, con los controles que tienen que cuadrar contra las fuentes. |
-| 2 | Maestro y trazabilidad | Cuántas nomenclaturas del depósito ya tienen resuelto su código de SAP. |
-| 3 | Cruce de inventarios | Cada inventario contra los almacenes de SAP de su base. |
-| 4 | Toma de decisiones | Cuántos casos del alcance ya se decidieron. |
-| 5 | Evaluación económica | Cuántos materiales tienen importe de última compra cargado. |
-| 6 | Informe final | Se cierra cuando no queda nada pendiente. |
+| 1 | Lo que entró · *lo hace el sistema* | Los tres inventarios físicos y la bajada de SAP, con los controles que tienen que cuadrar contra las fuentes. |
+| 2 | Qué es cada cosa · *lo decidís vos* | Cuántas nomenclaturas del depósito ya tienen resuelto su código de SAP. |
+| 3 | El cruce · *lo hace el sistema* | Cada inventario contra los almacenes de SAP de su base. |
+| 4 | Qué se hace · *lo decidís vos* | Cuántos casos del alcance ya se decidieron. |
+| 5 | Cuánto representa · *lo decidís vos* | Cuántos materiales tienen importe de última compra cargado. |
+| 6 | El cierre · *lo hace el sistema* | Se cierra cuando no queda nada pendiente. |
 
 **Ninguna etapa bloquea a la siguiente.** El maestro general se puede completar mientras el
 análisis avanza con lo que ya hay: esperar a tenerlo todo sería no empezar nunca.

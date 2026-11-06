@@ -959,6 +959,35 @@ tr.tot td{border-top:2px solid var(--linea2);font-weight:650}
   background:var(--sup);color:var(--tinta);font-size:13.5px;min-width:160px}
 .destino .mini{display:block;max-width:86ch}
 
+/* ---- la hoja de ruta, explicada ---- */
+.r2cab b{display:block;font-size:17px;letter-spacing:-.01em}
+.r2donde{display:block;font-size:12.5px;color:var(--tinta2);font-weight:400;margin-top:2px}
+.r2donde b{display:inline;font-size:12.5px;font-weight:650;color:var(--tinta)}
+.r2acc{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.r2sis{font-size:12.5px;color:var(--tinta2);line-height:1.55;margin:0 0 12px;
+  background:var(--sup2);border:1px solid var(--linea);border-radius:var(--r2);
+  padding:9px 12px;max-width:none}
+.r2sis b{color:var(--tinta)}
+.r2quien{display:block;font-size:10px;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--tinta3);margin:2px 0 3px;font-weight:600}
+.r2p.auto{background:var(--sup2)}
+.r2p.auto .r2n{background:var(--sup3);color:var(--tinta3)}
+.r2p.listo.auto .r2n{background:var(--cA-t);color:var(--sobreColor)}
+.r2p.acá .r2quien{color:var(--acento)}
+
+/* ---- por qué este grupo ahora ---- */
+.segpq{font-size:12.5px;color:var(--tinta2);line-height:1.55;margin:8px 0 0;
+  max-width:92ch;border-left:3px solid var(--linea2);padding-left:11px}
+.segpq .k{display:block;margin-bottom:1px}
+.segpq b{color:var(--tinta)}
+.finito.chico .sub{margin:6px auto 14px;max-width:62ch}
+
+/* ---- la guía de arranque ---- */
+.guia{margin:4px 0 14px;padding-left:20px;font-size:13.5px;line-height:1.65;
+  color:var(--tinta2)}
+.guia li{margin-bottom:7px}
+.guia b{color:var(--tinta)}
+
 </style>
 </head>
 <body>
@@ -2303,7 +2332,7 @@ var App = (function () {
     // 1 · carga: está completa cuando las tres fuentes cuadran con el dataset.
     var ctl = (D.control || []).filter(function (x) { return x.estado !== "Informativo"; });
     var ctrl = ctl.filter(function (x) { return x.estado === "Coincide"; });
-    var e1 = { id: "carga", tit: "1 · Lo que entró",
+    var e1 = { id: "carga", quien: "sistema", tit: "1 · Lo que entró",
                det: num(D.meta.fuentes.length) + " inventarios físicos y la bajada de SAP · " +
                     num(ctrl.length) + " de " + num(ctl.length) + " controles cuadran",
                hechos: ctrl.length, total: ctl.length || 1 };
@@ -2312,31 +2341,31 @@ var App = (function () {
     var conTraza = fisicos.filter(function (c) {
       var e = efectivo(c);
       return e.materiales.length || e.aprobacion !== "Sin decidir"; }).length;
-    var e2 = { id: "traza", tit: "2 · Qué es cada cosa",
+    var e2 = { id: "traza", quien: "vos", tit: "2 · Qué es cada cosa",
                det: "a qué código de SAP corresponde cada nombre del depósito",
                hechos: conTraza, total: fisicos.length };
 
     // 3 · cruce: lo hace el análisis; queda hecho apenas hay dataset.
-    var e3 = { id: "cruce", tit: "3 · El cruce",
+    var e3 = { id: "cruce", quien: "sistema", tit: "3 · El cruce",
                det: num(k.total_casos) + " casos clasificados contra los almacenes de SAP",
                hechos: 1, total: 1 };
 
     // 4 · decisiones: todo lo que está dentro del alcance.
     var decidibles = D.casos.filter(function (c) { return L(c) !== "E"; });
     var listos = decidibles.filter(function (c) { return !pendiente(c); }).length;
-    var e4 = { id: "decidir", tit: "4 · Qué se hace",
+    var e4 = { id: "decidir", quien: "vos", tit: "4 · Qué se hace",
                det: "crear, ajustar, mover de almacén o dar de baja",
                hechos: listos, total: decidibles.length };
 
     // 5 · economía: cuántas decisiones se pueden valorizar.
     var ec = economia();
-    var e5 = { id: "economia", tit: "5 · Cuánto representa",
+    var e5 = { id: "economia", quien: "vos", tit: "5 · Cuánto representa",
                det: ec.conPrecio ? num(ec.conPrecio) + " materiales con importe de última compra"
                                  : "falta importar los importes de última compra",
                hechos: ec.conPrecio, total: ec.materiales || 1 };
 
     // 6 · informe: se cierra cuando no queda nada pendiente.
-    var e6 = { id: "informe", tit: "6 · El cierre",
+    var e6 = { id: "informe", quien: "sistema", tit: "6 · El cierre",
                det: "el informe con todo lo decidido y lo que queda",
                hechos: listos === decidibles.length ? 1 : 0, total: 1 };
 
@@ -2345,7 +2374,8 @@ var App = (function () {
       x.pct = x.total ? Math.round(x.hechos / x.total * 100) : 0;
       x.listo = x.pct >= 100;
     });
-    var actual = et.filter(function (x) { return !x.listo; })[0] || et[et.length - 1];
+    var actual = et.filter(function (x) { return !x.listo && x.quien === "vos"; })[0] ||
+                 et.filter(function (x) { return !x.listo; })[0] || et[et.length - 1];
     et.forEach(function (x) { x.actual = x === actual; });
     return { etapas: et, actual: actual,
              pct: Math.round(et.reduce(function (s, x) { return s + x.pct; }, 0) / et.length) };
@@ -2360,17 +2390,66 @@ var App = (function () {
              (ss[0].pend === 1 ? "caso pendiente" : "casos pendientes") + " · " + ss[0].titulo };
   }
 
+  /* Por qué cada grupo está donde está, y qué destraba. Sin esto los siete
+     grupos parecen siete listas igual de urgentes, y el orden —que es lo único
+     que evita trabajo al pedo— queda librado a la intuición. */
+  var PORQUE = {
+    revision: { ahora: "Es por acá. Mientras un ítem no tenga código, no se puede " +
+                       "saber si falta existencia, si está en el almacén equivocado ni " +
+                       "si algo sobra.",
+                destraba: "Cada caso que se resuelve acá puede sacar una baja de la lista " +
+                          "del último grupo." },
+    altas: { ahora: "Son pocos y de alto impacto: crear un material mal cuesta caro y " +
+                    "cuesta más deshacerlo.",
+             destraba: "Cierra la etapa 2 junto con el grupo anterior." },
+    identificados: { ahora: "El análisis ya les encontró el código y lo verificó. Es el " +
+                            "grupo que más rápido avanza.",
+                     destraba: "Habilita decidir su almacén y su stock." },
+    existencias: { ahora: "Requiere el código ya decidido: sin saber qué material es, no " +
+                          "se puede ajustar su existencia.",
+                   destraba: "Deja el stock de la base cuadrado contra lo contado." },
+    almacenes: { ahora: "Requiere el código ya decidido. Es ubicación, no identificación: " +
+                        "el material está bien, el lugar donde figura puede no estarlo.",
+                 destraba: "Deja cada material en el almacén que le corresponde." },
+    depurar: { ahora: "Es independiente del resto: se puede hacer en cualquier momento.",
+               destraba: "Limpia el maestro de registros que ya no se usan." },
+    bajas: { ahora: "Va último a propósito: la lista se achica sola a medida que se " +
+                    "resuelven los códigos del primer grupo.",
+             destraba: "Es el cierre: con esto el inventario queda conciliado." },
+  };
+
   function pintarRuta() {
     var r = hojaDeRuta(), pa = proximaAccion();
+    var sis = r.etapas.filter(function (x) { return x.quien === "sistema" && x.listo; });
     var h = '<section class="ruta2"><header class="r2cab">' +
-      '<div><span class="k">Hoja de ruta</span><b>' + r.pct + "% del proceso</b></div>" +
-      (pa ? '<button class="btn pri chico" id="rSig">Seguir: ' + esc(pa.txt) + "</button>"
+      '<div><span class="k">Hoja de ruta</span><b>' + r.pct + "% del proceso</b>" +
+      (r.actual ? '<span class="r2donde">Estás en la etapa <b>' +
+        esc(r.actual.tit.replace(/^(\d+) · /, "$1, ")) + "</b></span>" : "") +
+      "</div>" +
+      '<div class="r2acc">' +
+      '<button class="btn chico" id="rGuia">¿Cómo se usa esto?</button>' +
+      (pa ? '<button class="btn pri" id="rSig">Seguir acá: ' + esc(pa.txt) + "</button>"
           : '<span class="chip-ok">No queda nada pendiente</span>') +
-      "</header><ol class=\"r2pasos\">";
+      "</div></header>";
+
+    /* Por qué el trabajo arranca en la 2 y no en la 1. Es la primera pregunta
+       que se hace cualquiera que abre esto, y antes no estaba contestada. */
+    if (sis.length) {
+      h += '<p class="r2sis"><b>Las etapas ' +
+        sis.map(function (x) { return x.tit.split(" ·")[0]; }).join(" y ") +
+        " ya las hizo el sistema</b> —leer los inventarios, cruzarlos contra SAP y " +
+        "clasificar las diferencias—. <b>Tu trabajo empieza en la etapa " +
+        (r.actual ? r.actual.tit.split(" ·")[0] : "2") + "</b>.</p>";
+    }
+
+    h += '<ol class="r2pasos">';
     r.etapas.forEach(function (x, i) {
-      h += '<li class="r2p' + (x.listo ? " listo" : "") + (x.actual ? " acá" : "") + '">' +
+      h += '<li class="r2p' + (x.listo ? " listo" : "") + (x.actual ? " acá" : "") +
+        (x.quien === "sistema" ? " auto" : "") + '">' +
         '<span class="r2n">' + (x.listo ? "✓" : i + 1) + "</span>" +
         '<div><b>' + esc(x.tit) + "</b>" +
+        '<span class="r2quien">' + (x.quien === "sistema" ? "lo hace el sistema" : "lo decidís vos") +
+        (x.actual ? " · acá estás" : "") + "</span>" +
         '<span class="r2d">' + esc(x.det) + "</span>" +
         '<div class="pbar"><i style="width:' + x.pct + '%"></i></div>' +
         '<span class="r2pct">' + (x.total > 1 ? num(x.hechos) + " de " + num(x.total) + " · " : "") +
@@ -2379,6 +2458,66 @@ var App = (function () {
     h += "</ol></section>";
     return h;
   }
+
+  /* La guía de arranque. Se abre sola la primera vez —cuando todavía no se
+     decidió nada— y después queda a un clic. Explicar una vez y esconderse es
+     mejor que un cartel permanente que nadie lee a partir del segundo día. */
+  function guiaVista() {
+    try { return localStorage.getItem("invsap.guia.v1") === "vista"; }
+    catch (e) { return false; }
+  }
+  function marcarGuiaVista() {
+    try { localStorage.setItem("invsap.guia.v1", "vista"); } catch (e) { void e; }
+  }
+  function modalGuia() {
+    var pa = proximaAccion();
+    var segs = segmentos().filter(function (x) { return !x.hecho && !x.fuera; });
+    var h = '<div class="modalfondo"><div class="modal ancho">' +
+      "<h2>Por dónde empezar</h2>" +
+      '<p class="sub">El sistema ya leyó los tres inventarios, los cruzó contra SAP y ' +
+      "clasificó las " + num(D.kpis.total_casos) + " diferencias. Lo que queda son " +
+      "decisiones, y van en un orden.</p>";
+    h += '<ol class="guia">' +
+      "<li><b>Elegí el alcance.</b> Las tres bases o una sola. Todo lo de abajo lo " +
+      "respeta: los contadores, los casos y las decisiones en lote.</li>" +
+      "<li><b>Empezá por el primer grupo: «" + esc(segs[0] ? segs[0].corto : "") + "».</b> " +
+      "Es el que destraba el resto. Mientras un ítem no tenga código de SAP, no se puede " +
+      "saber si le falta existencia, si está en el almacén equivocado ni si algo sobra.</li>" +
+      "<li><b>Contestá la pregunta de cada tarjeta.</b> Cada caso trae lo que dice el " +
+      "depósito de un lado, lo que dice SAP del otro, por qué el sistema lo levantó, y las " +
+      "respuestas como botones. Un clic y pasa al siguiente.</li>" +
+      "<li><b>Cuando hay varios códigos posibles</b>, el botón te lleva al modo de a uno, " +
+      "que es donde se elige entre ellos, se declaran equivalencias y se resuelven las " +
+      "presentaciones que no dicen lo mismo.</li>" +
+      "<li><b>Para muchos juntos</b>, tildalos y usá la barra de arriba. Antes de aplicar " +
+      "se muestra a cuántos materiales, bases y almacenes alcanza.</li>" +
+      "<li><b>Dejá las bajas para el final.</b> La lista se achica sola a medida que " +
+      "resolvés los códigos: aprobarlas primero es el error más caro.</li>" +
+      "</ol>";
+    h += '<div class="aviso info"><b>No hace falta terminar una etapa para pasar a la ' +
+      "siguiente, y nada se pierde al cerrar.</b> El sistema guarda dónde quedaste —la " +
+      "base, el grupo, los filtros y el caso abierto— y te devuelve ahí la próxima vez.</div>";
+    h += '<div class="modalacc"><span class="mini">Se puede volver a abrir con ' +
+      "«¿Cómo se usa esto?».</span>" +
+      '<button class="btn" id="gCerrar">Cerrar</button>' +
+      (pa ? '<button class="btn pri" id="gIr">Empezar: ' + esc(pa.seg.corto) + "</button>" : "") +
+      "</div></div></div>";
+
+    var cont = document.createElement("div");
+    cont.innerHTML = h; document.body.appendChild(cont.firstChild);
+    var modal = document.querySelector(".modalfondo");
+    function cerrar() { marcarGuiaVista(); modal.remove(); }
+    modal.querySelector("#gCerrar").addEventListener("click", cerrar);
+    modal.addEventListener("click", function (ev) { if (ev.target === modal) cerrar(); });
+    var gi = modal.querySelector("#gIr");
+    if (gi) gi.addEventListener("click", function () {
+      cerrar();
+      if (!pa) return;
+      estado.seg = pa.seg.id; estado.bpag = 1; estado.sel = {};
+      estado.modo = "bandeja"; guardarSesion(); pintarInicio();
+    });
+  }
+
   // ------------------------------------------------------------- INICIO
   /* Inicio es el panel de gestión, no un tablero que obliga a ir a otro lado.
      Arriba, dónde está parado el trabajo; abajo, lo que hay que decidir, con
@@ -2456,6 +2595,8 @@ var App = (function () {
       b.addEventListener("click", function () {
         estado.seg = b.dataset.seg; estado.bpag = 1; estado.sel = {};
         estado.bf.motivo = ""; estado.modo = "bandeja"; guardarSesion(); pintarInicio(); }); });
+    var rg = el.querySelector("#rGuia");
+    if (rg) rg.addEventListener("click", modalGuia);
     var rs = el.querySelector("#rSig");
     if (rs) rs.addEventListener("click", function () {
       var pa = proximaAccion(); if (!pa) return;
@@ -2468,11 +2609,14 @@ var App = (function () {
 
     // ---- cabecera del segmento: qué es y cómo se trabaja
     var lista = bandeja();
+    var pq = PORQUE[s.id];
     var h = '<section class="segcab"><div><h1>' + esc(s.titulo) + "</h1>" +
       '<p class="sub">' + esc(s.q ? s.q.desc : s.fuera
         ? "Indumentaria, equipamiento y repuestos. El inventario relevado es de Farmacia, " +
           "así que nunca iban a aparecer: su ausencia no prueba nada y no se propone ninguna baja."
-        : "Casos que ya tienen una decisión tomada. Se pueden revisar y cambiar.") + "</p></div>" +
+        : "Casos que ya tienen una decisión tomada. Se pueden revisar y cambiar.") + "</p>" +
+      (pq ? '<p class="segpq"><span class="k">Por qué este grupo ahora</span>' + esc(pq.ahora) +
+            ' <b>' + esc(pq.destraba) + "</b></p>" : "") + "</div>" +
       '<div class="segacc">' +
       (s.q && !s.fuera && !s.hecho && s.pend
         ? '<button class="btn pri" id="bUnoAUno">Verlos de a uno</button>' : "") +
@@ -2518,10 +2662,26 @@ var App = (function () {
     var pag = lista.slice((estado.bpag - 1) * porPag, (estado.bpag - 1) * porPag + porPag);
     h += '<div class="bandeja">';
     if (!pag.length) {
+      /* Un grupo terminado no es el final del camino: es el momento exacto en
+         que hay que decir cuál es el siguiente. Antes decía «no queda nada» y
+         ahí se terminaba la conversación. */
+      var sig = proximaAccion();
       h += '<div class="finito chico"><div class="ficono">✓</div><h2>' +
         (lista.length ? "No hay casos con estos filtros" :
-         s.hecho ? "Todavía no hay decisiones tomadas" : "No queda nada pendiente acá") +
-        "</h2></div>";
+         s.hecho ? "Todavía no hay decisiones tomadas" :
+         estado.base ? "Terminaste este grupo en " + esc(estado.base)
+                     : "Terminaste este grupo") + "</h2>" +
+        (!lista.length && !s.hecho && !s.fuera && sig && sig.seg.id !== s.id
+          ? '<p class="sub">Lo que sigue: <b>' + esc(sig.seg.titulo) + "</b> · " +
+            num(sig.seg.pend) + " pendientes.</p>" +
+            '<button class="btn pri" id="bSigue">Ir a «' + esc(sig.seg.corto) + "»</button>"
+          : !lista.length && !s.hecho && !s.fuera && !sig
+            ? '<p class="sub">No queda nada pendiente' +
+              (estado.base ? " en " + esc(estado.base) : "") + ". " +
+              (estado.base ? "Probá con las otras bases o mirá el informe."
+                           : "El informe está listo para cerrar.") + "</p>"
+            : "") +
+        "</div>";
     } else {
       pag.forEach(function (c) { h += tarjeta(c, estado.seg); });
     }
@@ -2580,6 +2740,11 @@ var App = (function () {
     function rp() { guardarSesion(); pintarInicio(); }
     var b1 = el.querySelector("#bUnoAUno");
     if (b1) b1.addEventListener("click", function () { abrirCola(estado.seg, estado.bf.motivo); });
+    var bs = el.querySelector("#bSigue");
+    if (bs) bs.addEventListener("click", function () {
+      var sig = proximaAccion(); if (!sig) return;
+      estado.seg = sig.seg.id; estado.bpag = 1; estado.sel = {};
+      estado.modo = "bandeja"; guardarSesion(); pintarInicio(); });
     var b3 = el.querySelector("#bMaestroVer");
     if (b3) b3.addEventListener("click", function () { ir("depurar"); });
 
@@ -3161,6 +3326,12 @@ var App = (function () {
         "<h1>Terminaste esta tanda</h1>" +
         '<p class="sub">Revisaste ' + num(estado.triage.length) + " casos de «" +
         esc(q0.titulo) + '».</p>' +
+        (function () {
+          var sg = proximaAccion();
+          return sg && sg.seg.id !== estado.cola
+            ? '<p class="sub">Lo que sigue: <b>' + esc(sg.seg.titulo) + "</b> · " +
+              num(sg.seg.pend) + " pendientes.</p>" : "";
+        }()) +
         '<button class="btn pri" id="bInicio">Volver a la bandeja</button> ' +
         '<button class="btn" id="bMas">Ver si quedaron pendientes</button></div>';
       el.querySelector("#bInicio").addEventListener("click", salirDelFoco);
@@ -5477,6 +5648,10 @@ var App = (function () {
       '<div class="bloque"><h3>La hoja de ruta</h3>' +
       "<p>Seis etapas, en el orden en que conviene hacerlas. El avance <b>se calcula del " +
       "estado real</b> del sistema: no hay porcentajes puestos a mano.</p>" +
+      '<p><b>Tres las hace el sistema y tres las decidís vos.</b> Por eso al abrir no estás ' +
+      "en la etapa 1: leer los inventarios, cruzarlos contra SAP y clasificar las " +
+      "diferencias ya está hecho. <b>Tu trabajo empieza en la etapa 2</b>, y la hoja de ruta " +
+      "lo dice arriba de todo, con la próxima acción concreta al lado.</p>" +
       '<table class="listalotes"><tbody>' +
       '<tr><td style="white-space:nowrap"><b>1 · Carga</b></td><td>Los tres inventarios ' +
       "físicos y la bajada de SAP, con los controles que tienen que cuadrar contra las " +
@@ -5496,7 +5671,10 @@ var App = (function () {
       "decisiones, pendientes e impacto económico.</td></tr>" +
       "</tbody></table>" +
       "<p><b>Ninguna etapa bloquea a la siguiente.</b> El maestro general se puede ir " +
-      "completando mientras el análisis avanza con lo que ya hay.</p></div>" +
+      "completando mientras el análisis avanza con lo que ya hay.</p>" +
+      "<p>Cada grupo explica <b>por qué va en ese momento y qué destraba</b>, y cuando lo " +
+      "terminás te dice cuál es el siguiente. Si querés el recorrido completo de nuevo, el " +
+      "botón <b>«¿Cómo se usa esto?»</b> está arriba, al lado de la hoja de ruta.</p></div>" +
       '<div class="bloque"><h3>Ítems, unidades y casos: tres cosas distintas</h3>' +
       "<p>Son tres maneras de contar lo mismo y dan números muy distintos. Donde hay una " +
       "cifra, el sistema dice siempre de cuál se trata.</p>" +
@@ -5791,6 +5969,9 @@ var App = (function () {
       if (ss && !mia) olvidarSesion();
       ir("inicio");
     }
+    /* La primera vez se explica sin que haya que pedirlo. Después, sólo si se
+       pide: un cartel que aparece todos los días deja de leerse al segundo. */
+    if (!guiaVista()) setTimeout(modalGuia, 700);
   }
 
   /* Decirlo, y poder deshacerlo: retomar en un lugar al que no se pidió ir es

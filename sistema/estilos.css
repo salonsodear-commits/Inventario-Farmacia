@@ -943,3 +943,32 @@ tr.tot td{border-top:2px solid var(--linea2);font-weight:650}
 .destfila select{padding:7px 10px;border-radius:8px;border:1px solid var(--linea2);
   background:var(--sup);color:var(--tinta);font-size:13.5px;min-width:160px}
 .destino .mini{display:block;max-width:86ch}
+
+/* ---- la hoja de ruta, explicada ---- */
+.r2cab b{display:block;font-size:17px;letter-spacing:-.01em}
+.r2donde{display:block;font-size:12.5px;color:var(--tinta2);font-weight:400;margin-top:2px}
+.r2donde b{display:inline;font-size:12.5px;font-weight:650;color:var(--tinta)}
+.r2acc{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.r2sis{font-size:12.5px;color:var(--tinta2);line-height:1.55;margin:0 0 12px;
+  background:var(--sup2);border:1px solid var(--linea);border-radius:var(--r2);
+  padding:9px 12px;max-width:none}
+.r2sis b{color:var(--tinta)}
+.r2quien{display:block;font-size:10px;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--tinta3);margin:2px 0 3px;font-weight:600}
+.r2p.auto{background:var(--sup2)}
+.r2p.auto .r2n{background:var(--sup3);color:var(--tinta3)}
+.r2p.listo.auto .r2n{background:var(--cA-t);color:var(--sobreColor)}
+.r2p.acá .r2quien{color:var(--acento)}
+
+/* ---- por qué este grupo ahora ---- */
+.segpq{font-size:12.5px;color:var(--tinta2);line-height:1.55;margin:8px 0 0;
+  max-width:92ch;border-left:3px solid var(--linea2);padding-left:11px}
+.segpq .k{display:block;margin-bottom:1px}
+.segpq b{color:var(--tinta)}
+.finito.chico .sub{margin:6px auto 14px;max-width:62ch}
+
+/* ---- la guía de arranque ---- */
+.guia{margin:4px 0 14px;padding-left:20px;font-size:13.5px;line-height:1.65;
+  color:var(--tinta2)}
+.guia li{margin-bottom:7px}
+.guia b{color:var(--tinta)}
