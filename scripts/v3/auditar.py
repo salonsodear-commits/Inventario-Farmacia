@@ -91,11 +91,9 @@ def celdas(nombre):
         out.setdefault(row, {})[col] = val
     return out
 
-esperadas = ["Resumen", "Casos", "A Identificados", "B Verificar en el maestro",
-             "C Propuestas de baja", "D A revisar", "E Fuera del alcance",
-             "F Maestro sin stock", "Almacenes", "Depuración del maestro", "Lotes",
-             "Equivalencias", "Decisiones", "Control", "Metodología"]
-ok(hojas == esperadas, "las 15 hojas, en orden", "%d hojas" % len(hojas))
+esperadas = ["Resumen", "Qué hacer en SAP", "Casos", "Maestro general", "Lotes",
+             "Decisiones", "Control"]
+ok(hojas == esperadas, "las 7 hojas, en orden", "%d hojas: %s" % (len(hojas), " · ".join(hojas)))
 
 res = celdas("Resumen")
 def buscar(etiqueta):
@@ -138,6 +136,59 @@ ok(cab_casos.get("O") == "Unidades CONTADAS en el depósito",
 ok(cab_casos.get("P") == "Unidades de STOCK EN SAP en esa base",
    "la columna P dice que son unidades de SAP")
 
+# La hoja que dice qué hacer: es la que reemplazó a las seis por clasificación.
+acc = celdas("Qué hacer en SAP")
+cab_acc = [acc[4].get(c, "") for c in ("A", "B", "C", "D", "E", "F")]
+ok(cab_acc[:5] == ["Qué hacer en SAP", "¿Falta decidirlo?", "Base", "Centro", "Almacén"],
+   "«Qué hacer en SAP» abre con la acción, si falta decidirla y dónde",
+   " | ".join(cab_acc))
+filas_acc = [acc[n] for n in sorted(acc) if n >= 5 and acc[n].get("A")]
+filas_acc = [f for f in filas_acc if f.get("A") != "TOTAL"]
+ok(len(filas_acc) == len(d["casos"]),
+   "hay una acción por caso, sin excepción", "%d de %d" % (len(filas_acc), len(d["casos"])))
+ok(all(f.get("K") for f in filas_acc),
+   "cada acción trae el detalle concreto para ejecutarla")
+acciones = collections.Counter(f["A"] for f in filas_acc)
+ok(all(a.startswith("PENDIENTE") or a.startswith("Ninguna") for a in acciones),
+   "sin decisiones tomadas, toda acción está pendiente o no corresponde",
+   " · ".join(sorted(acciones)))
+ok(acciones.get("Ninguna · fuera del alcance") == T["E"],
+   "los casos fuera del alcance se declaran como tales")
+ok(acciones.get("PENDIENTE · decidir la baja") == T["C"],
+   "las bajas aparecen como decisión pendiente")
+
+# El formato: lo que estiraba una fila a media pantalla era el ajuste
+# automático de alto sobre una nota larga envuelta en una columna angosta.
+import xml.etree.ElementTree as ET
+NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+for hoja in esperadas:
+    x = z.read("xl/worksheets/sheet%d.xml" % idx[hoja]).decode("utf-8")
+    raiz = ET.fromstring(x)
+    altos = {}
+    for fila in raiz.iter(NS + "row"):
+        if fila.get("ht"):
+            altos[int(fila.get("r"))] = float(fila.get("ht"))
+    ok(altos.get(1) and altos.get(2),
+       "«%s» fija el alto del título y de la nota" % hoja,
+       "título=%s nota=%s" % (altos.get(1), altos.get(2)))
+    ok(all(v <= 40 for v in altos.values()),
+       "«%s» no tiene ninguna fila desbordada" % hoja,
+       "máximo %s" % (max(altos.values()) if altos else 0))
+zo = zipfile.ZipFile(XLSX)
+est = zo.read("xl/styles.xml").decode("utf-8")
+ok(est.count('wrapText="1"') == 1,
+   "sólo el encabezado envuelve el texto; los datos no",
+   "%d estilos con wrapText" % est.count('wrapText="1"'))
+zo.close()
+
+mg = celdas("Maestro general")
+cab_mg = [mg[4].get(c, "") for c in ("A", "B", "C")]
+ok(cab_mg == ["Código SAP", "Nomenclatura SAP", "Importe última compra"],
+   "el maestro general trae código, nomenclatura e importe", " | ".join(cab_mg))
+cods_mg = [mg[n]["A"] for n in sorted(mg) if re.fullmatch(r"\d+", mg[n].get("A", ""))]
+ok(len(cods_mg) == len(set(cods_mg)),
+   "sin duplicar un material por base ni por almacén", "%d códigos" % len(cods_mg))
+
 ctl = celdas("Control")
 estados = [ctl[n].get("E", "") for n in sorted(ctl) if ctl[n].get("E", "")]
 estados = [e for e in estados if e != "Estado"]
@@ -157,39 +208,34 @@ ok(cab.get("AX", "").startswith("Ligado a la depuración"), "AX es el ligado a l
 ok(len([n for n in casos if n >= 5 and casos[n].get("B")]) == len(d["casos"]),
    "una fila por caso en la hoja Casos")
 
-alm = celdas("Almacenes")
-txt_alm = " ".join(v for n in alm for v in alm[n].values())
-ok("PENDIENTE" in txt_alm, "la hoja Almacenes marca la validación como PENDIENTE")
-ok("no es una suposición" in txt_alm or "NO es una suposición" in txt_alm,
-   "la hoja Almacenes distingue lo observado de la propuesta")
+# La propuesta de almacén, las equivalencias y la metodología dejaron de ser
+# hojas sueltas y están en el Resumen, junto a las cifras que condicionan.
+txt_res = " ".join(v for n in res for v in res[n].values())
+ok("PENDIENTE DE VALIDACIÓN" in txt_res,
+   "el Resumen marca la propuesta de almacén como pendiente de validación")
+ok("no es una suposición" in txt_res,
+   "y distingue lo observado de lo propuesto")
 for p in m["almacenes"]["propuesta"]:
-    hay = any(alm[n].get("A") == p["base"] and alm[n].get("B") == p["tipo"]
-              and alm[n].get("C") == p["almacen"] and alm[n].get("D") == p["confianza"]
-              for n in alm)
+    hay = any(res[n].get("A") == p["base"] and res[n].get("B") == p["tipo"]
+              and res[n].get("C") == p["almacen"] and res[n].get("D") == p["confianza"]
+              for n in res)
     ok(hay, "propuesta %s/%s = %s (%s) en el Excel" % (p["base"], p["tipo"], p["almacen"], p["confianza"]))
+ok("Lo ambiguo es el" in txt_res, "«Ambigua» explica qué es lo ambiguo")
+ok("EQUIVALENCIAS DE NOMENCLATURA DECLARADAS" in txt_res,
+   "el Resumen trae las equivalencias declaradas")
+ok("VARIAS nomenclaturas del depósito" in txt_res and "VARIOS códigos de SAP" in txt_res,
+   "y explica los dos sentidos")
+ok("CÓMO SE DECIDE UNA CORRESPONDENCIA" in txt_res,
+   "y la metodología, en vez de una hoja aparte")
+ok("esterilidad" in txt_res, "la metodología nombra la esterilidad entre las características")
+ok("nunca tuvo existencia en ninguno de los tres" in txt_res,
+   "y dice honestamente de dónde salió el maestro")
 
-dep = celdas("Depuración del maestro")
-txt_dep = " ".join(v for n in dep for v in dep[n].values())
-ok("punta visible" in txt_dep, "la hoja de depuración dice que es la punta visible")
-ok("No hay política masiva definida" in txt_dep,
-   "sin decisiones, no hay política masiva")
-codigos_dep = [dep[n]["A"] for n in sorted(dep) if re.fullmatch(r"\d+", dep[n].get("A", ""))]
-ok(len(codigos_dep) == T["F"], "los %d materiales sin stock están listados" % T["F"],
-   str(len(codigos_dep)))
-
-# La hoja de equivalencias tiene que mostrar los DOS sentidos, no sólo uno.
-equ = celdas("Equivalencias")
-txt_equ = " ".join(v for n in equ for v in equ[n].values())
-cab_equ = [equ[4].get(c, "") for c in ("A", "B", "C", "D", "E", "F", "G", "H", "I", "J")]
-ok(cab_equ == ["Nombre unificado", "Nomenclaturas del depósito", "Cuántas", "Bases",
-               "Códigos de SAP", "Cuántos", "Unidades contadas", "Sentido", "Revisor",
-               "Observaciones"],
-   "la hoja Equivalencias tiene las 10 columnas de los dos sentidos",
-   " | ".join(cab_equ))
-ok("VARIAS nomenclaturas del depósito" in txt_equ and "VARIOS" in txt_equ,
-   "la hoja Equivalencias explica los dos sentidos")
-ok("dejan de ser candidatos a baja" in txt_equ,
-   "la hoja Equivalencias dice qué consecuencia tiene agrupar códigos")
+# Los materiales del maestro sin existencia ya no tienen hoja propia: su
+# decisión está en «Qué hacer en SAP», que es donde hay que leerla.
+dep_acc = [f for f in filas_acc if "maestro" in f.get("A", "")]
+ok(len(dep_acc) == T["F"],
+   "los %d materiales sin existencia tienen su acción" % T["F"], str(len(dep_acc)))
 
 # ---------------------------------------------------------------- PDF
 print("\n=== 3. EL PDF ===")
@@ -268,6 +314,12 @@ for frase, titulo in [
     ok(frase.lower() in h.lower(), titulo)
 ok("Esta copia es para consultar" in h,
    "la copia explica dónde se decide")
+ok('data-vista="revisar"' not in h and ">Trabajar<" in h,
+   "Inicio y Revisar son una sola pantalla")
+ap0 = io.open(RAIZ + "sistema/app.js", encoding="utf-8").read()
+sin_coment = re.sub(r"/\*[\s\S]*?\*/", "", re.sub(r"(?m)^\s*//.*$", "", ap0))
+ok("VER_REUSA" not in sin_coment and "reutiliza" not in sin_coment,
+   "«existe sin stock · reutilizar ese código» ya no es una opción")
 
 # El servidor: lo que convierte esto en una aplicación y no en un archivo.
 print("\n=== 4b. LA APLICACIÓN ===")
@@ -312,10 +364,22 @@ for frase, titulo in [
      "el sistema cuenta los códigos de SAP del grupo"),
     ("Declarar equivalentes",
      "el sistema tiene la acción de declarar equivalentes"),
-    ("el stock está en el almacén propuesto para esta base y tipo",
-     "el sistema marca si el candidato tiene el stock en el almacén propuesto"),
-    ("propuesta pendiente de validación",
+    ("En qué almacén está el stock no importa acá",
+     "el almacén sale del paso de identificar: no dice qué material es"),
+    ("propuesta a validar",
      "el sistema recuerda que la correspondencia base-almacén está sin validar"),
+    ("¿En qué almacén tiene que cuadrar?",
+     "el ajuste de stock elige el almacén donde cuadra"),
+    ("Dónde se da de alta",
+     "al crear un material se propone centro y almacén"),
+    ("La presentación no dice lo mismo de los dos lados",
+     "se puede declarar que dos presentaciones son la misma"),
+    ("Vale para el par en todas las bases",
+     "y esa declaración no se vuelve a preguntar en otra base"),
+    ("Retomaste donde habías quedado",
+     "el sistema retoma la sesión donde quedó"),
+    ("Etapa 2 · Qué es cada cosa",
+     "los grupos cuelgan de la etapa a la que pertenecen"),
     ("sin stock en ",
      "el sistema avisa cuando el candidato no tiene stock en esa base"),
 ]:
@@ -346,7 +410,8 @@ for frase, titulo in [
     ("no cumplen las condiciones y quedan afuera",
      "y dice qué registros quedan afuera"),
     ("Entiendo el alcance", "las decisiones de riesgo piden confirmación expresa"),
-    ("¿Qué querés revisar?", "Revisar desde el menú ofrece elegir el grupo"),
+    ("Volver a la bandeja",
+     "el modo de a uno es un modo de la pantalla de trabajo, no otra pantalla"),
     ("Maestro general", "Maestro tiene el maestro general unificado"),
     ("Importe última compra", "con el importe de última compra"),
     ("Equivalencias de nomenclatura", "y las equivalencias declaradas"),

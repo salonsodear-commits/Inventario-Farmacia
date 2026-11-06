@@ -894,3 +894,52 @@ tr.tot td{border-top:2px solid var(--linea2);font-weight:650}
 .ruta.r2 .rnum{background:var(--cC-t)}
 .ckey{background:var(--sup3);border:1px solid var(--linea2)}
 .cand.marcado .ckey{background:var(--sup);border-color:var(--acento)}
+
+/* ---- aviso de sesión retomada ---- */
+.retomada{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);
+  background:var(--sup);border:1px solid var(--acento2);border-radius:99px;
+  padding:9px 18px;box-shadow:var(--s2);z-index:250;font-size:13px;
+  display:flex;align-items:center;gap:9px;max-width:92vw}
+.retomada.yendose{opacity:0;transition:opacity .55s}
+
+/* ---- los grupos, agrupados por la etapa a la que pertenecen ---- */
+.segzona{display:flex;flex-direction:column;gap:7px;margin-bottom:16px}
+.segfila{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.segeta{font-size:10px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--tinta3);font-weight:700;width:168px;flex:none;text-align:right;
+  line-height:1.3}
+.segfila .segs{margin-bottom:0;flex:1}
+.seg{padding:7px 14px}
+@media (max-width:980px){
+  .segeta{width:auto;text-align:left}
+  .segfila{flex-direction:column;align-items:flex-start;gap:4px}
+}
+
+/* ---- equivalencias de presentación ---- */
+.pres{background:var(--sup);border:1px solid var(--linea);border-radius:var(--r);
+  margin-bottom:12px;overflow:hidden}
+.pres.abierta{border-color:var(--cD)}
+.preslista{display:flex;flex-direction:column;gap:7px;padding:0 15px 13px}
+.presit{display:flex;gap:12px;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;background:var(--sup2);border:1px solid var(--linea);
+  border-radius:var(--r2);padding:9px 12px}
+.presit.yaes{background:var(--cA-f);border-color:var(--cA)}
+.presid{flex:1;min-width:240px;font-size:13px;line-height:1.5}
+.preschoca{display:block;font-size:11.5px;color:var(--cC-t)}
+.presok{display:block;font-size:11.5px;color:var(--cA-t);font-weight:600}
+.presacc{display:flex;gap:9px;align-items:flex-end}
+.presacc label{display:flex;flex-direction:column;gap:3px;color:var(--tinta3)}
+.presacc input{width:88px;padding:6px 8px;border-radius:7px;
+  border:1px solid var(--linea2);background:var(--sup);color:var(--tinta);font-size:13px}
+.pres .eqnota{padding:0 15px 10px;margin:0}
+.pres .eqcab{padding:0}
+
+/* ---- dónde se da de alta un material nuevo ---- */
+.destino{background:var(--sup2);border:1px solid var(--linea);border-radius:var(--r2);
+  padding:12px 14px;margin-top:11px}
+.destfila{display:flex;gap:14px;flex-wrap:wrap;margin:7px 0 6px}
+.destfila label{display:flex;flex-direction:column;gap:3px;font-size:11.5px;
+  color:var(--tinta3)}
+.destfila select{padding:7px 10px;border-radius:8px;border:1px solid var(--linea2);
+  background:var(--sup);color:var(--tinta);font-size:13.5px;min-width:160px}
+.destino .mini{display:block;max-width:86ch}

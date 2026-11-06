@@ -12,8 +12,7 @@
   <div class="marca">Inventario físico vs SAP
     <small>San Juan · Neuquén · Salta — gestión de identificación y cursos de acción</small></div>
   <nav class="nav" id="nav">
-    <button data-vista="inicio" aria-current="page">Inicio</button>
-    <button data-vista="revisar">Revisar</button>
+    <button data-vista="inicio" aria-current="page">Trabajar</button>
     <button data-vista="casos">Buscar</button>
     <button data-vista="depurar">Maestro</button>
     <button data-vista="informe">Informe</button>
@@ -31,8 +30,10 @@
 </header>
 
 <main>
+  <!-- Una sola pantalla de trabajo: la hoja de ruta, las etapas y la bandeja
+       arriba, y abajo la bandeja de casos o el caso en foco. Antes eran dos
+       solapas que hacían la mitad del trabajo cada una. -->
   <section id="v-inicio"></section>
-  <section id="v-revisar" class="oculto"></section>
   <section id="v-casos" class="oculto"></section>
   <section id="v-ficha" class="oculto"></section>
   <section id="v-depurar" class="oculto"></section>

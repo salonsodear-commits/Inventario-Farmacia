@@ -52,12 +52,11 @@ MAP = {
     "Requiere revisión":          (D_REVISAR, ACC_REVISAR),
 }
 
-# Qué hace falta antes de dar de alta un material en SAP. El primer punto es el
-# que no se puede saltear: la bajada que tenemos son los materiales CON STOCK, así
-# que el material podría existir ya en el maestro con existencia cero.
-CAMPOS_ALTA = ["Confirmar en el maestro completo de SAP que el material no exista "
-               "ya sin stock (fuera del alcance de este trabajo)",
-               "Si existe sin stock: decidir si se reutiliza o se da de baja y se crea de nuevo",
+# Qué hace falta antes de dar de alta un material en SAP. El primer punto no se
+# puede saltear: el maestro con el que se trabaja salió de una bajada de stock
+# por centro, así que un material que nunca tuvo existencia podría no figurar.
+CAMPOS_ALTA = ["Confirmar en SAP que el material no exista ya con otro código",
+               "Centro y almacén donde se da de alta",
                "Denominación normalizada", "Tipo (medicamento / descartable)",
                "Presentación y unidad de comercialización", "Unidad de medida base",
                "Grupo de artículos", "Precio de última compra"]

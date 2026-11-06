@@ -9,6 +9,7 @@ var Exportar = (function () {
   function ef(c) { return App.efectivo(c); }
   function L(c) { return App.LETRA[c.clasificacion]; }
 
+  function num(n) { return App.num(n); }
   function hoy() { return new Date().toISOString().slice(0, 10); }
   function fechaCorta(iso) { return iso ? new Date(iso).toLocaleDateString("es-AR") : ""; }
 
@@ -108,7 +109,8 @@ var Exportar = (function () {
     tot[16] = { f: "SUBTOTAL(109,Q5:Q" + ult + ")", s: E.ENTERO };
     tot[31] = { f: "SUBTOTAL(109,AF5:AF" + ult + ")", s: E.IMPORTE };
     filas.push(tot);
-    return { nombre: "Casos", filas: filas, anchos: COLS.map(function (c) { return c[1]; }),
+    return { nombre: "Casos", filas: filas,
+             altos: { 1: 22, 2: 15, 4: 34 }, anchos: COLS.map(function (c) { return c[1]; }),
              congelar: "E5", autofiltro: "A4:" + col(COLS.length) + ult };
   }
 
@@ -166,7 +168,217 @@ var Exportar = (function () {
     filas.push(tot);
     return { nombre: nombre, filas: filas,
              anchos: COLS_OP.map(function (c) { return c[1]; }),
+             altos: { 1: 22, 2: 15, 4: 32 },
              congelar: "E5", autofiltro: "A4:" + col(COLS_OP.length) + ult };
+  }
+
+  /* ---- Qué hacer con cada ítem en SAP ------------------------------------
+     Es la hoja que faltaba. El Excel decía en qué clase cayó cada caso y qué
+     se había decidido, pero no la frase que alguien tiene que ejecutar: «crear
+     el material 2000103 en el centro 1120, almacén 2021». Esa frase estaba
+     repartida entre seis hojas y cuatro columnas, y había que armarla a mano.
+
+     Una fila por caso, una columna que dice la acción y otra que dice si ya
+     está decidida o falta decidirla. Ordenada por acción, así cada bloque de
+     trabajo queda junto. */
+
+  /* La acción concreta, derivada del estado y de lo decidido. Devuelve el
+     verbo (para agrupar), el detalle (para ejecutar) y si está pendiente. */
+  function accionSap(c) {
+    var e = ef(c), l = L(c);
+    var d = (App.decisiones && App.decisiones()[c.id]) || {};
+    var mat = e.materiales.join(" · ") || c.material_sap || "";
+    var ub = (c.almacenes || []).map(function (x) { return x.almacen; });
+    var esp = c.almacen_esperado || c.almacen_base || "";
+
+    if (l === "E") {
+      return { verbo: "Ninguna · fuera del alcance", det:
+        "El inventario relevado es de Farmacia. Su ausencia no permite concluir nada.",
+        pend: false };
+    }
+    if (l === "F") {
+      var dep = App.accionDep ? App.accionDep(c.material_sap) : { accion: "" };
+      if (!dep.accion) return { verbo: "PENDIENTE · decidir el registro del maestro",
+        det: "El material " + mat + " está en el maestro con existencia cero. " +
+             "Hay que decidir si se mantiene, se bloquea o se da de baja.", pend: true };
+      return { verbo: dep.accion === "Dar de baja del maestro"
+                 ? "Dar de baja del maestro" : dep.accion + " en el maestro",
+        det: "Material " + mat + ", sin existencia. " + dep.accion + "." +
+             (dep.motivo ? " Motivo: " + dep.motivo : ""), pend: false };
+    }
+    if (e.aprobacion === "Rechazado") {
+      return { verbo: "Ninguna · se rechazó la propuesta",
+        det: "Se revisó y se decidió no hacer nada." +
+             (e.observaciones ? " " + e.observaciones : ""), pend: false };
+    }
+
+    if (l === "B") {
+      if (!e.ruta_b && !e.verificacion) return { verbo: "PENDIENTE · decidir si se crea",
+        det: "«" + (c.nombre_fisico || "") + "» está contado en " + c.base +
+             " y ningún material del maestro le corresponde.", pend: true };
+      if (e.ruta_b === "Verificar antes de crear" && !e.verificacion)
+        return { verbo: "PENDIENTE · consultar en SAP",
+          det: "Se eligió consultar en SAP antes de crear. Falta cargar el resultado.",
+          pend: true };
+      var ce = d.centro_alta || c.centro || "", al = d.almacen_alta || esp;
+      if (e.verificacion && e.verificacion.indexOf("baja y alta nueva") >= 0)
+        return { verbo: "Dar de baja el código viejo y crear uno nuevo",
+          det: "Dar de baja " + (e.codigo_maestro || "el código encontrado") +
+               " y crear el material de «" + (c.nombre_fisico || "") + "» en el centro " +
+               ce + ", almacén " + al + ".", pend: false };
+      return { verbo: "Crear el material en SAP",
+        det: "Crear «" + (c.nombre_fisico || "") + "» (" + (c.presentacion || "sin presentación") +
+             ") en el centro " + ce + ", almacén " + al + ". " +
+             num(c.cantidad_fisica || 0) + " unidades contadas en " + c.base + ".",
+        pend: false };
+    }
+
+    if (l === "C") {
+      if (App.resueltoPorAgrupacion && App.resueltoPorAgrupacion(c))
+        return { verbo: "Ninguna · quedó identificado",
+          det: "Se identificó al agrupar nomenclaturas: ya no es candidato a baja.",
+          pend: false };
+      if (e.aprobacion === "Sin decidir") return { verbo: "PENDIENTE · decidir la baja",
+        det: "SAP registra " + num(c.stock_sap || 0) + " unidades de " + mat + " en " +
+             c.base + " y ningún inventario lo identificó." +
+             (c.bloqueado_por_revision ? " Depende de un caso en revisión." : ""), pend: true };
+      return { verbo: "Dar de baja el stock",
+        det: "Dar de baja " + num(c.stock_sap || 0) + " unidades de " + mat + " en " +
+             c.base + (ub.length ? ", almacén " + ub.join(" y ") : "") + ".", pend: false };
+    }
+
+    // Clase A y D: lo primero es tener el código; después, el almacén.
+    if (!e.materiales.length) {
+      return { verbo: "PENDIENTE · decidir a qué código corresponde",
+        det: "«" + (c.nombre_fisico || "") + "» en " + c.base + ". " +
+             (c.motivo || "") + ".", pend: true };
+    }
+    if (e.aprobacion === "Sin decidir") {
+      return { verbo: "PENDIENTE · confirmar el código",
+        det: "El análisis propone " + mat + " para «" + (c.nombre_fisico || "") +
+             "». Falta confirmarlo.", pend: true };
+    }
+    if (c.material_sin_stock_en_base) {
+      var alAj = d.almacen_ajuste || esp;
+      if (!d.ajuste_stock && !e.almacen_decidido)
+        return { verbo: "PENDIENTE · decidir el ajuste de stock",
+          det: "Hay " + num(c.cantidad_fisica || 0) + " unidades contadas en " + c.base +
+               " y SAP no registra existencia de " + mat + " ahí.", pend: true };
+      return { verbo: "Ajustar el stock",
+        det: "Cargar " + num(c.cantidad_fisica || 0) + " unidades de " + mat +
+             " en el almacén " + alAj + " (" + c.base + "), que hoy figura sin existencia.",
+        pend: false };
+    }
+    if (e.almacen_decidido) {
+      if (/^Lo valida/.test(e.almacen_decidido))
+        return { verbo: "PENDIENTE · lo valida la base",
+          det: "El almacén quedó para que lo confirme el responsable de " + c.base + ".",
+          pend: true };
+      if (/es el correcto/.test(e.almacen_decidido))
+        return { verbo: "Ninguna · ya está bien",
+          det: "El stock está en el almacén correcto; se corrige la propuesta del análisis.",
+          pend: false };
+      return { verbo: "Mover de almacén",
+        det: e.almacen_decidido + " · material " + mat + " en " + c.base + ".", pend: false };
+    }
+    if (c.almacen_estado === "Almacén a cambiar" || c.almacen_estado === "Material en múltiples almacenes")
+      return { verbo: "PENDIENTE · decidir el almacén",
+        det: "El stock de " + mat + " figura en " + (ub.join(" y ") || "—") +
+             " y el propuesto para " + c.base + " · " + c.tipo + " es " + (esp || "—") + ".",
+        pend: true };
+    return { verbo: "Ninguna · ya está bien",
+      det: "Identificado como " + mat + " y con el stock donde corresponde.", pend: false };
+  }
+
+  /* El orden de los bloques: primero lo que falta decidir, después lo que hay
+     que ejecutar, y al final lo que no requiere nada. */
+  var ORDEN_ACCION = [
+    "PENDIENTE · decidir a qué código corresponde",
+    "PENDIENTE · confirmar el código",
+    "PENDIENTE · decidir si se crea",
+    "PENDIENTE · consultar en SAP",
+    "PENDIENTE · decidir el ajuste de stock",
+    "PENDIENTE · decidir el almacén",
+    "PENDIENTE · lo valida la base",
+    "PENDIENTE · decidir el registro del maestro",
+    "PENDIENTE · decidir la baja",
+    "Crear el material en SAP",
+    "Dar de baja el código viejo y crear uno nuevo",
+    "Ajustar el stock",
+    "Mover de almacén",
+    "Dar de baja el stock",
+    "Dar de baja del maestro",
+    "Bloquear en el maestro",
+    "Mantener en el maestro",
+    "Ninguna · ya está bien",
+    "Ninguna · quedó identificado",
+    "Ninguna · se rechazó la propuesta",
+    "Ninguna · fuera del alcance",
+  ];
+
+  function hojaAccion() {
+    var casos = D().casos.map(function (c) { return { c: c, a: accionSap(c) }; });
+    casos.sort(function (x, y) {
+      var ix = ORDEN_ACCION.indexOf(x.a.verbo), iy = ORDEN_ACCION.indexOf(y.a.verbo);
+      if (ix < 0) ix = 99; if (iy < 0) iy = 99;
+      return ix - iy || x.c.base.localeCompare(y.c.base) || x.c.n - y.c.n;
+    });
+    var cuenta = {};
+    casos.forEach(function (x) { cuenta[x.a.verbo] = (cuenta[x.a.verbo] || 0) + 1; });
+
+    var cols = [["Qué hacer en SAP", 38], ["¿Falta decidirlo?", 15], ["Base", 11],
+      ["Centro", 8], ["Almacén", 10], ["Código SAP", 13], ["Nomenclatura SAP", 42],
+      ["Nomenclatura del depósito", 42], ["Unidades CONTADAS", 14],
+      ["Unidades en SAP", 14], ["El detalle de la acción", 86],
+      ["Importe última compra", 16], ["Impacto · $", 15],
+      ["Quién lo decidió", 16], ["Cuándo", 17], ["Nº de caso", 9]];
+
+    var f = [[{ v: "Qué hacer con cada ítem en SAP", s: E.TITULO }],
+             [{ v: "Una fila por caso, con la acción concreta. Las que empiezan con " +
+                   "PENDIENTE todavía no se decidieron: se deciden en el sistema. " +
+                   "Nada de esto modifica SAP: es el pedido de trabajo.", s: E.TENUE }], [],
+             cols.map(function (x) { return { v: x[0], s: E.CAB }; })];
+
+    var pre = App.precios ? App.precios() : {};
+    casos.forEach(function (x, i) {
+      var c = x.c, e = ef(c), r = i + 5;
+      var d = (App.decisiones && App.decisiones()[c.id]) || {};
+      var mat = e.materiales[0] || c.material_sap || "";
+      var p = (typeof pre[mat] === "number" && isFinite(pre[mat])) ? pre[mat] : null;
+      var un = c.origen === "Inventario físico" ? (c.cantidad_fisica || 0) : (c.stock_sap || 0);
+      f.push([
+        { v: x.a.verbo, s: E.TEXTO },
+        { v: x.a.pend ? "Sí" : "No" },
+        { v: c.base },
+        { v: d.centro_alta || c.centro || "" },
+        { v: d.almacen_alta || d.almacen_ajuste || d.almacen_propuesto ||
+             (c.almacenes || []).map(function (z) { return z.almacen; }).join(" · ") || "" },
+        { v: e.materiales.join(" · ") || c.material_sap || "" },
+        { v: c.texto_sap || "", s: E.TEXTO },
+        { v: c.nombre_fisico || "", s: E.TEXTO },
+        { v: c.cantidad_fisica || 0, s: E.ENTERO },
+        { v: c.origen === "Inventario físico" ? (c.stock_sap_en_base || 0) : (c.stock_sap || 0),
+          s: E.ENTERO },
+        { v: x.a.det, s: E.TEXTO },
+        p === null ? { v: "" } : { v: p, s: E.IMPORTE },
+        p === null ? { v: "" } : { v: un * p, s: E.IMPORTE },
+        { v: e.revisor || "" },
+        e.actualizado ? { v: new Date(e.actualizado), s: E.FECHA } : { v: "" },
+        { v: c.n },
+      ]);
+    });
+    var ult = Math.max(f.length, 5);
+    var tot = new Array(cols.length).fill(null);
+    tot[0] = { v: "TOTAL", s: E.SUBTITULO };
+    tot[8] = { f: "SUBTOTAL(109,I5:I" + ult + ")", s: E.ENTERO };
+    tot[9] = { f: "SUBTOTAL(109,J5:J" + ult + ")", s: E.ENTERO };
+    tot[12] = { f: "SUBTOTAL(109,M5:M" + ult + ")", s: E.IMPORTE };
+    f.push(tot);
+    return { nombre: "Qué hacer en SAP", filas: f,
+             anchos: cols.map(function (x) { return x[1]; }),
+             altos: { 1: 22, 2: 15, 4: 32 },
+             congelar: "C5", autofiltro: "A4:" + col(cols.length) + ult,
+             cuenta: cuenta };
   }
 
   function hojaResumen() {
@@ -320,7 +532,99 @@ var Exportar = (function () {
     m.clases.forEach(function (cl) {
       f.push([{ v: cl }, { f: 'SUMIF(Casos!D:D,"' + cl + '",Casos!AF:AF)', s: E.IMPORTE }]);
     });
-    return { nombre: "Resumen", filas: f, anchos: [46, 15, 15, 15, 15, 15, 15, 16] };
+    /* Lo que antes eran tres hojas sueltas —la propuesta de almacén, las
+       equivalencias declaradas y la metodología— entra acá, junto a las cifras
+       que condicionan. Reducir hojas no es perder contenido: es ponerlo donde
+       se lee. */
+    f.push([]);
+    f.push([{ v: "ALMACÉN PROPUESTO POR BASE Y TIPO · PENDIENTE DE VALIDACIÓN", s: E.SUBTITULO }]);
+    f.push([{ v: "A qué base pertenece cada almacén está OBSERVADO en la bajada: cada código " +
+                 "de almacén aparece bajo un único centro, no es una suposición. Cuál " +
+                 "DEBERÍA tener el stock de farmacia no está en los archivos: se propuso por " +
+                 "la composición observada y hay que validarlo con cada base.", s: E.TENUE }]);
+    f.push([{ v: "Base", s: E.CAB }, { v: "Tipo", s: E.CAB },
+            { v: "Almacén propuesto", s: E.CAB }, { v: "Confianza", s: E.CAB },
+            { v: "Qué significa esa confianza", s: E.CAB }]);
+    (m.almacenes.propuesta || []).forEach(function (p2) {
+      f.push([{ v: p2.base }, { v: p2.tipo }, { v: p2.almacen || "—" }, { v: p2.confianza },
+              { v: p2.confianza === "Clara"
+                  ? "Un solo almacén concentra el stock de este tipo en la base."
+                  : "Hay más de un almacén con stock de este tipo y ninguno concentra el " +
+                    "conjunto: de los datos no sale cuál debería ser. Lo ambiguo es el " +
+                    "almacén, no el material.", s: E.TEXTO }]);
+    });
+    if ((m.almacenes.falta || []).length) {
+      f.push([{ v: "Falta para cerrarlo" },
+              { v: (m.almacenes.falta || []).join(" · "), s: E.TEXTO }]);
+    }
+
+    f.push([]);
+    f.push([{ v: "EQUIVALENCIAS DE NOMENCLATURA DECLARADAS", s: E.SUBTITULO }]);
+    f.push([{ v: "El depósito y SAP no nombran igual, y la correspondencia no es uno a uno " +
+                 "en ninguno de los dos sentidos: VARIAS nomenclaturas del depósito que son " +
+                 "el mismo producto, VARIOS códigos de SAP para un mismo producto, o las dos " +
+                 "cosas. Los códigos agrupados dejan de ser candidatos a baja.", s: E.TENUE }]);
+    var gs = App.grupos ? App.grupos() : [];
+    if (!gs.length) {
+      f.push([{ v: "Todavía no se declaró ninguna equivalencia.", s: E.TENUE }]);
+    } else {
+      f.push([{ v: "Nombre unificado", s: E.CAB }, { v: "Nomenclaturas del depósito", s: E.CAB },
+              { v: "Códigos de SAP", s: E.CAB }, { v: "Sentido", s: E.CAB },
+              { v: "Revisor", s: E.CAB }]);
+      gs.forEach(function (g) {
+        var sen = g.items.length > 1 && g.materiales.length > 1
+            ? "Varias del depósito = varios de SAP"
+          : g.items.length > 1 ? "Varias del depósito = un código de SAP"
+          : g.materiales.length > 1 ? "Una del depósito = varios códigos de SAP"
+          : "Una a una";
+        f.push([{ v: g.nombre, s: E.TEXTO },
+                { v: g.items.map(function (c) { return c.nombre_fisico; }).join(" · "), s: E.TEXTO },
+                { v: g.materiales.join(" · "), s: E.TEXTO },
+                { v: sen, s: E.TEXTO }, { v: g.revisor || "" }]);
+      });
+    }
+    var ep = App.equivPres ? App.equivPres() : {};
+    var kp = Object.keys(ep);
+    if (kp.length) {
+      f.push([]);
+      f.push([{ v: "PRESENTACIONES DECLARADAS EQUIVALENTES", s: E.SUBTITULO }]);
+      f.push([{ v: "Casos donde una presentación no informa lo que la otra sí —«comprimidos» " +
+                   "y «60 comprimidos»— y una persona declaró que son la misma. El factor no " +
+                   "cambia ninguna cantidad: dice por cuánto multiplicar al comparar.", s: E.TENUE }]);
+      f.push([{ v: "Código SAP", s: E.CAB }, { v: "Presentación del depósito", s: E.CAB },
+              { v: "Nomenclatura SAP", s: E.CAB }, { v: "Factor", s: E.CAB },
+              { v: "Quién", s: E.CAB }]);
+      kp.forEach(function (x) {
+        var e2 = ep[x];
+        f.push([{ v: e2.material }, { v: e2.presentacion || "", s: E.TEXTO },
+                { v: e2.texto_sap || "", s: E.TEXTO },
+                e2.factor ? { v: e2.factor } : { v: "" }, { v: e2.quien || "" }]);
+      });
+    }
+
+    f.push([]);
+    f.push([{ v: "CÓMO SE DECIDE UNA CORRESPONDENCIA", s: E.SUBTITULO }]);
+    [["El parecido del nombre genera el candidato; las características deciden",
+      "De cada material se extraen concentración, forma farmacéutica, volumen, calibre, " +
+      "medidas, talle, modelo o referencia, longitud, esterilidad, población y cantidades " +
+      "sin unidad."],
+     ["Si los dos lados declaran lo mismo con valores distintos, no son el mismo material",
+      "El candidato se descarta y queda registrado el motivo."],
+     ["Si una característica se declara de un lado y no del otro, nada quedó verificado",
+      "El caso va a revisión. Ahí se puede declarar que la presentación es la misma, y " +
+      "esa declaración vale para todas las bases."],
+     ["El maestro con el que se trabaja", "Son los " + num(App.maestroUnificado().filas.length) +
+      " códigos de la bajada de SAP, con existencia y en cero, más lo que se importe. " +
+      "Salió de una bajada de stock por centro: un material que nunca tuvo existencia en " +
+      "ninguno de los tres podría no figurar."],
+     ["Nada de esto modifica SAP",
+      "Cada decisión queda como propuesta con nombre y fecha. La ejecución es posterior."],
+    ].forEach(function (x) {
+      f.push([{ v: x[0], s: E.TEXTO }, { v: x[1], s: E.TEXTO }]);
+    });
+
+    return { nombre: "Resumen", filas: f,
+             altos: { 1: 24, 2: 15 }, anchos: [46, 30, 26, 18, 64, 15, 15, 16] };
   }
 
   function hojaLotes() {
@@ -342,7 +646,8 @@ var Exportar = (function () {
     var ult = f.length;
     f.push([{ v: "TOTAL", s: E.SUBTITULO }, null, null, null, null, null, null,
             { f: "SUBTOTAL(109,H5:H" + ult + ")", s: E.ENTERO }]);
-    return { nombre: "Lotes", filas: f, anchos: [8, 11, 15, 14, 42, 20, 13, 12, 14],
+    return { nombre: "Lotes", filas: f,
+             altos: { 1: 22, 2: 15, 4: 28 }, anchos: [8, 11, 15, 14, 42, 20, 13, 12, 14],
              congelar: "E5", autofiltro: "A4:I" + ult };
   }
 
@@ -366,7 +671,8 @@ var Exportar = (function () {
       });
     });
     if (!n) f.push([{ v: "Todavía no se registró ninguna decisión en el sistema.", s: E.TENUE }]);
-    return { nombre: "Decisiones", filas: f, anchos: [17, 18, 8, 15, 11, 44, 54],
+    return { nombre: "Decisiones", filas: f,
+             altos: { 1: 22, 2: 15, 4: 28 }, anchos: [17, 18, 8, 15, 11, 44, 54],
              congelar: "A5", autofiltro: "A4:G" + Math.max(f.length, 5) };
   }
 
@@ -654,7 +960,8 @@ var Exportar = (function () {
               { f: 'IF(D' + r + '=0,"Coincide","A REVISAR")' },
               { v: x[3], s: E.TEXTO }]); r++;
     });
-    return { nombre: "Control", filas: f, anchos: [56, 15, 15, 12, 14, 60] };
+    return { nombre: "Control", filas: f,
+             altos: { 1: 22, 2: 15, 4: 28 }, anchos: [56, 15, 15, 12, 14, 60] };
   }
 
   function hojaMetodologia() {
@@ -741,41 +1048,51 @@ var Exportar = (function () {
   }
 
   function excel() {
+    /* Siete hojas, no quince. Las seis hojas por clasificación eran el mismo
+       detalle partido por una categoría interna, y obligaban a recorrerlas
+       todas para saber qué hacer: ahora eso lo dice «Qué hacer en SAP» en una
+       columna. La propuesta de almacén y la metodología entraban mejor en el
+       Resumen, donde se leen junto a las cifras que condicionan. */
     var hojas = [
       hojaResumen(),
+      hojaAccion(),
       hojaCasos(),
-      hojaOperativa("A Identificados", "Materiales físicos identificados en SAP",
-        "Existen en el inventario físico y tienen un código de SAP cuya nomenclatura y " +
-        "presentación se corresponden. No hay que darlos de alta.",
-        function (c) { return L(c) === "A"; }),
-      hojaOperativa("B Verificar en el maestro", "Ítems sin correspondencia entre los materiales CON STOCK",
-        "La bajada de SAP son los materiales que hoy tienen existencia, NO el maestro completo. " +
-        "Estos ítems no aparecieron ahí, pero pueden existir en SAP con stock cero. Antes de " +
-        "proponer un alta hay que verificarlo contra el maestro: eso está fuera del alcance de " +
-        "este trabajo.",
-        function (c) { return L(c) === "B"; }),
-      hojaOperativa("C Propuestas de baja", "Materiales de SAP sin correspondencia física",
-        "PROPUESTA de baja, sujeta a revisión y aprobación. No ejecuta nada en SAP. " +
-        "Provisional mientras queden casos en revisión.",
-        function (c) { return L(c) === "C"; }),
-      hojaOperativa("D A revisar", "Casos que requieren revisión",
-        "Coincidencias parciales, diferencias de presentación, varios códigos posibles o " +
-        "nomenclatura insuficiente. No se resuelven automáticamente.",
-        function (c) { return L(c) === "D"; }),
-      hojaOperativa("E Fuera del alcance", "Materiales fuera del alcance del inventario",
-        "Indumentaria, equipamiento y repuestos. El inventario relevado es de Farmacia: su " +
-        "ausencia no permite concluir nada y no se propone ninguna baja.",
-        function (c) { return L(c) === "E"; }),
-      hojaOperativa("F Maestro sin stock", "Materiales de SAP con existencia cero",
-        "Figuran en la bajada con stock CERO. No hay stock que dar de baja: lo que " +
-        "corresponde es decidir qué pasa con el registro en el maestro. Esa decisión está " +
-        "en la hoja «Depuración del maestro».",
-        function (c) { return L(c) === "F"; }),
-      hojaAlmacenes(), hojaDepuracion(),
-      hojaLotes(), hojaUnificadas(), hojaDecisiones(), hojaControl(), hojaMetodologia(),
+      hojaMaestro(),
+      hojaLotes(),
+      hojaDecisiones(),
+      hojaControl(),
     ];
     var blob = XLSXMin.construir(acotar(hojas), { titulo: "Inventario físico vs SAP" });
     descargar(blob, "Inventario fisico vs SAP - analisis " + hoy() + ".xlsx");
+  }
+
+  /* El maestro general con los importes, dentro del análisis: es la misma
+     lista que se baja para completar, y tenerla acá evita exportar dos veces
+     para saber qué códigos hay. */
+  function hojaMaestro() {
+    var u = App.maestroUnificado();
+    var cols = [["Código SAP", 14], ["Nomenclatura SAP", 52], ["Importe última compra", 20],
+      ["Nomenclatura del depósito", 46], ["Bases donde aparece", 24],
+      ["Almacenes donde figura", 22], ["De dónde sale", 40]];
+    var f = [[{ v: "Maestro general de materiales", s: E.TITULO }],
+             [{ v: "Una fila por código de SAP: sin duplicar por base ni por almacén, " +
+                   "con los que tienen existencia y con los que están en cero. Para cargar " +
+                   "los importes, bajá la planilla desde Maestro → Maestro general.",
+                s: E.TENUE }], [],
+             cols.map(function (x) { return { v: x[0], s: E.CAB }; })];
+    u.filas.forEach(function (x) {
+      f.push([
+        { v: x.codigo }, { v: x.texto || "", s: E.TEXTO },
+        x.precio != null ? { v: x.precio, s: E.IMPORTE } : { v: "" },
+        { v: x.fisicos.join(" · "), s: E.TEXTO },
+        { v: x.bases.join(" · ") }, { v: x.almacenes.join(" · ") },
+        { v: x.fuente, s: E.TEXTO },
+      ]);
+    });
+    return { nombre: "Maestro general", filas: f,
+             anchos: cols.map(function (x) { return x[1]; }),
+             altos: { 1: 22, 2: 15, 4: 30 },
+             congelar: "B5", autofiltro: "A4:G" + Math.max(f.length, 5) };
   }
 
   function descargar(blob, nombre) {

@@ -117,10 +117,10 @@
       '<xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>' +
       '<xf numFmtId="166" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>' +
       '<xf numFmtId="0"   fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1">' +
-        '<alignment vertical="top" wrapText="1"/></xf>' +
+        '<alignment vertical="top"/></xf>' +
       '<xf numFmtId="0"   fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
       '<xf numFmtId="0"   fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1">' +
-        '<alignment vertical="top" wrapText="1"/></xf>' +
+        '<alignment vertical="top"/></xf>' +
       '<xf numFmtId="164" fontId="3" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/>' +
       '<xf numFmtId="0"   fontId="4" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1"/>' +
     '</cellXfs>' +
@@ -163,7 +163,12 @@
           celdas.push('<c r="' + ref + '"' + attr + ' t="s"><v>' + idx + '</v></c>');
         }
       }
-      if (celdas.length) out.push('<row r="' + (i + 1) + '">' + celdas.join("") + "</row>");
+      /* El alto de una fila se puede fijar. Sin esto Excel lo calcula solo y,
+         con una celda envuelta, lo calcula enorme. */
+      var alto = hoja.altos && hoja.altos[i + 1];
+      var attrFila = alto ? ' ht="' + alto + '" customHeight="1"' : "";
+      if (celdas.length)
+        out.push('<row r="' + (i + 1) + '"' + attrFila + ">" + celdas.join("") + "</row>");
     }
     var cols = "";
     if (hoja.anchos && hoja.anchos.length) {

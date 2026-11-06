@@ -201,7 +201,7 @@ Qué pasa cuando confirmás:
 - Los códigos agrupados **dejan de ser candidatos a baja en esa base**, porque alguien los
   identificó. El contador del grupo 5 baja solo.
 - Los ítems declarados equivalentes **salen de la cola**: no se vuelven a preguntar.
-- El grupo queda listado en Inicio, en el Excel (hoja «Equivalencias», con los dos lados y
+- El grupo queda listado en la pantalla de trabajo, en el Excel (hoja «Resumen», con los dos lados y
   el sentido de cada grupo, y dos columnas en «Casos») y en el PDF.
 
 Importante: la liberación es **por base**. Si agrupás un código en San Juan, su stock en
@@ -506,13 +506,24 @@ sistema y están marcados en el Excel.
 
 ## El Excel
 
-Quince hojas: `Resumen` (indicadores, todos fórmulas sobre `Casos`), `Casos` (el detalle
-completo, **50 columnas**), las seis hojas operativas `A` a `F`, `Almacenes` (la propuesta
-por base y tipo, con lo observado y lo que hay que validar), `Depuración del maestro`
-(política, excepciones y decisiones individuales), `Lotes` (trazabilidad al lote original),
-`Equivalencias` (los grupos declarados, con los dos lados y el sentido
-de cada uno), `Decisiones` (historial), `Control` (integridad contra las
-fuentes, con fórmulas vivas) y `Metodología`.
+**Siete hojas**, no quince. Las seis que partían el detalle por clasificación decían en
+qué categoría cayó cada caso, pero no la frase que alguien tiene que ejecutar: esa frase
+estaba repartida entre hojas y columnas y había que armarla a mano. Ahora la dice una
+columna.
+
+| Hoja | Para qué |
+|---|---|
+| `Qué hacer en SAP` | **La hoja operativa.** Una fila por caso con la acción concreta —crear el material en el centro X almacén Y, ajustar N unidades, mover de almacén, dar de baja— y una columna que dice si todavía falta decidirla. Ordenada por acción, así cada bloque de trabajo queda junto. |
+| `Resumen` | Indicadores (fórmulas vivas sobre `Casos`), el glosario de magnitudes, la propuesta de almacén por base y tipo, las equivalencias declaradas y cómo se decide una correspondencia. |
+| `Casos` | El detalle completo, **50 columnas**, con autofiltro. |
+| `Maestro general` | Una fila por código de SAP, sin duplicar por base ni por almacén, con el importe de última compra. |
+| `Lotes` | Trazabilidad al renglón de lote del informe original. |
+| `Decisiones` | El historial: quién decidió qué y cuándo. |
+| `Control` | Integridad contra las fuentes, con fórmulas vivas. |
+
+**El formato está corregido.** Antes una nota larga en una columna angosta se envolvía en
+veinte renglones y estiraba la fila a media pantalla. Ahora sólo el encabezado envuelve
+texto, y el alto del título, la nota y el encabezado está fijado en todas las hojas.
 
 En la hoja `Casos`, las columnas **AN a AS** son la ubicación del stock y las **AT a AX**,
 la alternativa elegida en la clase B. Se agregaron al final a propósito, para no mover

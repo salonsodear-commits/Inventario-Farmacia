@@ -104,10 +104,10 @@ def _meta(fis, sap, casos, alm, equiv):
                                "alta en SAP con existencia cero no figura en este archivo. Por "
                                "eso, que un ítem del inventario físico no se encuentre acá no "
                                "prueba que no exista en SAP."),
-                "fuera_de_alcance": ("Verificar contra el maestro completo de SAP si los ítems "
-                                     "no identificados ya existen sin stock, y decidir en ese "
-                                     "caso si se reutiliza el código o se da de baja y se crea "
-                                     "de nuevo.")},
+                "fuera_de_alcance": ("Confirmar en SAP que los ítems no identificados no "
+                                     "existan ya con otro código. El maestro cargado son los "
+                                     "materiales de esta bajada; uno que nunca tuvo existencia "
+                                     "en ninguno de los tres centros podría no figurar.")},
         "valorizacion": {
             "criterio": "Precio de última compra",
             "disponible": False,

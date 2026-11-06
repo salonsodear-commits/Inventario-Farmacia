@@ -287,7 +287,7 @@ var Informe = (function () {
         <li><b>La contraparte de SAP son los materiales con stock, no el maestro completo.</b>
         Por eso la clasificación B no afirma que el material no exista en SAP, sino que no está
         entre los que hoy tienen existencia. Confirmarlo contra el maestro —y, si ya existe sin
-        stock, decidir si se reutiliza el código o se da de baja y se crea de nuevo— está fuera
+        stock, decidir si se le asigna ese código o se da de baja y se crea de nuevo— está fuera
         del alcance de este trabajo.</li>
         <li>La identificación se valida sobre la <b>denominación y la presentación declaradas en
         los textos</b>. Si un texto de SAP no declara la presentación, el caso va a revisión en
@@ -560,7 +560,7 @@ var Informe = (function () {
       dado de alta con existencia cero. Por eso el trabajo no es «dar de alta»: es elegir
       expresamente cómo se trabaja cada caso, entre dos alternativas.</p>` +
       tabla(["", "Alternativa", "Qué implica", "Qué riesgo tiene"], [
-        [alt(1), "<b>Verificar antes de crear</b>", "Se consulta el maestro completo antes de crear nada. Si el material ya existe con stock cero, se decide si se reutiliza el código o se da de baja y se crea de nuevo.", "Ninguno sobre los datos. El costo es de tiempo: hace falta el maestro completo, que no está entre los archivos recibidos, y el caso queda abierto hasta tenerlo."],
+        [alt(1), "<b>Consultar en SAP antes de crear</b>", "El maestro cargado son los materiales de la bajada, con existencia y en cero. Uno que nunca tuvo existencia en ninguno de los tres centros podría no figurar, así que se puede confirmar en SAP antes de crear. Si aparece y sirve, se le asigna ese código y no se crea nada.", "Ninguno sobre los datos. El costo es de tiempo: el caso queda abierto hasta que se cargue el resultado de la consulta."],
         [alt(2), "<b>Crear igual, sin verificar</b>", "Se avanza con el alta aunque no se haya verificado el maestro. El sistema no lo impide: lo pregunta expresamente, exige confirmar que se entiende el riesgo y registra quién lo decidió.", "<b>Código duplicado.</b> Si el material ya existía con stock cero, queda el mismo producto abierto dos veces, con el stock, los consumos, los precios y el histórico partidos entre los dos códigos. El código viejo sigue vivo hasta que alguien lo depure."],
       ], ["eti-col"]) + `
       <h4>Cómo están hoy esos ` + num(t.B) + ` ítems</h4>` +
@@ -633,14 +633,14 @@ var Informe = (function () {
         ["Ver un material puntual con toda su justificación", "En el <b>sistema</b>, solapa «Buscar»: filtra por base, tipo, clasificación, almacén, estado y texto libre. Cada ficha trae la comparación característica por característica."],
         ["Cargar el importe de última compra", "En el sistema, <b>Maestro → Maestro general</b>: se baja la planilla con un renglón por código de SAP, se completa la columna del importe y se vuelve a subir el mismo archivo."],
         ["Trabajar una lista completa en Excel", "En el archivo <b>«Inventario fisico vs SAP - analisis.xlsx»</b>, hoja «Casos»: una fila por caso, " + num(50) + " columnas, con autofiltro y fórmulas vivas."],
-        ["Una lista por clasificación", "Mismo Excel, hojas «A Identificados», «B Verificar en el maestro», «C Propuestas de baja», «D A revisar», «E Fuera del alcance» y «F Maestro sin stock»."],
-        ["Qué nomenclaturas quedaron declaradas equivalentes", "Excel, hoja «Equivalencias»: los nombres del depósito de un lado, los códigos de SAP del otro, y en qué sentido va cada grupo."],
-        ["La ubicación de cada material", "Excel, hoja «Casos» columnas AN a AS, y hoja «Almacenes» para la propuesta por base y tipo."],
-        ["Qué alternativa se eligió en cada caso de clase B", "Excel, hoja «Casos» columnas AT a AX."],
-        ["El plan de depuración del maestro", "Excel, hoja «Depuración del maestro», y solapa «Maestro» del sistema."],
+        ["<b>Saber qué hacer con cada ítem en SAP</b>", "Mismo Excel, hoja <b>«Qué hacer en SAP»</b>: una fila por caso con la acción concreta —crear, ajustar stock, mover de almacén, dar de baja— y si todavía falta decidirla. Está ordenada por acción, así cada bloque de trabajo queda junto."],
+        ["Qué nomenclaturas quedaron declaradas equivalentes", "Excel, hoja «Resumen»: los nombres del depósito de un lado, los códigos de SAP del otro, y en qué sentido va cada grupo. Ahí mismo, las presentaciones declaradas equivalentes."],
+        ["La ubicación de cada material", "Excel, hoja «Casos» columnas AN a AS; la propuesta de almacén por base y tipo, en el «Resumen»."],
+        ["Qué se decidió para cada ítem sin correspondencia", "Excel, hoja «Casos» columnas AT a AX, con el centro y el almacén donde se daría de alta."],
+        ["El maestro de materiales con los importes", "Excel, hoja «Maestro general»: una fila por código de SAP, sin duplicar por base ni por almacén."],
         ["Quién decidió qué y cuándo", "Excel, hoja «Decisiones»: el historial completo, con nombre y fecha."],
         ["Verificar que las cifras cierran contra las fuentes", "Excel, hoja «Control»: cada control se recalcula solo sobre la hoja «Casos»."],
-        ["Entender cómo se decidió una correspondencia", "Excel, hoja «Metodología», y las secciones 4 y 6 de este informe."],
+        ["Entender cómo se decidió una correspondencia", "Excel, hoja «Resumen», bloque «Cómo se decide una correspondencia», y las secciones 4 y 6 de este informe."],
       ]) + `
       <p class="aviso"><b>Los tres salen del mismo dato.</b> El sistema, el Excel y este
       informe se arman a partir del mismo conjunto de casos y de las mismas decisiones
@@ -695,7 +695,7 @@ var Informe = (function () {
         ["Alcance del recuento", "El inventario cubrió Farmacia. Hay que confirmar que los " + num(t.E) + " materiales de indumentaria, equipamiento y repuestos quedan definitivamente fuera y cómo se controlan."],
         ["Criterio de baja", "La propuesta de dar de baja todo lo no identificado afecta a " + num(t.C) + " combinaciones de material y base. Conviene validar que la ausencia en el recuento es motivo suficiente, o si se exige una verificación previa en depósito."],
         ["Crear sin verificar, o esperar el maestro", "Para los " + num(t.B) + " ítems sin correspondencia hay que definir si se admite crear sin verificar el maestro completo —asumiendo el riesgo de código duplicado— o si se espera. La herramienta permite las dos, registra cuál se eligió y liga la primera al plan de depuración."],
-        ["Reutilizar o recrear un código", "Para los ítems que resulten existir en el maestro sin stock: se reutiliza el código existente, o se da de baja y se crea uno nuevo. La decisión afecta la trazabilidad histórica del material."],
+        ["Qué hacer con un código que ya existe", "Para los ítems que resulten existir en SAP con otro código: se les asigna ese código, o se da de baja y se crea uno nuevo. La decisión afecta la trazabilidad histórica del material."],
         ["Almacén esperado por base y tipo", "La propuesta sale de la composición observada de cada almacén, no de los nombres ni de los códigos. Cada base tiene que confirmar cuál es el almacén de Farmacia, y si medicamentos y descartables van separados."],
         ["Qué hacer con el maestro sin stock", "Mantener, bloquear o dar de baja. Puede definirse una política masiva con excepciones anotadas, pero el criterio y quién lo autoriza son una decisión de la organización."],
         ["Unidad de la baja", "Un material identificado en una base y no en otra: se da de baja sólo el stock de la base, no el material. Hay que confirmar que ése es el criterio."],

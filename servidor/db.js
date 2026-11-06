@@ -55,6 +55,9 @@ CREATE TABLE IF NOT EXISTS decision (
   almacen_propuesto      TEXT,
   almacen_ajuste         TEXT,             -- en qué almacén tiene que cuadrar el ajuste
   ajuste_stock           TEXT,             -- cuántas unidades se propone ajustar
+  centro_alta            TEXT,             -- dónde se daría de alta el material nuevo
+  almacen_alta           TEXT,
+  equiv_presentacion     TEXT,             -- presentaciones declaradas equivalentes
   ruta_b                 TEXT,             -- la alternativa elegida en la clase B
   verificacion           TEXT,
   codigo_maestro         TEXT,
@@ -141,7 +144,7 @@ CREATE TABLE IF NOT EXISTS acceso (
 
 const CAMPOS = ["materiales", "nomenclatura_unificada", "estado_revision", "aprobacion",
   "observaciones", "almacen_decision", "almacen_propuesto", "almacen_ajuste", "ajuste_stock",
-  "ruta_b", "verificacion",
+  "centro_alta", "almacen_alta", "equiv_presentacion", "ruta_b", "verificacion",
   "codigo_maestro", "riesgo_duplicado", "depuracion", "reclasificado", "material_corregido"];
 
 function ahora() { return new Date().toISOString(); }
@@ -162,6 +165,9 @@ class Base {
       ["maestro_material", "precio", "REAL"],
       ["decision", "almacen_ajuste", "TEXT"],
       ["decision", "ajuste_stock", "TEXT"],
+      ["decision", "centro_alta", "TEXT"],
+      ["decision", "almacen_alta", "TEXT"],
+      ["decision", "equiv_presentacion", "TEXT"],
     ];
     for (const [tabla, col, tipo] of faltantes) {
       const hay = this.db.prepare(`PRAGMA table_info(${tabla})`).all()
