@@ -115,7 +115,11 @@ def cruzar(items_fis, maestro_sap, hints=None):
                 cands.add(m)
 
         evaluados = []
-        for m in cands:
+        # Ordenado, y no el orden del conjunto: Python aleatoriza el hash de las
+        # cadenas en cada proceso, así que recorrer el conjunto hacía que dos
+        # corridas del mismo análisis sobre los mismos archivos eligieran
+        # candidatos distintos cuando empataban.
+        for m in sorted(cands):
             ps = perf_sap[m]
             cf = cobertura(pf["denominacion"], ps["denominacion"], idf, n)
             cs = cobertura(ps["denominacion"], pf["denominacion"], idf, n)
@@ -134,10 +138,13 @@ def cruzar(items_fis, maestro_sap, hints=None):
         # Primero manda cuántos atributos quedaron verificados; el parecido del
         # nombre sólo desempata. Es la regla que pide el criterio: la coincidencia
         # la justifican las características, no el nombre.
+        # El código de material desempata al final: sin un criterio total, dos
+        # candidatos con los mismos atributos y el mismo parecido quedaban en el
+        # orden en que salieron del conjunto, que no es estable.
         limpios = sorted([e for e in evaluados if not e["conflictos"]],
-                         key=lambda e: (-e["n_coinc"], -e["score"]))
+                         key=lambda e: (-e["n_coinc"], -e["score"], e["material"]))
         sucios  = sorted([e for e in evaluados if e["conflictos"]],
-                         key=lambda e: -e["score"])
+                         key=lambda e: (-e["score"], e["material"]))
 
         res = {
             "base": it["base"], "codigo": it["codigo"], "nombre": it["nombre"],

@@ -493,11 +493,12 @@ var Informe = (function () {
       "Parte 5");
 
     marcar("El maestro completo y la depuración", 1);
-    var rb = { ruta: 0, verif: 0, crear: 0, cerrado: 0, no: 0 };
+    var rb = { ruta: 0, verif: 0, crear: 0, cerrado: 0, sirve: 0, no: 0 };
     d.casos.forEach(function (c) {
       if (L(c) !== "B") return;
       var e = ef(c);
       if (e.aprobacion === "Rechazado") { rb.no++; return; }
+      if (e.verificacion === App.RB.SIRVE) { rb.sirve++; return; }
       if (!e.ruta_b) { rb.ruta++; return; }
       if (e.ruta_b === App.RB.CREAR) { rb.crear++; return; }
       if (!e.verificacion) { rb.verif++; return; }
@@ -518,13 +519,14 @@ var Informe = (function () {
       stock</b> en SAP. Eso <b>no prueba que no existan</b>. Por eso el trabajo no es «dar de
       alta»: es elegir expresamente cómo se trabaja cada caso.</p>` +
       tabla(["", "Alternativa", "Qué riesgo tiene"], [
-        [alt(1), "<b>Consultar en SAP antes de crear.</b> Si aparece y sirve, se le asigna ese código y no se crea nada.", "Ninguno sobre los datos. El costo es de tiempo: el caso queda abierto hasta que se cargue el resultado."],
+        [alt(1), "<b>Consultar en SAP antes de crear.</b> Si aparece y sirve, se escribe ese código en el sistema y se le asigna como a cualquier otra identificación: no se crea nada.", "Ninguno sobre los datos. El costo es de tiempo: el caso queda abierto hasta que se cargue el resultado."],
         [alt(2), "<b>Crear igual, sin verificar.</b> El sistema no lo impide: lo pregunta, exige confirmar que se entiende el riesgo y registra quién lo decidió.", "<b>Código duplicado.</b> Si el material ya existía con stock cero, queda el mismo producto abierto dos veces, con el stock, los consumos y el histórico partidos."],
       ], ["eti-col"]) + `
       <p class="cont">Cómo están hoy: ` + num(rb.ruta) + ` sin alternativa elegida ·
-      ` + num(rb.verif) + ` esperando el resultado de la consulta · ` + num(rb.cerrado) + `
-      con la verificación cargada · ` + num(rb.crear) + ` crear sin verificar, con el riesgo
-      asumido · ` + num(rb.no) + ` se decidió no darlos de alta.</p>
+      ` + num(rb.verif) + ` esperando el resultado de la consulta · <b>` + num(rb.sirve) + `
+      aparecieron en el maestro completo y se les asignó ese código</b>, sin crear nada ·
+      ` + num(rb.cerrado) + ` con otra verificación cargada · ` + num(rb.crear) + ` crear sin
+      verificar, con el riesgo asumido · ` + num(rb.no) + ` se decidió no darlos de alta.</p>
       <h4>La depuración del maestro · ` + num(t.F) + ` materiales con existencia cero</h4>
       <p>No hay stock que dar de baja. Lo que corresponde decidir es qué pasa con el
       <b>registro</b>: <b>mantener</b> —lo más conservador, el maestro sigue creciendo—,

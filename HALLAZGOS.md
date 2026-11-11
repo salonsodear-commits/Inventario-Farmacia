@@ -259,3 +259,18 @@ consecuencia directa del criterio pedido. Los motivos:
 
 Cada caso llega con el candidato más probable y el motivo exacto, así que la revisión es
 de confirmar o descartar, no de investigar desde cero.
+
+## El inventario de Neuquén reusa códigos internos
+
+Diecisiete códigos del depósito de Neuquén están usados por **dos productos distintos**:
+el 522 es «Abbocath n° 22» y también «ESTETOSCOPIO»; el 500, «AMBU PEDIATRICO» y «CANULAS
+DE MAYO N°5». Son 34 ítems en total.
+
+No es un error de lectura: así vienen en el reporte. Pero el sistema identificaba cada
+caso por **centro + código del depósito**, y las decisiones se guardan por identificador,
+así que dos ítems que no tienen nada que ver compartían la misma decisión: decidir uno
+decidía el otro. Ahora, cuando un código vuelve a aparecer en su base, el identificador
+lleva un sufijo (`1060-522`, `1060-522#2`).
+
+**Vale la pena avisarle a la base**, porque el mismo problema lo tiene cualquier sistema
+que use ese código como clave.

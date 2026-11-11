@@ -29,6 +29,20 @@ al = k["almacen"]
 
 print("\n=== 1. EL DATASET ===")
 ok(len(d["casos"]) == 1991, "1.991 casos en total", str(len(d["casos"])))
+# Las decisiones se guardan por identificador: si dos casos comparten uno,
+# decidir uno decide el otro. El inventario de Neuquén reusa códigos internos.
+ids = collections.Counter(c["id"] for c in d["casos"])
+rep = [k for k, n in ids.items() if n > 1]
+ok(not rep, "cada caso tiene un identificador propio",
+   "%d casos · %d identificadores%s" % (len(d["casos"]), len(ids),
+   "" if not rep else " · repetidos: " + ", ".join(rep[:4])))
+# El análisis tiene que dar lo mismo cada vez que se corre. Recorrer un
+# conjunto de cadenas no lo garantiza: Python aleatoriza el hash por proceso.
+cru = io.open(RAIZ + "scripts/v3/cruce_estricto.py", encoding="utf-8").read()
+ok("for m in sorted(cands)" in cru,
+   "los candidatos se recorren en orden, no en el del conjunto")
+ok('-e["score"], e["material"]' in cru and '-e["n_coinc"], -e["score"], e["material"]' in cru,
+   "y el empate lo rompe el código de material, así el análisis es reproducible")
 ok(sum(T.values()) == len(d["casos"]), "las clases suman el total",
    " ".join("%s=%d" % (x, T[x]) for x in sorted(T)))
 ok(k["items_fisicos"] == 687, "687 ítems físicos", str(k["items_fisicos"]))

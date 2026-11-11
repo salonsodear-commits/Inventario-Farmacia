@@ -103,7 +103,8 @@ def calcular(casos):
 
     # Primero los más sólidos: más características verificadas, después nombre.
     for k in out:
-        out[k].sort(key=lambda x: (-len(x["fuertes"]), -len(x["coinciden"]), -x["parecido"]))
+        out[k].sort(key=lambda x: (-len(x["fuertes"]), -len(x["coinciden"]),
+                                   -x["parecido"], x["id"]))
     return dict(out)
 
 

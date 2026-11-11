@@ -466,12 +466,15 @@ input[type=text].cod:focus{outline:2px solid var(--acento2);outline-offset:-1px}
 .rpreg{font-size:13.5px;color:var(--tinta2);line-height:1.6;background:var(--cB-f);
   border:1px solid var(--cB);border-radius:var(--r2);padding:13px 16px;margin-bottom:14px}
 .rpreg b{color:var(--tinta)}
-.rgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:stretch}
+.rgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));
+  gap:14px;align-items:stretch}
 @media (max-width:900px){.rgrid{grid-template-columns:1fr}}
 .ruta{display:flex;flex-direction:column;gap:10px;background:var(--sup2);
   border:1px solid var(--linea2);border-radius:var(--r2);padding:16px 18px}
 .ruta.r1{border-left:3px solid var(--cA)}
 .ruta.r2{border-left:3px solid var(--cC)}
+.ruta.r3{border-left:3px solid var(--cB)}
+.ruta .cod{width:100%}
 .ruta .btn{margin-top:auto}
 .rtit{display:flex;gap:10px;align-items:center;font-size:15.5px;font-weight:650;
   letter-spacing:-.015em;line-height:1.3}
@@ -479,6 +482,7 @@ input[type=text].cod:focus{outline:2px solid var(--acento2);outline-offset:-1px}
   font-weight:700;display:flex;align-items:center;justify-content:center}
 .ruta.r1 .rnum{background:var(--cA)}
 .ruta.r2 .rnum{background:var(--cC)}
+.ruta.r3 .rnum{background:var(--cB)}
 .rtxt{margin:0;font-size:13px;color:var(--tinta2);line-height:1.6}
 .rtxt b,.rlista b{color:var(--tinta)}
 .rlista{margin:0;padding-left:17px;font-size:12.5px;color:var(--tinta2);line-height:1.6}
@@ -932,6 +936,7 @@ tr.tot td{border-top:2px solid var(--linea2);font-weight:650}
 .r2p.listo .r2n{background:var(--cA-t)}
 .ruta.r1 .rnum{background:var(--cA-t)}
 .ruta.r2 .rnum{background:var(--cC-t)}
+.ruta.r3 .rnum{background:var(--cB-t)}
 .ckey{background:var(--sup3);border:1px solid var(--linea2)}
 .cand.marcado .ckey{background:var(--sup);border-color:var(--acento)}
 
@@ -1125,3 +1130,8 @@ table.apt tbody tr:hover{background:transparent}
   border-radius:var(--r2);padding:10px 12px}
 .inds.conq .indi b{font-size:22px}
 .inds.conq .indi>span{font-size:11.5px;color:var(--tinta2)}
+/* Por qué las tarjetas no suman el total: se superponen a propósito. */
+.segsuma{font-size:12.5px;color:var(--tinta2);line-height:1.5;margin:0 0 10px;
+  max-width:104ch;background:var(--sup2);border:1px solid var(--linea);
+  border-radius:var(--r2);padding:8px 12px}
+.segsuma b{color:var(--tinta)}

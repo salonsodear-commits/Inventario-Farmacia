@@ -102,8 +102,18 @@ def confianza(res):
 
 
 def clasificar_fisicos(resultados, maestro):
-    """Una ficha por ítem físico. Conserva la base y la cantidad física originales."""
+    """Una ficha por ítem físico. Conserva la base y la cantidad física originales.
+
+    El identificador era centro + código del depósito, y eso daba por sentado
+    que el código del depósito no se repite dentro de una base. En Neuquén sí
+    se repite: el 522 es «Abbocath n° 22» y también «ESTETOSCOPIO». Como las
+    decisiones se guardan por identificador, dos ítems distintos terminaban
+    compartiendo la misma decisión. Cuando un código vuelve a aparecer en su
+    base, el identificador lleva un sufijo; el primero no cambia, así que nada
+    de lo ya decidido se mueve de lugar.
+    """
     out = []
+    vistos = collections.Counter()
     for r in resultados:
         clase, accion = MAP[r["clasificacion"]]
 
@@ -117,8 +127,11 @@ def clasificar_fisicos(resultados, maestro):
             accion = ACC_REGISTRAR
         tipo = tipo_material(r["nombre"], r["codigo"], d["tipo"] if d else None)
         f = fuentes.FUENTE[r["base"]]
+        clave = f"{f['centro']}-{r['codigo']}"
+        vistos[clave] += 1
+        ident = clave if vistos[clave] == 1 else f"{clave}#{vistos[clave]}"
         ficha = {
-            "id": f"{f['centro']}-{r['codigo']}",
+            "id": ident,
             "origen": "Inventario físico",
             "base": r["base"], "centro": f["centro"],
             "sistema_origen": f["sistema"], "informe_origen": f["informe"],

@@ -286,16 +286,21 @@ confirmada.
 Las 153 bajas que dependen de un caso en revisión **quedan fuera del lote automáticamente**
 y el sistema avisa si intentás aprobarlas de a una.
 
-### El grupo 2: dos alternativas, no una
+### El grupo 2: tres salidas, no una
 
 Un ítem que no aparece entre los materiales con stock **no está probado que no exista en
-SAP**. Por eso el sistema no decide solo: pregunta expresamente cuál de los dos caminos
-se toma.
+SAP**. Por eso el sistema no decide solo: pregunta expresamente cuál de los caminos se
+toma.
 
-| | Alternativa | Qué implica | Qué riesgo tiene |
+| | Camino | Qué implica | Qué riesgo tiene |
 |---|---|---|---|
-| **1** | Verificar antes de crear | Se consulta el maestro completo antes de crear nada. Si ya existe con stock cero, se decide si se reutiliza el código o se da de baja y se crea de nuevo. | Ninguno sobre los datos. El costo es de tiempo: hace falta el maestro completo, que no tenemos. |
+| **1** | Verificar antes de crear | Se consulta el maestro completo antes de crear nada. El caso queda abierto hasta que se cargue el resultado. | Ninguno sobre los datos. El costo es de tiempo: hace falta el maestro completo, que no tenemos. |
 | **2** | Crear igual, sin verificar | Se avanza con el alta aunque no se haya verificado el maestro. **El sistema no lo impide.** | **Código duplicado:** el mismo producto abierto dos veces, con el stock, los consumos y el histórico partidos. El código viejo sigue vivo hasta que alguien lo depure. |
+| **3** | Ya lo busqué: existe con este código | Se escribe el código que apareció al consultar SAP y **se le asigna como a cualquier otra identificación**: el caso sale de las altas y lo que queda para hacer en SAP es cargar la existencia, no crear nada. | Ninguno. Queda registrado que el código lo trajo una persona y que no figuraba en la bajada de stock. |
+
+**El código del camino 3 no tiene que estar en el maestro cargado.** Ese maestro es una
+bajada de stock: si el material figurara ahí, el caso no estaría en este grupo. Por eso el
+sistema lo acepta y lo deja anotado, en vez de rechazarlo.
 
 La alternativa 2 abre una pregunta expresa que explica el riesgo, **exige marcar que se
 entiende** antes de habilitar el botón, y registra quién lo decidió y por qué. Además liga

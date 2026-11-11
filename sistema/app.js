@@ -31,6 +31,10 @@ var App = (function () {
      ficha, y el caso se cierra como identificado. No hacía falta una decisión
      propia que terminara en lo mismo por otro lado. */
   var VER_NUEVO = "Consultado en SAP · existe pero no sirve · baja y alta nueva";
+  /* El tercer resultado posible de la consulta, y el más frecuente cuando el
+     maestro completo aparece: existe y sirve. Antes había que ir a la ficha a
+     escribir el código a mano; ahora se carga donde se está decidiendo. */
+  var VER_SIRVE = "Consultado en SAP · existe y sirve · se le asigna ese código";
   /* Depuración del maestro · las tres acciones posibles sobre un material sin stock. */
   var DP_MANT = "Mantener", DP_BLOQ = "Bloquear", DP_BAJA = "Dar de baja del maestro";
   var DP_ACCIONES = [DP_MANT, DP_BLOQ, DP_BAJA];
@@ -428,6 +432,14 @@ var App = (function () {
           det: "Se eligió consultar en SAP antes de crear. Falta cargar el resultado.",
           pend: true, un: fis, mag: "contadas" };
       var ce = d.centro_alta || c.centro || "", al = d.almacen_alta || esp;
+      /* Apareció en el maestro completo y sirve: no hay nada que crear. Lo que
+         falta es la existencia en esa base, que es un ajuste de stock. */
+      if (e.verificacion === VER_SIRVE)
+        return { verbo: "Ajustar el stock",
+          det: "El material existe en SAP como " + (e.codigo_maestro || mat) +
+               " —se consultó el maestro completo— y no hay nada que crear. Cargar " +
+               num(fis) + " unidades en el almacén " + (d.almacen_ajuste || al) +
+               " (" + c.base + ").", pend: false, un: fis, mag: "contadas" };
       if (e.verificacion && e.verificacion.indexOf("baja y alta nueva") >= 0)
         return { verbo: "Dar de baja el código viejo y crear uno nuevo",
           det: "Dar de baja " + (e.codigo_maestro || "el código encontrado") +
@@ -1032,36 +1044,58 @@ var App = (function () {
   // ------------------------------------------------------------- HOJA DE RUTA
   /* Seis etapas, calculadas del estado real: ninguna barra de avance inventada.
      Cada etapa sabe decir qué le falta y cuál es el próximo paso concreto. */
-  function hojaDeRuta() {
-    var k = D.kpis;
-    var fisicos = D.casos.filter(function (c) { return c.origen === "Inventario físico"; });
+  /* Qué casos están pendientes en los grupos de una etapa, SIN contar dos
+     veces al que está en varios. Es exactamente lo que queda en las tarjetas
+     de esa etapa, y por eso la hoja de ruta y las tarjetas dicen lo mismo:
+     antes la hoja contaba «tiene un código propuesto» y la tarjeta contaba
+     «falta que alguien lo confirme», que no son la misma cosa. */
+  function pendientesDeEtapa(etapa) {
+    var ids = {};
+    COLAS.forEach(function (q) {
+      if (ETAPA_DE[q.id] !== etapa) return;
+      deCola(q.id).forEach(function (c) {
+        if (enAlcance(c) && pendienteCola(c, q)) ids[c.id] = 1; });
+    });
+    return Object.keys(ids).length;
+  }
 
-    // 1 · carga: está completa cuando las tres fuentes cuadran con el dataset.
-    var ctl = (D.control || []).filter(function (x) { return x.estado !== "Informativo"; });
+  /* TODO lo que cuenta la hoja de ruta respeta el alcance elegido. Antes no:
+     con una base seleccionada, arriba se leían los totales de las tres y
+     abajo los de la base, sin que nada dijera que eran universos distintos. */
+  function hojaDeRuta() {
+    var casos = D.casos.filter(enAlcance);
+    var fisicos = casos.filter(function (c) { return c.origen === "Inventario físico"; });
+
+    // 1 · carga: está completa cuando las fuentes cuadran con el dataset. Con
+    // una base elegida, sus controles; con las tres, todos.
+    var ctl = (D.control || []).filter(function (x) {
+      return x.estado !== "Informativo" &&
+             (!estado.base || x.control.indexOf("· " + estado.base) >= 0); });
     var ctrl = ctl.filter(function (x) { return x.estado === "Coincide"; });
     var e1 = { id: "carga", quien: "sistema", tit: "1 · Lo que entró",
-               det: num(D.meta.fuentes.length) + " inventarios físicos y la bajada de SAP · " +
-                    num(ctrl.length) + " de " + num(ctl.length) + " controles cuadran",
-               hechos: ctrl.length, total: ctl.length || 1 };
+               det: (estado.base ? "el inventario de " + estado.base
+                     : num(D.meta.fuentes.length) + " inventarios físicos") +
+                    " y la bajada de SAP",
+               uni: "controles", hechos: ctrl.length, total: ctl.length || 1 };
 
-    // 2 · trazabilidad: qué ítems físicos ya tienen su código resuelto.
-    var conTraza = fisicos.filter(function (c) {
-      var e = efectivo(c);
-      return e.materiales.length || e.aprobacion !== "Sin decidir"; }).length;
+    // 2 · trazabilidad: ítems del depósito que ya no esperan ninguna decisión
+    // de esta etapa. Es el complemento exacto de sus tres tarjetas.
     var e2 = { id: "traza", quien: "vos", tit: "2 · Qué es cada cosa",
                det: "a qué código de SAP corresponde cada nombre del depósito",
-               hechos: conTraza, total: fisicos.length };
+               uni: "ítems del depósito",
+               hechos: fisicos.length - pendientesDeEtapa("traza"), total: fisicos.length };
 
     // 3 · cruce: lo hace el análisis; queda hecho apenas hay dataset.
     var e3 = { id: "cruce", quien: "sistema", tit: "3 · El cruce",
-               det: num(k.total_casos) + " casos clasificados contra los almacenes de SAP",
+               det: num(casos.length) + " casos clasificados contra los almacenes de SAP",
                hechos: 1, total: 1 };
 
-    // 4 · decisiones: todo lo que está dentro del alcance.
-    var decidibles = D.casos.filter(function (c) { return L(c) !== "E"; });
+    // 4 · decisiones: casos con la decisión tomada, sobre los que requieren una.
+    var decidibles = casos.filter(function (c) { return L(c) !== "E"; });
     var listos = decidibles.filter(function (c) { return !pendiente(c); }).length;
     var e4 = { id: "decidir", quien: "vos", tit: "4 · Qué se hace",
                det: "crear, ajustar, mover de almacén o dar de baja",
+               uni: "casos con decisión tomada",
                hechos: listos, total: decidibles.length };
 
     // 5 · economía: cuántas decisiones se pueden valorizar.
@@ -1069,6 +1103,7 @@ var App = (function () {
     var e5 = { id: "economia", quien: "vos", tit: "5 · Cuánto representa",
                det: ec.conPrecio ? num(ec.conPrecio) + " materiales con importe de última compra"
                                  : "falta importar los importes de última compra",
+               uni: "materiales con importe",
                hechos: ec.conPrecio, total: ec.materiales || 1 };
 
     // 6 · informe: se cierra cuando no queda nada pendiente.
@@ -1129,7 +1164,8 @@ var App = (function () {
     var r = hojaDeRuta(), pa = proximaAccion();
     var sis = r.etapas.filter(function (x) { return x.quien === "sistema" && x.listo; });
     var h = '<section class="ruta2"><header class="r2cab">' +
-      '<div><span class="k">Hoja de ruta</span><b>' + r.pct + "% del proceso</b>" +
+      '<div><span class="k">Hoja de ruta · ' +
+      esc(estado.base || "las tres bases") + '</span><b>' + r.pct + "% del proceso</b>" +
       (r.actual ? '<span class="r2donde">Estás en la etapa <b>' +
         esc(r.actual.tit.replace(/^(\d+) · /, "$1, ")) + "</b></span>" : "") +
       "</div>" +
@@ -1159,7 +1195,9 @@ var App = (function () {
         (x.actual ? " · acá estás" : "") + "</span>" +
         '<span class="r2d">' + esc(x.det) + "</span>" +
         '<div class="pbar"><i style="width:' + x.pct + '%"></i></div>' +
-        '<span class="r2pct">' + (x.total > 1 ? num(x.hechos) + " de " + num(x.total) + " · " : "") +
+        '<span class="r2pct">' + (x.total > 1
+          ? num(x.hechos) + " de " + num(x.total) +
+            (x.uni ? " " + esc(x.uni) : "") + " · " : "") +
         x.pct + "%</span></div></li>";
     });
     h += "</ol></section>";
@@ -1269,7 +1307,8 @@ var App = (function () {
     var ex = explicaVisible();
     h += '<div class="inds' + (ex ? " conq" : "") + '">' +
       ind("pend", num(pend), "pendientes de decisión",
-          "Casos que esperan que alguien decida.") +
+          "Casos distintos que esperan una decisión. El que espera en más de un " +
+          "grupo se cuenta una sola vez.") +
       ind("ok", num(hechos), "ya decididos",
           "Con la decisión tomada y lista para aplicar en SAP.") +
       ind("", num(fuera), "fuera del alcance",
@@ -1297,10 +1336,26 @@ var App = (function () {
         (ex && x.que ? '<span class="segq">' + esc(x.que) + "</span>" : "") +
         "</button>";
     }
+    /* Por qué las tarjetas no suman el total de pendientes. Un caso espera en
+       más de un grupo cuando hay varias cosas que decidir de él, así que las
+       cuentas se superponen a propósito. Decirlo es más barato que inventar un
+       reparto que no existe. */
+    var suma = segs.filter(function (x) { return !x.hecho && !x.fuera; })
+                   .reduce(function (n, x) { return n + x.pend; }, 0);
     h += '<nav class="segzona" aria-label="Qué hay que decidir">' +
       '<div class="segtop"><h2>En qué trabajar</h2>' +
       '<button class="btn chico" id="bExplica">' +
       (ex ? "Ocultar las explicaciones" : "Mostrar qué es cada cosa") + "</button></div>" +
+      (suma !== pend
+        ? '<p class="segsuma">Las tarjetas suman <b>' + num(suma) + "</b> y los casos " +
+          "distintos pendientes son <b>" + num(pend) + "</b>: <b>un caso espera en más de " +
+          "un grupo</b> cuando hay varias cosas que decidir de él." +
+          (ex ? " Un ítem sin código, por ejemplo, está en «" +
+                esc((segs[0] || {}).corto || "") + "» y también en «" +
+                esc((segs.filter(function (x) { return x.id === "almacenes"; })[0] || {}).corto ||
+                    "") + "», porque las dos preguntas siguen abiertas. Al resolver la " +
+                "primera, sale de ésa y queda en la otra." : "") + "</p>"
+        : "") +
       fila("traza", "Etapa 2 · Qué es cada cosa",
            "Primero hay que saber a qué material de SAP corresponde cada ítem: hasta " +
            "que eso no esté, el resto no se puede decidir.") +
@@ -2567,8 +2622,8 @@ var App = (function () {
         "que cargues el resultado.</p>" +
         '<ul class="rlista"><li>Es el camino que <b>evita el código duplicado</b>.</li>' +
         "<li>Si aparece, se asigna ese código y no se crea nada.</li></ul>" +
-        '<button class="btn pri grande" data-acc="b1"><span>Consultar primero</span>' +
-        "<kbd>1</kbd></button></div>";
+        '<button class="btn pri grande" data-acc="b1" data-k="1">' +
+        "<span>Consultar primero</span><kbd>1</kbd></button></div>";
       h += '<div class="ruta r2"><div class="rtit"><span class="rnum">2</span>' +
         "Crear el material</div>" +
         '<p class="rtxt">Se propone el alta con el centro y el almacén de abajo. Queda ' +
@@ -2577,8 +2632,20 @@ var App = (function () {
         '<div class="rriesgo"><b>Lo que hay que mirar</b>Si el material existía en SAP y no ' +
         "figuraba en la bajada, crear uno nuevo deja un <b>código duplicado</b>: el mismo " +
         "producto abierto dos veces, con el stock y el histórico partidos.</div>" +
-        '<button class="btn grande" data-acc="b2"><span>Crear el material</span>' +
-        "<kbd>2</kbd></button></div>";
+        '<button class="btn grande" data-acc="b2" data-k="2">' +
+        "<span>Crear el material</span><kbd>2</kbd></button></div>";
+      /* El caso que faltaba: el que ya lo buscó y lo encontró. Obligarlo a
+         elegir «consultar primero» para después cargar el resultado es
+         hacerle contestar una pregunta que ya tiene contestada. */
+      h += '<div class="ruta r3"><div class="rtit"><span class="rnum">3</span>' +
+        "Ya lo busqué: existe con este código</div>" +
+        '<p class="rtxt">Si ya lo consultaste en SAP y aparece con un código que sirve, ' +
+        "escribilo acá: se le asigna como a cualquier otro ítem identificado y <b>no se " +
+        "crea nada</b>. Queda registrado que el código lo trajiste vos.</p>" +
+        '<input type="text" id="codB" class="cod" placeholder="código SAP que encontraste">' +
+        '<div class="mini" id="avisoB"></div>' +
+        '<button class="btn ok grande" data-acc="b3" data-k="3">' +
+        "<span>Asignar este código</span><kbd>3</kbd></button></div>";
       h += "</div>";
       h += panelDestino(c, e);
     } else if (et === "verificacion") {
@@ -2588,15 +2655,15 @@ var App = (function () {
         ". Falta el resultado de la consulta.</div>";
       h += '<div class="rres"><span class="k">¿Qué dijo SAP?</span>' +
         '<div class="tacc">' +
-        bot("ok", "v1", "No existe · se crea", "1") +
-        bot("", "v3", "Existe pero no sirve · baja y alta nueva", "2") +
+        bot("ok", "v2", "Existe y sirve · se le asigna ese código", "1") +
+        bot("", "v1", "No existe · se crea", "2") +
+        bot("", "v3", "Existe pero no sirve · baja y alta nueva", "3") +
         "</div>" +
         '<input type="text" id="codMaestro" class="cod" value="' + esc(e.codigo_maestro) +
         '" placeholder="código que encontraste, si apareció">' +
-        '<p class="rnota">Si <b>apareció y sirve</b>, no hace falta nada de esto: asignale ' +
-        'ese código desde <button class="enlace" data-acc="ficha">la ficha del ítem</button>' +
-        " y el caso se cierra como identificado. Si todavía no pudiste consultarlo, salteá " +
-        "el caso: queda pendiente.</p></div>";
+        '<div class="mini" id="avisoB"></div>' +
+        '<p class="rnota">Las dos últimas necesitan el código sólo si apareció. Si todavía ' +
+        "no pudiste consultarlo, salteá el caso: queda pendiente.</p></div>";
       h += panelDestino(c, e);
     }
     h += "</div>";
@@ -2795,9 +2862,13 @@ var App = (function () {
   function dato(k, v) {
     return '<div class="td"><div class="k">' + esc(k) + '</div><div class="v">' + esc(v) + "</div></div>";
   }
+  /* La tecla va escrita en el botón, no deducida del nombre de la acción: si
+     el orden en pantalla cambia, el número que se ve y el que funciona siguen
+     siendo el mismo. */
   function bot(cls, acc, txt, tecla) {
     return '<button class="btn ' + (cls === "ok" ? "ok" : cls === "no" ? "no" : "") +
-      ' grande" data-acc="' + acc + '"><span>' + esc(txt) + '</span><kbd>' + tecla + "</kbd></button>";
+      ' grande" data-acc="' + acc + '" data-k="' + esc(tecla) + '"><span>' + esc(txt) +
+      '</span><kbd>' + tecla + "</kbd></button>";
   }
 
   function obsActual() {
@@ -2892,8 +2963,37 @@ var App = (function () {
     if (a === "b2") return modalCrearSinVerificar([c], function () { avanzar(); });
     if (a === "ficha") { estado.volverA = "inicio"; return ir("ficha", c.id); }
 
+    /* ---- clase B: el código que apareció al consultar SAP ----------------
+       Se asigna con la misma mecánica que cualquier otra identificación —queda
+       Revisado, con correspondencia confirmada, y el caso sale de la lista de
+       altas—. Lo que NO se le exige es figurar en el maestro cargado: ese
+       maestro es una bajada de stock, y si el material estuviera ahí el caso
+       no sería de clase B. Por eso se avisa, no se bloquea. */
+    if (a === "b3" || a === "v2") {
+      var cb = document.getElementById(a === "b3" ? "codB" : "codMaestro");
+      var cod3 = cb ? cb.value.trim() : "";
+      var av3 = document.getElementById("avisoB");
+      if (!cod3) {
+        if (av3) av3.innerHTML = '<span style="color:var(--alerta)">Escribí el código de ' +
+          "SAP que encontraste.</span>";
+        return aviso("Escribí el código de SAP que encontraste.");
+      }
+      var enBajada = existeMaterial(cod3);
+      decidir(c.id, conObs({
+        materiales: [cod3], material_corregido: cod3,
+        ruta_b: RB_VERIF, verificacion: VER_SIRVE, codigo_maestro: cod3,
+        estado_revision: "Revisado", aprobacion: "Correspondencia confirmada",
+      }), "Se consultó SAP: existe como " + cod3 + " y sirve. Se le asigna ese código, " +
+          "cargado a mano" + (enBajada
+            ? " (figura en la bajada de stock)"
+            : " (no figura en la bajada de stock, que sólo trae los materiales con " +
+              "existencia: el código viene del maestro completo)") + ". No se crea nada");
+      aviso("Asignado a " + cod3 + ". El caso sale de las altas.");
+      return avanzar();
+    }
+
     // ---- clase B: registrar el resultado de la verificación contra el maestro
-    if (a === "v1" || a === "v2" || a === "v3") {
+    if (a === "v1" || a === "v3") {
       var ci = document.getElementById("codMaestro");
       var cod = ci ? ci.value.trim() : "";
       if (a === "v3" && !cod)
@@ -2943,8 +3043,7 @@ var App = (function () {
         return;
       }
       if (estado.cola === "altas") {
-        var br = document.querySelector('[data-acc="' +
-                 (etapaB(c) === "ruta" ? "b" : "v") + k + '"]');
+        var br = document.querySelector('#zona [data-k="' + k + '"]');
         if (br) { ev.preventDefault(); br.click(); }
         return;
       }
@@ -4568,6 +4667,10 @@ var App = (function () {
       "las respuestas posibles. <b>Se contesta con un clic</b>, sin entrar a ningún lado.</li>" +
       "<li>Para decidir muchos juntos, tildá los que quieras y usá la barra de arriba: antes " +
       "de aplicar se muestra a qué materiales, bases y almacenes alcanza.</li>" +
+      "<li>En <b>«Crear en SAP»</b>, si ya consultaste el maestro completo y el material " +
+      "aparece, <b>escribí ese código</b>: se le asigna como a cualquier otra identificación " +
+      "y no se crea nada. No hace falta que el código esté en la bajada de stock —si " +
+      "estuviera, el caso no estaría en ese grupo—.</li>" +
       "<li>Cuando un caso tiene <b>varios códigos posibles</b>, el botón te lleva al modo de " +
       "a uno, que es donde se elige entre ellos y se declaran equivalencias.</li>" +
       "<li>Cuando tengas decisiones tomadas, andá a <b>Aplicar en SAP</b>: ahí está el " +
@@ -4951,7 +5054,8 @@ var App = (function () {
            efectivo: efectivo, filtrados: filtrados, conteos: conteos,
            universoDep: universoDep,
            accionDep: accionDep, ligadosDep: ligadosDep, etapaB: etapaB,
-           RB: { VERIF: RB_VERIF, CREAR: RB_CREAR, NO: VER_NO, NUEVO: VER_NUEVO },
+           RB: { VERIF: RB_VERIF, CREAR: RB_CREAR, NO: VER_NO, NUEVO: VER_NUEVO,
+                 SIRVE: VER_SIRVE },
            DP: { MANT: DP_MANT, BLOQ: DP_BLOQ, BAJA: DP_BAJA, ACCIONES: DP_ACCIONES },
            depuracion: depuObj, datos: function () { return D; },
            decisiones: decisiones, revisor: revisorActual,
