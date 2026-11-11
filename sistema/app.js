@@ -1826,15 +1826,21 @@ var App = (function () {
         preg = "No requiere ninguna decisión dentro de este análisis.";
         break;
       case SEG_HECHO:
-        /* Lo que se decidió, y nada más. El nombre de quien decidió va abajo,
-           con su rótulo: acá, pegado a la decisión, se leía como parte de
-           ella. */
-        preg = "Lo decidido: " + esc(e.aprobacion).toLowerCase() + ".";
+        /* Sin pregunta: «Lo decidido: aprobado» no dice qué se aprobó ni de
+           cuánto. Lo que importa —el verbo y la cantidad— va en el bloque de
+           abajo, que es el que se lee. */
+        preg = "";
         bt("re", "Cambiar la decisión");
         break;
-      default:
-        preg = "Lo decidido: " + esc(e.aprobacion).toLowerCase() + ".";
+      default: {
+        /* Cualquier otro grupo: la acción concreta, no el estado de
+           aprobación. «Aprobado» no dice qué se aprobó ni de cuánto. */
+        var ad = accionSap(c);
+        preg = ad.pend
+          ? "Falta " + esc(ad.verbo.replace(/^PENDIENTE · /, "")) + "."
+          : esc(ad.det);
         bt("re", "Cambiar la decisión");
+      }
     }
     return { preg: preg, botones: b.join("") };
   }
@@ -1887,13 +1893,7 @@ var App = (function () {
        caso —el almacén, el ajuste—, que es por lo que un caso «ya decidido»
        puede seguir apareciendo en otro grupo. Va antes del botón: primero se
        lee, después se cambia. */
-    if (seg === SEG_HECHO) {
-      var ac = accionSap(c);
-      h += '<p class="tjsap' + (ac.pend ? " pend" : "") + '"><span class="k">' +
-        (ac.pend ? "Todavía falta" : "Qué hay que hacer en SAP") + "</span>" +
-        esc(ac.pend ? ac.verbo.replace(/^PENDIENTE · /, "") + ": " + ac.det : ac.det) +
-        "</p>";
-    }
+    if (seg === SEG_HECHO) h += bloqueDecidido(c);
     h += '<div class="tjacc">' + py.botones +
       '<button class="btn chico fant" data-detalle="' + esc(c.id) + '">Ver el detalle completo</button>' +
       "</div>";
@@ -4651,6 +4651,27 @@ var App = (function () {
     if (bx) bx.addEventListener("click", function () { Exportar.excel(); });
     var bi = el.querySelector("#apInforme");
     if (bi) bi.addEventListener("click", function () { ir("informe"); });
+  }
+
+  /* Qué se decidió, en la tarjeta de un caso terminado. El verbo adelante y
+     la cantidad al lado, con su magnitud escrita: «dar de baja» sin el número
+     no se puede ejecutar, y un número sin decir de qué es se presta a sumar
+     unidades contadas con unidades de SAP. */
+  var MAG = { contadas: "unidades contadas", sap: "unidades en SAP",
+              registro: "registro del maestro" };
+  function bloqueDecidido(c) {
+    var a = accionSap(c);
+    var verbo = a.verbo.replace(/^PENDIENTE · /, "").replace(/^Ninguna · /, "");
+    verbo = verbo.charAt(0).toUpperCase() + verbo.slice(1);
+    var hay = !/^Ninguna/.test(a.verbo);
+    return '<div class="tjdec' + (a.pend ? " pend" : hay ? "" : " nada") + '">' +
+      '<span class="k">' + (a.pend ? "Todavía falta decidir" :
+        hay ? "Qué hay que hacer en SAP" : "No hay nada que hacer en SAP") + "</span>" +
+      '<div class="tjdfila"><b class="tjdverbo">' + esc(verbo) + "</b>" +
+      (a.un && a.mag
+        ? '<span class="tjdcant"><b>' + num(a.un) + "</b> " + esc(MAG[a.mag] || "") + "</span>"
+        : "") + "</div>" +
+      '<p class="tjddet">' + esc(a.det) + "</p></div>";
   }
 
   var TOPE_DET = 40;

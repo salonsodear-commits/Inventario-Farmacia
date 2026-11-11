@@ -140,6 +140,23 @@ esperan algo *de ella*, y un mismo caso puede esperar en varias. Un ítem sin c�
 abiertas; al resolver la primera sale de ésa y queda en la otra. La pantalla dice cuántos se
 superponen.
 
+### Qué dice una tarjeta terminada
+
+Lo que hay que hacer en SAP, **con la cantidad**, porque «dar de baja» sin el número no se
+puede ejecutar:
+
+> **Qué hay que hacer en SAP**
+> **Dar de baja el stock**  ·  **4.107** unidades en SAP
+> Dar de baja 4.107 unidades de 2001555 en San Juan, almacén 2021.
+> *Lo decidió S. Alonso · 11/11/2026*
+
+La magnitud va escrita al lado del número: un alta y un ajuste se miden en **unidades
+contadas**, una baja y un movimiento de almacén en **unidades en SAP**, y el maestro en
+**registros**. Lo que no requiere nada lo dice con su propio rótulo —*No hay nada que hacer
+en SAP*— y no lleva cantidad, porque no la tiene.
+
+Antes esa línea decía *«Lo decidido: aprobado»*, que no dice qué se aprobó ni de cuánto.
+
 **Terminado no es lo mismo que «tiene una decisión tomada».** Confirmarle el código a un ítem
 no cierra el caso si todavía falta decidir dónde va su stock: ese caso sigue en su grupo, con
 el cartel *«Todavía falta»*, y no cuenta como terminado hasta que no queda nada abierto.

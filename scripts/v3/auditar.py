@@ -402,6 +402,20 @@ ok(len(fuera_mal) > 0,
    "y en los datos los hay, así que la exclusión no es decorativa",
    "%d casos" % len(fuera_mal))
 
+# Una tarjeta terminada tiene que decir qué se decidió y de cuánto: «dar de
+# baja» sin el número no se puede ejecutar.
+for frase, titulo in [
+    ("class=\"tjdverbo\"", "la tarjeta terminada encabeza con el verbo de la decisión"),
+    ("class=\"tjdcant\"", "y lleva la cantidad al lado"),
+    ("unidades contadas", "con su magnitud escrita: unidades contadas"),
+    ("unidades en SAP", "o unidades en SAP"),
+    ("registro del maestro", "o registros del maestro"),
+    ("No hay nada que hacer en SAP", "y lo que no requiere nada lo dice con su rótulo"),
+]:
+    ok(frase.lower() in h.lower(), titulo)
+ok('preg = "Lo decidido: " + esc(e.aprobacion)' not in ap1,
+   "ya no encabeza con «lo decidido: aprobado», que no decía qué ni de cuánto")
+
 # La pantalla que contesta «y entonces qué hago»: sin ella hay que deducir de
 # 1.991 casos qué le toca a quien entra a SAP.
 ok('data-vista="aplicar"' in h and ">Aplicar en SAP<" in h,
