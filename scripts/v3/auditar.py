@@ -382,6 +382,26 @@ ok("Esta copia es para consultar" in h,
    "la copia explica dónde se decide")
 ok('data-vista="revisar"' not in h and ">Trabajar<" in h,
    "Inicio y Revisar son una sola pantalla")
+# Las cuentas de la pantalla tienen que cerrar contra el total: pendientes,
+# terminados y fuera del alcance reparten los casos sin superponerse.
+for frase, titulo in [
+    ("function pendienteEnAlguna", "hay una sola definición de «espera una decisión»"),
+    ("Cómo cierran las cuentas", "y la cuenta está escrita en la pantalla"),
+    ("esperan en más", "con la aclaración de por qué las tarjetas suman más"),
+]:
+    ok(frase.lower() in h.lower(), titulo)
+# Fuera del alcance no entra en ningún grupo de trabajo: de esos materiales no
+# se concluye nada, tampoco sobre su almacén.
+ap1 = io.open(RAIZ + "sistema/app.js", encoding="utf-8").read()
+ok('if (L(c) === "E") return false;' in ap1,
+   "ningún material fuera del alcance cuenta como pendiente de ubicación")
+fuera_mal = [c for c in d["casos"] if c["clasificacion"][:1] == "E"
+             and c.get("almacen_estado") in ("Almacén a cambiar",
+                                             "Material en múltiples almacenes")]
+ok(len(fuera_mal) > 0,
+   "y en los datos los hay, así que la exclusión no es decorativa",
+   "%d casos" % len(fuera_mal))
+
 # La pantalla que contesta «y entonces qué hago»: sin ella hay que deducir de
 # 1.991 casos qué le toca a quien entra a SAP.
 ok('data-vista="aplicar"' in h and ">Aplicar en SAP<" in h,

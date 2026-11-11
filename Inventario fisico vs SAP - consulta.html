@@ -1145,11 +1145,18 @@ table.apt tbody tr:hover{background:transparent}
   border-radius:var(--r2);padding:10px 12px}
 .inds.conq .indi b{font-size:22px}
 .inds.conq .indi>span{font-size:11.5px;color:var(--tinta2)}
-/* Por qué las tarjetas no suman el total: se superponen a propósito. */
-.segsuma{font-size:12.5px;color:var(--tinta2);line-height:1.5;margin:0 0 10px;
-  max-width:104ch;background:var(--sup2);border:1px solid var(--linea);
-  border-radius:var(--r2);padding:8px 12px}
-.segsuma b{color:var(--tinta)}
+/* La conciliación entre los números de arriba y los de abajo. La cuenta va
+   escrita con sus signos: así se verifica de un vistazo, en vez de pedirle a
+   alguien que confíe en que cierra. */
+.segsuma{margin:0 0 12px;max-width:104ch;background:var(--sup2);
+  border:1px solid var(--linea);border-radius:var(--r2);padding:9px 13px}
+.segsuma .k{display:block;margin-bottom:3px}
+.sscta{margin:0 0 5px;font-size:15px;color:var(--tinta2);line-height:1.5;
+  font-variant-numeric:tabular-nums}
+.sscta b{color:var(--tinta);font-weight:700}
+.sscta i{font-style:normal;color:var(--tinta3);margin:0 3px;font-weight:600}
+.ssnota{margin:0;font-size:12.5px;color:var(--tinta2);line-height:1.55}
+.ssnota b{color:var(--tinta)}
 
 </style>
 </head>
@@ -1885,6 +1892,7 @@ var App = (function () {
       AL_VAL = "Almacén pendiente de validación", AL_MULT = "Material en múltiples almacenes",
       AL_NOID = "Almacén no identificado", AL_SINS = "Sin stock, sin almacén";
   function almacenPendiente(c) {
+    if (L(c) === "E") return false;
     if (efectivo(c).almacen_decidido) return false;
     return c.almacen_estado === AL_CAMB || c.almacen_estado === AL_MULT;
   }
@@ -1920,7 +1928,13 @@ var App = (function () {
       desc: "El material está bien identificado; lo que no coincide es el almacén donde SAP " +
             "registra su stock. Detectar la diferencia y decidir cambiarla son dos cosas " +
             "distintas: acá se decide, de a una.",
-      pred: function (c) { return c.almacen_estado === AL_CAMB || c.almacen_estado === AL_MULT; },
+      /* Fuera del alcance queda fuera también acá. El inventario relevado es
+         de Farmacia: de un material de indumentaria no se concluye nada, ni
+         siquiera que su almacén esté mal. Contarlos hacía que los pendientes
+         superaran a los casos que requieren decisión. */
+      pred: function (c) {
+        return L(c) !== "E" &&
+               (c.almacen_estado === AL_CAMB || c.almacen_estado === AL_MULT); },
       lote: false, color: "D", esAlmacen: true },
     { id: "depurar", que: "Materiales con existencia cero. No hay stock que dar de baja: se decide el registro.", titulo: "Materiales del maestro sin existencia", corto: "Maestro en cero",
       desc: "Están en el maestro con existencia CERO. No hay stock que dar de baja: lo que " +
@@ -2580,6 +2594,19 @@ var App = (function () {
     if (e.ruta_b === RB_VERIF && !e.verificacion) return "verificacion";
     return "cerrado";
   }
+  /* Un caso espera una decisión si la espera en ALGUNA de las colas. Es la
+     única definición: de acá salen el contador de pendientes, el de
+     terminados y el grupo «Terminados», y por eso los tres cierran contra
+     el total en vez de superponerse. */
+  function pendienteEnAlguna(c) {
+    for (var i = 0; i < COLAS.length; i++) {
+      var q = COLAS[i];
+      if (q.pred(c) && pendienteCola(c, q)) return true;
+    }
+    return false;
+  }
+  function terminado(c) { return L(c) !== "E" && !pendienteEnAlguna(c); }
+
   /* Cada cola decide a su manera qué cuenta como pendiente. */
   function pendienteCola(c, q) {
     if (q && q.esAlmacen) return almacenPendiente(c);
@@ -2833,11 +2860,11 @@ var App = (function () {
                pend: todos.filter(function (c) { return pendienteCola(c, q); }).length,
                total: todos.length, color: q.color };
     });
-    var dec = D.casos.filter(function (c) {
-      return enAlcance(c) && L(c) !== "E" && !pendiente(c); });
-    out.push({ id: SEG_HECHO, n: "✓", titulo: "Ya decididos", corto: "Ya decididos",
-               que: "Casos con la decisión tomada. Dicen qué hay que hacer con cada uno " +
-                    "en SAP, y se pueden cambiar.",
+    var dec = D.casos.filter(function (c) { return enAlcance(c) && terminado(c); });
+    out.push({ id: SEG_HECHO, n: "✓", titulo: "Terminados", corto: "Terminados",
+               que: "Ya no esperan ninguna decisión. Dicen qué hay que hacer con cada uno " +
+                    "en SAP, y se pueden reabrir. El que tiene una decisión tomada pero " +
+                    "algo abierto sigue en su grupo.",
                pend: dec.length, total: dec.length, color: "A", hecho: true });
     var fuera = D.casos.filter(function (c) { return enAlcance(c) && L(c) === "E"; });
     out.push({ id: SEG_FUERA, n: "—", titulo: "Sin acción · fuera del alcance",
@@ -2857,7 +2884,7 @@ var App = (function () {
     var id = estado.seg, bf = estado.bf;
     var lista;
     if (id === SEG_HECHO) {
-      lista = D.casos.filter(function (c) { return L(c) !== "E" && !pendiente(c); });
+      lista = D.casos.filter(terminado);
     } else if (id === SEG_FUERA) {
       lista = D.casos.filter(function (c) { return L(c) === "E"; });
     } else {
@@ -2934,10 +2961,10 @@ var App = (function () {
 
     // 4 · decisiones: casos con la decisión tomada, sobre los que requieren una.
     var decidibles = casos.filter(function (c) { return L(c) !== "E"; });
-    var listos = decidibles.filter(function (c) { return !pendiente(c); }).length;
+    var listos = decidibles.filter(terminado).length;
     var e4 = { id: "decidir", quien: "vos", tit: "4 · Qué se hace",
                det: "crear, ajustar, mover de almacén o dar de baja",
-               uni: "casos con decisión tomada",
+               uni: "casos terminados",
                hechos: listos, total: decidibles.length };
 
     // 5 · economía: cuántas decisiones se pueden valorizar.
@@ -3130,7 +3157,7 @@ var App = (function () {
   function cabeceraTrabajo() {
     var segs = segmentos(), s = segPor(estado.seg);
     var decidibles = D.casos.filter(function (c) { return enAlcance(c) && L(c) !== "E"; });
-    var hechos = decidibles.filter(function (c) { return !pendiente(c); }).length;
+    var hechos = decidibles.filter(terminado).length;
     var vistos = {};
     COLAS.forEach(function (q) {
       deCola(q.id).forEach(function (c) {
@@ -3151,8 +3178,8 @@ var App = (function () {
       ind("pend", num(pend), "pendientes de decisión",
           "Casos distintos que esperan una decisión. El que espera en más de un " +
           "grupo se cuenta una sola vez.") +
-      ind("ok", num(hechos), "ya decididos",
-          "Con la decisión tomada y lista para aplicar en SAP.") +
+      ind("ok", num(hechos), "terminados",
+          "Ya no esperan ninguna decisión: lo que queda es aplicarlos en SAP.") +
       ind("", num(fuera), "fuera del alcance",
           "No son de Farmacia: no se concluye nada.") +
       ind("", (decidibles.length ? Math.round(hechos / decidibles.length * 100) : 0) + "%",
@@ -3184,20 +3211,28 @@ var App = (function () {
        reparto que no existe. */
     var suma = segs.filter(function (x) { return !x.hecho && !x.fuera; })
                    .reduce(function (n, x) { return n + x.pend; }, 0);
+    var enVarios = suma - pend;
     h += '<nav class="segzona" aria-label="Qué hay que decidir">' +
       '<div class="segtop"><h2>En qué trabajar</h2>' +
       '<button class="btn chico" id="bExplica">' +
       (ex ? "Ocultar las explicaciones" : "Mostrar qué es cada cosa") + "</button></div>" +
-      (suma !== pend
-        ? '<p class="segsuma">Las tarjetas suman <b>' + num(suma) + "</b> y los casos " +
-          "distintos pendientes son <b>" + num(pend) + "</b>: <b>un caso espera en más de " +
-          "un grupo</b> cuando hay varias cosas que decidir de él." +
-          (ex ? " Un ítem sin código, por ejemplo, está en «" +
-                esc((segs[0] || {}).corto || "") + "» y también en «" +
+      '<div class="segsuma"><span class="k">Cómo cierran las cuentas</span>' +
+      '<p class="sscta"><b>' + num(pend) + "</b> pendientes <i>+</i> <b>" + num(hechos) +
+      "</b> terminados <i>+</i> <b>" + num(fuera) + "</b> fuera del alcance <i>=</i> <b>" +
+      num(pend + hechos + fuera) + "</b> casos" +
+      (estado.base ? " en " + esc(estado.base) : "") + "</p>" +
+      (enVarios > 0
+        ? '<p class="ssnota">Las tarjetas de abajo suman <b>' + num(suma) +
+          "</b>, no " + num(pend) + ", porque <b>" + num(enVarios) + " casos esperan en más " +
+          "de un grupo</b>: cada tarjeta cuenta los que esperan algo de ella." +
+          (ex ? " Un ítem sin código está en «" + esc((segs[0] || {}).corto || "") +
+                "» y también en «" +
                 esc((segs.filter(function (x) { return x.id === "almacenes"; })[0] || {}).corto ||
-                    "") + "», porque las dos preguntas siguen abiertas. Al resolver la " +
-                "primera, sale de ésa y queda en la otra." : "") + "</p>"
-        : "") +
+                    "") + "», porque las dos preguntas siguen abiertas; al resolver la " +
+                "primera sale de ésa y queda en la otra. Arriba se cuenta una sola vez." : "")
+          + "</p>"
+        : '<p class="ssnota">Ningún caso espera en más de un grupo: las tarjetas de abajo ' +
+          "suman los mismos " + num(pend) + " pendientes.</p>") + "</div>" +
       fila("traza", "Etapa 2 · Qué es cada cosa",
            "Primero hay que saber a qué material de SAP corresponde cada ítem: hasta " +
            "que eso no esté, el resto no se puede decidir.") +
@@ -4986,7 +5021,10 @@ var App = (function () {
       sel("fMotivo", "Motivo de revisión", f.motivo, D.meta.motivos_revision) +
       sel("fApr", "Estado", f.aprobacion,
           ["__pend", "__hecho", "Aprobado", "Rechazado", "Correspondencia confirmada"],
-          function (v) { return v === "__pend" ? "Pendientes" : v === "__hecho" ? "Ya decididos" : v; }) +
+          /* «Con decisión tomada» y no «terminados»: este filtro mira el estado de
+             aprobación del caso, que no es lo mismo que no esperar nada más. */
+          function (v) { return v === "__pend" ? "Sin decidir"
+                       : v === "__hecho" ? "Con decisión tomada" : v; }) +
       sel("fVal", "Valorización", f.valorizacion, ["pendiente"],
           function () { return "Pendiente"; }) +
       sel("fAlmEst", "Estado de almacén", f.almacen_estado,

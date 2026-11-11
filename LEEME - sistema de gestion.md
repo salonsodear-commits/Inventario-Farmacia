@@ -118,11 +118,31 @@ con su nombre, su cuenta, su color y una línea de qué es:
 | **Dónde está el stock** | El material está bien identificado; lo que no corresponde es el almacén donde figura. |
 | **Maestro en cero** | Materiales con existencia cero. No hay stock que dar de baja: se decide el registro. |
 | **Dar de baja** | SAP registra stock en esa base y ningún inventario lo encontró. Van últimas. |
-| **Ya decididos** | Casos con la decisión tomada. Dicen qué hay que hacer con cada uno en SAP, y se pueden cambiar. |
+| **Terminados** | Ya no esperan ninguna decisión. Dicen qué hay que hacer con cada uno en SAP, y se pueden reabrir. El que tiene una decisión tomada pero algo abierto sigue en su grupo. |
 | **Fuera del alcance** | Indumentaria, equipamiento y repuestos. El inventario es de Farmacia: de su ausencia no se concluye nada. |
 
 Las explicaciones **se apagan con un botón** —el mismo apaga las de los indicadores y la
 del grupo abierto— y quedan apagadas: se leen la primera semana y después estorban.
+
+### Por qué las cuentas cierran, y dónde se ve
+
+Arriba del panel está la cuenta escrita, con sus signos:
+
+> **1.581** pendientes **+** **0** terminados **+** **410** fuera del alcance **=** **1.991** casos
+
+Los tres se reparten el total **sin superponerse**, en el alcance que esté elegido. Un caso
+está pendiente si espera una decisión en **alguna** de las colas; está terminado si no espera
+ninguna. Son definiciones complementarias, de una sola función, y por eso cierran siempre.
+
+**Las tarjetas de abajo suman más**, y eso no es un error: cada una cuenta los casos que
+esperan algo *de ella*, y un mismo caso puede esperar en varias. Un ítem sin código está en
+«Decidir el código» y también en «Dónde está el stock», porque las dos preguntas siguen
+abiertas; al resolver la primera sale de ésa y queda en la otra. La pantalla dice cuántos se
+superponen.
+
+**Terminado no es lo mismo que «tiene una decisión tomada».** Confirmarle el código a un ítem
+no cierra el caso si todavía falta decidir dónde va su stock: ese caso sigue en su grupo, con
+el cartel *«Todavía falta»*, y no cuenta como terminado hasta que no queda nada abierto.
 
 Una tarjeta **ya decidida** dice tres cosas por separado y ninguna se confunde con otra:
 qué se decidió, **qué queda para hacer en SAP** —o qué falta decidir todavía del mismo

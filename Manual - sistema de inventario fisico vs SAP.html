@@ -109,10 +109,16 @@ sudo systemctl start inventario</code></pre>
 <tr><td><strong>Dónde está el stock</strong></td><td>El material está bien identificado; lo que no corresponde es el almacén donde figura.</td></tr>
 <tr><td><strong>Maestro en cero</strong></td><td>Materiales con existencia cero. No hay stock que dar de baja: se decide el registro.</td></tr>
 <tr><td><strong>Dar de baja</strong></td><td>SAP registra stock en esa base y ningún inventario lo encontró. Van últimas.</td></tr>
-<tr><td><strong>Ya decididos</strong></td><td>Casos con la decisión tomada. Dicen qué hay que hacer con cada uno en SAP, y se pueden cambiar.</td></tr>
+<tr><td><strong>Terminados</strong></td><td>Ya no esperan ninguna decisión. Dicen qué hay que hacer con cada uno en SAP, y se pueden reabrir. El que tiene una decisión tomada pero algo abierto sigue en su grupo.</td></tr>
 <tr><td><strong>Fuera del alcance</strong></td><td>Indumentaria, equipamiento y repuestos. El inventario es de Farmacia: de su ausencia no se concluye nada.</td></tr>
 </tbody></table>
 <p>Las explicaciones <strong>se apagan con un botón</strong> —el mismo apaga las de los indicadores y la del grupo abierto— y quedan apagadas: se leen la primera semana y después estorban.</p>
+<h3>Por qué las cuentas cierran, y dónde se ve</h3>
+<p>Arriba del panel está la cuenta escrita, con sus signos:</p>
+<blockquote><p><strong>1.581</strong> pendientes <strong>+</strong> <strong>0</strong> terminados <strong>+</strong> <strong>410</strong> fuera del alcance <strong>=</strong> <strong>1.991</strong> casos</p></blockquote>
+<p>Los tres se reparten el total <strong>sin superponerse</strong>, en el alcance que esté elegido. Un caso está pendiente si espera una decisión en <strong>alguna</strong> de las colas; está terminado si no espera ninguna. Son definiciones complementarias, de una sola función, y por eso cierran siempre.</p>
+<p><strong>Las tarjetas de abajo suman más</strong>, y eso no es un error: cada una cuenta los casos que esperan algo <em>de ella</em>, y un mismo caso puede esperar en varias. Un ítem sin código está en «Decidir el código» y también en «Dónde está el stock», porque las dos preguntas siguen abiertas; al resolver la primera sale de ésa y queda en la otra. La pantalla dice cuántos se superponen.</p>
+<p><strong>Terminado no es lo mismo que «tiene una decisión tomada».</strong> Confirmarle el código a un ítem no cierra el caso si todavía falta decidir dónde va su stock: ese caso sigue en su grupo, con el cartel <em>«Todavía falta»</em>, y no cuenta como terminado hasta que no queda nada abierto.</p>
 <p>Una tarjeta <strong>ya decidida</strong> dice tres cosas por separado y ninguna se confunde con otra: qué se decidió, <strong>qué queda para hacer en SAP</strong> —o qué falta decidir todavía del mismo caso— y <strong>quién lo decidió</strong>. Si nadie escribió su nombre, lo dice: <em>sin firmar, no quedó registrado quién</em>. Antes eso salía pegado a la decisión, como «Correspondencia confirmada · (sin identificar)», y se leía como si lo que faltara identificar fuera el material.</p>
 <h3>La hoja de ruta</h3>
 <p>Seis etapas, en el orden en que conviene hacerlas. <strong>El avance se calcula del estado real del sistema</strong>: no hay ningún porcentaje puesto a mano.</p>
