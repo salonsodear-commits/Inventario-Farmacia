@@ -38,6 +38,9 @@ APP = [
     "sistema/exportar.js", "sistema/datos.js",
     "package.json", "fly.toml",
     "LEEME - sistema de gestion.md",
+    # El mismo manual, en una página que abre cualquier navegador y se imprime
+    # a PDF: a quien instala el servidor no se le manda un .md.
+    "Manual - sistema de inventario fisico vs SAP.html",
     ".github/workflows/desplegar.yml",
 ]
 # Los dos documentos de arranque van también en la raíz del zip: quien lo

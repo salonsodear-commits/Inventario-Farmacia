@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manual · sistema de inventario físico vs SAP</title>
+<style>
+:root{--ia:#1F4E78;--tx:#15140f;--tx2:#4a4842;--tx3:#78766d;--lin:#e2e1db;
+  --sup:#faf9f6;--ok:#0f7f58;--al:#b8431f}
+*{box-sizing:border-box}
+body{margin:0;background:#edecE8;color:var(--tx);
+  font:11pt/1.6 "Segoe UI",Calibri,Helvetica,Arial,sans-serif}
+.hoja{max-width:940px;margin:0 auto;background:#fff;padding:52px 60px 70px;
+  box-shadow:0 1px 3px rgba(0,0,0,.08)}
+h1{font-size:26pt;line-height:1.15;letter-spacing:-.02em;margin:0 0 6px;color:var(--tx)}
+h1+p{color:var(--tx2);font-size:12pt;margin:0 0 26px}
+h2{font-size:16pt;color:var(--ia);margin:38px 0 10px;padding-bottom:6px;
+  border-bottom:2px solid var(--ia);letter-spacing:-.01em}
+h3{font-size:13pt;margin:26px 0 7px;color:var(--tx)}
+h4{font-size:11.5pt;margin:18px 0 5px;color:var(--ia)}
+p{margin:0 0 11px}
+ul,ol{margin:0 0 12px;padding-left:22px}
+li{margin-bottom:5px}
+strong{color:var(--tx)}
+code{background:var(--sup);border:1px solid var(--lin);border-radius:4px;
+  padding:1px 5px;font:10pt "Cascadia Mono",Consolas,monospace;color:#8a3f1f}
+pre{background:var(--sup);border:1px solid var(--lin);border-left:3px solid var(--ia);
+  border-radius:6px;padding:12px 15px;overflow:auto;margin:0 0 14px}
+pre code{background:none;border:0;padding:0;color:var(--tx)}
+blockquote{margin:0 0 14px;padding:10px 15px;background:#fdf6ee;
+  border-left:3px solid #d98b3a;border-radius:0 6px 6px 0;color:var(--tx2)}
+blockquote p:last-child{margin-bottom:0}
+table{border-collapse:collapse;width:100%;margin:6px 0 16px;font-size:10pt}
+th{background:var(--ia);color:#fff;text-align:left;padding:7px 9px;
+  font-size:9pt;letter-spacing:.03em;text-transform:uppercase;font-weight:600;
+  vertical-align:bottom}
+td{padding:7px 9px;border-bottom:1px solid var(--lin);vertical-align:top}
+tr:nth-child(even) td{background:#fafaf8}
+hr{border:0;border-top:1px solid var(--lin);margin:30px 0}
+a{color:#2873cd}
+.pie{margin-top:44px;padding-top:14px;border-top:1px solid var(--lin);
+  color:var(--tx3);font-size:9.5pt}
+@media print{
+  body{background:#fff}
+  .hoja{box-shadow:none;max-width:none;padding:0}
+  h2{page-break-after:avoid} table,pre,blockquote{page-break-inside:avoid}
+  @page{size:A4;margin:16mm 14mm}
+}
+</style></head>
+<body><div class="hoja">
+<h1>Sistema de gestión · Inventario físico vs SAP</h1>
+<p>Esto es una <strong>aplicación</strong>, no un archivo. Se entra con la cuenta de Emergencias y las decisiones van a una base compartida.</p>
+<table><thead><tr><th>Pieza</th><th>Qué es</th><th>Para qué</th></tr></thead><tbody>
+<tr><td><strong>La aplicación</strong></td><td>Se instala y se sirve (ver <a href="servidor/README.md"><code>servidor/README.md</code></a>)</td><td><strong>Revisar, decidir y registrar.</strong> Es la herramienta de trabajo.</td></tr>
+<tr><td><strong>Excel</strong></td><td><code>Inventario fisico vs SAP - analisis.xlsx</code></td><td>Analizar y seguir trabajando sobre los datos. Con fórmulas vivas.</td></tr>
+<tr><td><strong>PDF</strong></td><td><code>Inventario fisico vs SAP - informe integral.pdf</code></td><td>Explicar el caso y los resultados a quien no vio nada de esto. 15 páginas: las dos primeras contestan de cero, y la parte 4 dice qué hay que aplicar en SAP.</td></tr>
+<tr><td><strong>Copia de consulta</strong></td><td><code>Inventario fisico vs SAP - consulta.html</code></td><td>Mirar el análisis sin levantar nada. <strong>No se puede decidir ahí.</strong></td></tr>
+</tbody></table>
+<p>Los tres primeros salen del <strong>mismo análisis y las mismas decisiones</strong>, por eso las cifras coinciden entre ellos.</p>
+<blockquote><p>El PDF <strong>no trae el listado de los 1.991 materiales</strong>: es un informe ejecutivo. El detalle individual está en el Excel y en el sistema, que es donde se puede filtrar, ordenar y actualizar. La sección 12 del informe dice exactamente dónde buscar cada cosa.</p></blockquote>
+<hr>
+<h2>Por qué dejó de ser un archivo que se manda por mail</h2>
+<p>Porque cada copia que circulaba era <strong>un lugar donde alguien decidía sin que nadie se enterara</strong>. Esas decisiones no entraban en ningún lado: no había forma de juntarlas, ni de saber quién había decidido qué, ni de evitar que dos personas resolvieran lo mismo de maneras distintas. Y el campo «Revisor» era texto libre, así que el registro de autoría no valía nada.</p>
+<p>En la aplicación:</p>
+<ul>
+<li>se entra con la cuenta <strong>@emergencias.com.ar</strong>, así que quién decidió qué <strong>no depende de lo que cada uno escriba</strong>;</li>
+<li>las decisiones van a una <strong>base SQLite compartida</strong>, con historial completo;</li>
+<li>lo que decide una persona <strong>lo ven las demás solas</strong>, sin apretar nada;</li>
+<li>si dos deciden el mismo caso, el sistema <strong>avisa</strong> en vez de pisar en silencio.</li>
+</ul>
+<p>La copia <code>Inventario fisico vs SAP - consulta.html</code> sigue existiendo para mirar el análisis sin levantar nada —mostrarlo en una reunión, mandárselo a alguien que sólo quiere verlo— pero <strong>no deja decidir</strong>, y dice por qué.</p>
+<blockquote><p><strong>Por qué la copia no puede pedir usuario y contraseña.</strong> Microsoft no admite <code>file://</code> como dirección de retorno del login: exige <code>http://localhost</code> o <code>https://</code>. No es una limitación del sistema, es de cómo funciona OAuth. Por eso el login va de la mano de servir la aplicación.</p></blockquote>
+<h2>Cómo se instala</h2>
+<p>Está todo en <strong><a href="servidor/README.md"><code>servidor/README.md</code></a></strong>: qué completar en el registro de Azure, las variables de configuración, el servicio de systemd, la imagen de Docker y el script de instalación.</p>
+<p>Lo corto, en una máquina Linux:</p>
+<pre><code>sudo ./servidor/instalar/instalar.sh     # crea el servicio
+sudo nano /etc/inventario.env            # completar con los datos de Azure
+sudo systemctl start inventario</code></pre>
+<p>Para probar en tu propia máquina sin tener todavía el registro de Azure:</p>
+<pre><code>INVSAP_AUTH=off node servidor/servidor.js</code></pre>
+<p><strong>No tiene dependencias</strong>: usa sólo lo que viene con Node, así que no hay <code>npm install</code>. Requiere Node 22.5 o superior.</p>
+<h2>Cómo trabajar</h2>
+<p>El sistema está armado como un <strong>proceso guiado</strong>, no como un listado. No hay que decidir por dónde empezar: la pantalla de inicio lo dice.</p>
+<ol>
+<li>Entrá con tu cuenta de Emergencias. Tu nombre queda en cada decisión que tomes: no hay campo que completar, y por eso el registro es confiable.</li>
+<li><strong>«Trabajar» es el panel de gestión.</strong> Arriba, la <strong>hoja de ruta</strong>: seis etapas, en qué etapa está el proceso, cuánto avanzó cada una y cuál es el próximo paso concreto.</li>
+<li>Elegí el <strong>alcance</strong>: las tres bases o una sola. Todo lo que está abajo lo respeta —los indicadores, los pendientes y las decisiones en lote—. <strong>Cada base tiene su color</strong>, el mismo en la pantalla, en el Excel y en el informe; el nombre va escrito igual al lado.</li>
+<li>Elegí un <strong>grupo</strong>. Son tarjetas, agrupadas por la etapa a la que pertenecen, y cada una dice su nombre, cuántos casos tiene y <strong>una línea de qué es</strong>. Esa línea se puede apagar con «Ocultar las explicaciones» y queda apagada.</li>
+<li>Abajo aparece <strong>cada caso como una pregunta</strong>, con lo que dice el depósito de un lado, lo que dice SAP del otro, por qué el sistema lo levantó, y las respuestas posibles como botones. <strong>Se contesta con un clic</strong>, sin entrar a ninguna pantalla.</li>
+<li>Para resolver muchos juntos: tildá los que quieras —o «elegir los N del filtro»— y usá la barra de arriba. Antes de aplicar, el sistema muestra <strong>a cuántos materiales, bases y almacenes alcanza</strong> y cuáles de los elegidos no cumplen las condiciones.</li>
+<li>Cuando haya decisiones tomadas, <strong>«Aplicar en SAP»</strong>: el resumen de qué hay que hacer con cada una, con sus cantidades.</li>
+<li>Al terminar, <strong>Excel ↓</strong>.</li>
+</ol>
+<h3>Qué hace cada solapa de arriba</h3>
+<table><thead><tr><th></th><th></th></tr></thead><tbody>
+<tr><td><strong>Trabajar</strong></td><td>Donde se decide: estado, filtros, decisiones de a una o en lote, por base o integral. Tiene dos modos: la <strong>bandeja</strong>, para ver y decidir muchos, y el <strong>modo de a uno</strong>, un caso por pantalla con el teclado, para lo que necesita elegir entre varios códigos.</td></tr>
+<tr><td><strong>Buscar</strong></td><td>Encontrar un material puntual y ver su ficha. No es otro panel de gestión.</td></tr>
+<tr><td><strong>Maestro</strong></td><td>La administración del catálogo: el maestro general con los importes de última compra, las equivalencias declaradas, el almacén propuesto de cada base y los materiales sin stock. <strong>No se deciden casos acá.</strong></td></tr>
+<tr><td><strong>Aplicar en SAP</strong></td><td><strong>El resultado.</strong> Qué decisiones se tomaron y qué hay que hacer con cada una: qué dar de alta, qué dar de baja, qué ajustar y qué mover, con sus cantidades; más lo que todavía no se pudo decidir y lo que está fuera del alcance. Es lo que se le pasa a quien ejecuta en SAP.</td></tr>
+<tr><td><strong>Informe</strong></td><td>El informe explicativo con el estado actualizado. Contesta de cero qué es todo esto.</td></tr>
+<tr><td><strong>Cómo se usa</strong></td><td>Esto mismo, dentro del sistema.</td></tr>
+</tbody></table>
+<h3>El panel de arriba</h3>
+<p>Eran píldoras con un número al lado. Una píldora que dice «Dar de baja 359» obliga a adivinar qué es dar de baja y por qué hay 359, así que ahora cada grupo es una <strong>tarjeta</strong> con su nombre, su cuenta, su color y una línea de qué es:</p>
+<table><thead><tr><th></th><th></th></tr></thead><tbody>
+<tr><td><strong>Decidir el código</strong></td><td>A qué material de SAP corresponde cada ítem contado. Sin eso, no se puede decidir nada más del caso.</td></tr>
+<tr><td><strong>Crear en SAP</strong></td><td>Están en el depósito y ningún material del maestro les corresponde. ¿Se crean en SAP?</td></tr>
+<tr><td><strong>Confirmar el código</strong></td><td>El análisis ya les encontró el código y lo verificó. Falta que una persona lo confirme.</td></tr>
+<tr><td><strong>Ajustar el stock</strong></td><td>El código existe y la mercadería está, pero SAP no registra existencia en esa base.</td></tr>
+<tr><td><strong>Dónde está el stock</strong></td><td>El material está bien identificado; lo que no corresponde es el almacén donde figura.</td></tr>
+<tr><td><strong>Maestro en cero</strong></td><td>Materiales con existencia cero. No hay stock que dar de baja: se decide el registro.</td></tr>
+<tr><td><strong>Dar de baja</strong></td><td>SAP registra stock en esa base y ningún inventario lo encontró. Van últimas.</td></tr>
+<tr><td><strong>Ya decididos</strong></td><td>Casos con la decisión tomada. Dicen qué hay que hacer con cada uno en SAP, y se pueden cambiar.</td></tr>
+<tr><td><strong>Fuera del alcance</strong></td><td>Indumentaria, equipamiento y repuestos. El inventario es de Farmacia: de su ausencia no se concluye nada.</td></tr>
+</tbody></table>
+<p>Las explicaciones <strong>se apagan con un botón</strong> —el mismo apaga las de los indicadores y la del grupo abierto— y quedan apagadas: se leen la primera semana y después estorban.</p>
+<p>Una tarjeta <strong>ya decidida</strong> dice tres cosas por separado y ninguna se confunde con otra: qué se decidió, <strong>qué queda para hacer en SAP</strong> —o qué falta decidir todavía del mismo caso— y <strong>quién lo decidió</strong>. Si nadie escribió su nombre, lo dice: <em>sin firmar, no quedó registrado quién</em>. Antes eso salía pegado a la decisión, como «Correspondencia confirmada · (sin identificar)», y se leía como si lo que faltara identificar fuera el material.</p>
+<h3>La hoja de ruta</h3>
+<p>Seis etapas, en el orden en que conviene hacerlas. <strong>El avance se calcula del estado real del sistema</strong>: no hay ningún porcentaje puesto a mano.</p>
+<p><strong>Tres las hace el sistema y tres las decidís vos.</strong> Por eso al abrir no estás en la etapa 1: leer los tres inventarios, cruzarlos contra SAP y clasificar las 1.991 diferencias ya está hecho. <strong>Tu trabajo empieza en la etapa 2</strong>, y la hoja de ruta lo dice arriba de todo, con la próxima acción concreta al lado. La primera vez se abre sola una guía de arranque; después queda en el botón <strong>«¿Cómo se usa esto?»</strong>.</p>
+<table><thead><tr><th></th><th>Etapa</th><th>Qué mide</th></tr></thead><tbody>
+<tr><td>1</td><td>Lo que entró · <em>lo hace el sistema</em></td><td>Los tres inventarios físicos y la bajada de SAP, con los controles que tienen que cuadrar contra las fuentes.</td></tr>
+<tr><td>2</td><td>Qué es cada cosa · <em>lo decidís vos</em></td><td>Cuántas nomenclaturas del depósito ya tienen resuelto su código de SAP.</td></tr>
+<tr><td>3</td><td>El cruce · <em>lo hace el sistema</em></td><td>Cada inventario contra los almacenes de SAP de su base.</td></tr>
+<tr><td>4</td><td>Qué se hace · <em>lo decidís vos</em></td><td>Cuántos casos del alcance ya se decidieron.</td></tr>
+<tr><td>5</td><td>Cuánto representa · <em>lo decidís vos</em></td><td>Cuántos materiales tienen importe de última compra cargado.</td></tr>
+<tr><td>6</td><td>El cierre · <em>lo hace el sistema</em></td><td>Se cierra cuando no queda nada pendiente.</td></tr>
+</tbody></table>
+<p><strong>Ninguna etapa bloquea a la siguiente.</strong> El maestro general se puede completar mientras el análisis avanza con lo que ya hay: esperar a tenerlo todo sería no empezar nunca.</p>
+<h3>El orden importa: trazabilidad antes del cruce definitivo</h3>
+<p>La etapa 2 va antes de la 3 por una razón de fondo. Cruzar el inventario de una base contra los almacenes de SAP usando una correspondencia dudosa <strong>arrastra la duda a todo lo que sigue</strong>: una baja propuesta sobre un código que en realidad era otro producto es una baja mal propuesta, y nadie la va a poder distinguir después.</p>
+<p>Por eso los casos sin trazabilidad resuelta quedan identificados y se gestionan aparte, sin bloquear al resto del análisis. Y <strong>una equivalencia confirmada vale para todas las bases</strong>: no hay que resolverla tres veces.</p>
+<h3>El modo de a uno</h3>
+<p>Es donde se resuelve lo que no se puede contestar con un clic: elegir entre varios códigos de SAP, declarar equivalencias, cargar el resultado de una verificación en el maestro. Muestra un caso por pantalla con todo lo necesario para decidir: la cantidad contada, la presentación detectada, por qué el caso llegó ahí, y los candidatos de SAP con <strong>en qué coincide cada uno</strong> y <strong>en qué almacén tienen el stock</strong>. Debajo, los descartados con el motivo.</p>
+<p>Atajos: &lt;kbd&gt;1&lt;/kbd&gt;…&lt;kbd&gt;9&lt;/kbd&gt; marcar un código · &lt;kbd&gt;Enter&lt;/kbd&gt; confirmar lo marcado · &lt;kbd&gt;A&lt;/kbd&gt; aprobar · &lt;kbd&gt;R&lt;/kbd&gt; rechazar · &lt;kbd&gt;N&lt;/kbd&gt; ninguno corresponde · &lt;kbd&gt;X&lt;/kbd&gt; no puedo decidirlo ahora · &lt;kbd&gt;→&lt;/kbd&gt; saltear · &lt;kbd&gt;F&lt;/kbd&gt; ver la ficha completa.</p>
+<p>Después de cada decisión pasa solo al siguiente. Una tanda de 50 casos lleva pocos minutos.</p>
+<h3>Análisis por base e integral</h3>
+<p>La misma decisión vale en los dos lados, porque es el mismo registro: lo que cambia es qué se ve, nunca dónde se guarda. Si trabajás con el alcance en Neuquén y aprobás 300 casos, esos 300 aparecen en el análisis integral sin hacer nada.</p>
+<p>Lo que <strong>no</strong> hace el sistema es aplicar una decisión global cuando las bases tienen situaciones distintas. Un mismo material puede estar bien ubicado en una base y mal en otra, y cada caso es la combinación de un material con una base: por eso se deciden por separado y el resumen del lote dice siempre a qué bases y almacenes alcanza.</p>
+<h3>Decisiones en lote: qué se muestra antes de aplicar</h3>
+<table><thead><tr><th></th><th></th></tr></thead><tbody>
+<tr><td><strong>Cuántos casos</strong></td><td>Los que cumplen las condiciones de esa decisión.</td></tr>
+<tr><td><strong>Cuántos materiales de SAP</strong></td><td>Sin duplicar por base ni por almacén.</td></tr>
+<tr><td><strong>Qué bases y qué almacenes</strong></td><td>Listados, no contados nada más.</td></tr>
+<tr><td><strong>Qué queda registrado</strong></td><td>La frase exacta que va al historial.</td></tr>
+<tr><td><strong>Qué queda afuera</strong></td><td>Los elegidos que no cumplen, <strong>con el motivo de cada uno</strong>.</td></tr>
+</tbody></table>
+<p>Las decisiones que pueden dejar algo difícil de revertir —dar de baja un registro del maestro, crear un material sin verificar, ajustar stock, aprobar bajas— piden además una confirmación expresa. Las demás, no: avisar de todo es no avisar de nada.</p>
+<h3>Una nomenclatura no corresponde a una sola: los dos sentidos</h3>
+<p>El depósito y SAP no nombran igual, y la correspondencia <strong>no es uno a uno en ninguno de los dos sentidos</strong>. Tratarla como si lo fuera obliga a contestar la misma pregunta varias veces, y a veces a contestarla distinto. El sistema deja declarar los dos sentidos, y las dos cosas a la vez.</p>
+<p><strong>Una del depósito = varios códigos de SAP.</strong> Pasa seguido: el depósito tiene <strong>una</strong> nomenclatura y SAP tiene el mismo producto abierto en <strong>varios</strong> códigos —marcas distintas, un código viejo y otro nuevo, uno discontinuado—. En el modo revisión <strong>se puede marcar más de un candidato</strong> con &lt;kbd&gt;1&lt;/kbd&gt;…&lt;kbd&gt;9&lt;/kbd&gt;. Al marcar el segundo aparece un campo con la <strong>nomenclatura unificada</strong>, precargado con el nombre que usa el depósito, y el botón pasa a decir «Agrupar los N códigos».</p>
+<p><strong>Varias del depósito = un código de SAP.</strong> Cada base escribe el nombre a su manera, y a veces la misma base tiene dos renglones del mismo producto. Cuando otro ítem del depósito podría ser el mismo producto, aparece arriba de los candidatos un panel plegable que dice cuántos son y, en cada uno, la base, las unidades contadas y <strong>por qué se propone</strong> («coincide en concentración, forma»). Se marcan con el mouse y se deciden juntos: una sola respuesta resuelve los dos renglones, y queda registrado que son equivalentes.</p>
+<p><strong>Las dos cosas a la vez.</strong> Se pueden marcar varios ítems del depósito y varios códigos de SAP en la misma pantalla. La barra de abajo dice siempre, antes de confirmar, cuántas nomenclaturas del depósito y cuántos códigos de SAP quedan declarados el mismo producto, y los muestra como etiquetas para releerlos.</p>
+<p>Qué pasa cuando confirmás:</p>
+<ul>
+<li>El ítem —y cada ítem equivalente que marcaste— queda identificado con <strong>todos</strong> esos códigos, no con uno solo, y con el mismo nombre unificado.</li>
+<li>Los códigos agrupados <strong>dejan de ser candidatos a baja en esa base</strong>, porque alguien los identificó. El contador del grupo 5 baja solo.</li>
+<li>Los ítems declarados equivalentes <strong>salen de la cola</strong>: no se vuelven a preguntar.</li>
+<li>El grupo queda listado en la pantalla de trabajo, en el Excel (hoja «Resumen», con los dos lados y el sentido de cada grupo, y dos columnas en «Casos») y en el PDF.</li>
+</ul>
+<p>Importante: la liberación es <strong>por base</strong>. Si agrupás un código en San Juan, su stock en Salta sigue siendo candidato a baja — identificar un material no es haber contado su stock en otro centro.</p>
+<h4>De dónde sale la sugerencia (y de dónde no)</h4>
+<p><strong>No del parecido del nombre.</strong> Dos ítems se proponen como equivalentes sólo si comparten un candidato en SAP <strong>y además</strong> ninguna característica declarada por los dos está en conflicto, y coinciden en alguna característica verificable —concentración, forma farmacéutica fuerte, volumen, calibre, medidas—. Cuando ninguno declara características, se exige que las denominaciones sean casi iguales.</p>
+<p>La exigencia no es gratuita. Una primera versión proponía equivalencias por «comparten un candidato», y eso juntaba «Ácido acetilsalicílico 100 mg» con «N-acetilcisteína 600»: el candidato lo genera el parecido del nombre, no el producto. <strong>Una sugerencia falsa es peor que ninguna</strong>, porque invita justamente al error que este trabajo viene evitando. La propuesta sigue siendo una propuesta: la confirma una persona.</p>
+<h4>El almacén, en la misma pantalla</h4>
+<p>Cada candidato muestra <strong>en qué almacén tiene el stock</strong> y cuántas unidades, y si ese almacén es el propuesto para la base del ítem: en verde cuando coincide, en naranja cuando el stock está en otro almacén, y en gris cuando ese código <strong>no tiene stock en esa base</strong>. No hace falta ir a buscarlo a otra pantalla: parte de la decisión es si el código que estás por asignar tiene el stock donde debería.</p>
+<p>Recordá que la correspondencia base ↔ almacén es una <strong>propuesta pendiente de validación</strong> (ver el grupo 5): el color dice si coincide con esa propuesta, no que la propuesta esté confirmada.</p>
+<h3>El orden de los grupos</h3>
+<table><thead><tr><th></th><th>Grupo</th><th>Pendientes</th><th>Por qué va ahí</th></tr></thead><tbody>
+<tr><td>1</td><td>Resolver los casos en revisión</td><td>401</td><td>Es el trabajo real, y de él dependen otros grupos</td></tr>
+<tr><td>2</td><td>Verificar los que no aparecieron en SAP</td><td>59</td><td>Pocos y de alto impacto; se elige una de dos alternativas</td></tr>
+<tr><td>3</td><td>Registrar existencias que SAP no tiene</td><td>48</td><td>Hay stock físico sin respaldo en el sistema</td></tr>
+<tr><td>4</td><td>Confirmar las identificaciones</td><td>179</td><td>Rápido: ya están verificadas</td></tr>
+<tr><td>5</td><td>Corregir la ubicación en los almacenes</td><td>363</td><td>Problema de ubicación, no de identificación</td></tr>
+<tr><td>6</td><td>Depurar el maestro · materiales sin stock</td><td>30</td><td>Decisión sobre el registro, no sobre el stock</td></tr>
+<tr><td>7</td><td>Aprobar las bajas propuestas</td><td>864</td><td>Último, porque 153 dependen del grupo 1</td></tr>
+</tbody></table>
+<p>Las 153 bajas que dependen de un caso en revisión <strong>quedan fuera del lote automáticamente</strong> y el sistema avisa si intentás aprobarlas de a una.</p>
+<h3>El grupo 2: tres salidas, no una</h3>
+<p>Un ítem que no aparece entre los materiales con stock <strong>no está probado que no exista en SAP</strong>. Por eso el sistema no decide solo: pregunta expresamente cuál de los caminos se toma.</p>
+<table><thead><tr><th></th><th>Camino</th><th>Qué implica</th><th>Qué riesgo tiene</th></tr></thead><tbody>
+<tr><td><strong>1</strong></td><td>Verificar antes de crear</td><td>Se consulta el maestro completo antes de crear nada. El caso queda abierto hasta que se cargue el resultado.</td><td>Ninguno sobre los datos. El costo es de tiempo: hace falta el maestro completo, que no tenemos.</td></tr>
+<tr><td><strong>2</strong></td><td>Crear igual, sin verificar</td><td>Se avanza con el alta aunque no se haya verificado el maestro. <strong>El sistema no lo impide.</strong></td><td><strong>Código duplicado:</strong> el mismo producto abierto dos veces, con el stock, los consumos y el histórico partidos. El código viejo sigue vivo hasta que alguien lo depure.</td></tr>
+<tr><td><strong>3</strong></td><td>Ya lo busqué: existe con este código</td><td>Se escribe el código que apareció al consultar SAP y <strong>se le asigna como a cualquier otra identificación</strong>: el caso sale de las altas y lo que queda para hacer en SAP es cargar la existencia, no crear nada.</td><td>Ninguno. Queda registrado que el código lo trajo una persona y que no figuraba en la bajada de stock.</td></tr>
+</tbody></table>
+<p><strong>El código del camino 3 no tiene que estar en el maestro cargado.</strong> Ese maestro es una bajada de stock: si el material figurara ahí, el caso no estaría en este grupo. Por eso el sistema lo acepta y lo deja anotado, en vez de rechazarlo.</p>
+<p>La alternativa 2 abre una pregunta expresa que explica el riesgo, <strong>exige marcar que se entiende</strong> antes de habilitar el botón, y registra quién lo decidió y por qué. Además liga el caso al plan de depuración del maestro, que es la contracara de esa decisión.</p>
+<p>El resultado de la alternativa 1 se carga después, cuando se tenga la respuesta del maestro: <em>no existe</em> (se propone el alta), <em>existe sin stock y se reutiliza el código</em>, o <em>existe sin stock, se da de baja y se crea de nuevo</em>.</p>
+<h3>La solapa «Maestro»: la administración del catálogo</h3>
+<p>Maestro tiene cuatro apartados y ninguno decide casos: eso es «Trabajar». Acá se administra <strong>lo que es cada material</strong>, no qué se hace con cada diferencia.</p>
+<p><strong>Maestro general.</strong> Una fila por <strong>código de SAP</strong>, reuniendo todo lo que se sabe de él: la bajada de SAP, los candidatos del análisis, lo que quedó identificado en los inventarios y el maestro que se importe. <strong>No se duplica</strong> por aparecer en varias bases ni en varios almacenes. Los ítems del depósito que todavía no tienen código van aparte, porque todavía no son un material de SAP.</p>
+<p>La planilla se <strong>baja en Excel</strong> con tres columnas obligatorias —Código SAP, Nomenclatura SAP e Importe última compra—, se completa el importe afuera y <strong>se vuelve a subir el mismo archivo</strong>. También acepta CSV. La importación:</p>
+<ul>
+<li>busca las columnas por nombre, así que no importa si alguien agregó o movió alguna;</li>
+<li>informa cuántos importes entraron nuevos, cuántos se actualizaron, cuántas filas venían vacías y <strong>cuáles se rechazaron, con el motivo</strong>;</li>
+<li>avisa si hay códigos que no figuran en el análisis, sin descartarlos;</li>
+<li><strong>no toca ninguna decisión ni ninguna equivalencia.</strong></li>
+</ul>
+<p><strong>Equivalencias de nomenclatura.</strong> Los grupos ya declarados, con los dos lados y el sentido de cada uno. Se declaran al resolver un caso, en «Trabajar»; una vez confirmada, la equivalencia vale para todas las bases.</p>
+<p><strong>Almacenes por base.</strong> Lo observado y lo propuesto, separados, con la confianza de cada propuesta explicada: cuando dice «Ambigua» dice también <strong>qué es lo ambiguo</strong> —que hay más de un almacén con stock de ese tipo en la base y de los datos no sale cuál debería ser; lo ambiguo es el almacén, no el material ni su código—.</p>
+<h3>Materiales sin stock: depuración del maestro</h3>
+<p>Los materiales que figuran en SAP con <strong>existencia cero</strong> no son candidatos a baja de stock —no hay stock que dar de baja— sino <strong>registros del maestro</strong> sobre los que hay que decidir: se <strong>mantienen</strong>, se <strong>bloquean</strong> o se <strong>dan de baja</strong>.</p>
+<ul>
+<li>Se puede decidir <strong>de a uno</strong> o fijar una <strong>política masiva</strong> para todo el conjunto.</li>
+<li>La decisión individual <strong>manda sobre la masiva</strong>: cuando difiere, el material queda anotado como <strong>excepción</strong>, con su motivo escrito. Una limpieza masiva no borra los casos que había que mirar de cerca.</li>
+<li><strong>Lo que se ve no es todo el universo.</strong> La bajada trae los materiales con stock; estos 30 aparecieron igual en cero y son la punta visible. Cuántos materiales tiene el maestro completo en cero no se puede saber con los archivos recibidos.</li>
+<li>Si se consigue el maestro completo, se puede <strong>importar en CSV</strong> desde esa misma pantalla y el universo se completa solo. El archivo se lee en la computadora: no se sube a ningún lado.</li>
+</ul>
+<h3>El grupo 5: ubicación, que no es identificación</h3>
+<p>El <strong>centro</strong> es la base; el <strong>almacén</strong> es el depósito dentro de esa base. Son dos campos distintos de SAP. Hay tres cuestiones independientes y conviene no mezclarlas: si el material está bien <strong>identificado</strong>, si tiene <strong>stock</strong>, y si ese stock está en el <strong>almacén que corresponde</strong>.</p>
+<p>Un material perfectamente identificado puede figurar en el almacén equivocado. <strong>Eso no lo convierte en candidato a alta ni a baja.</strong></p>
+<table><thead><tr><th>Estado</th><th>Casos</th><th>Qué significa</th></tr></thead><tbody>
+<tr><td>Almacén correcto</td><td>765</td><td>El stock está en el almacén propuesto para esa base y tipo</td></tr>
+<tr><td>Almacén a cambiar</td><td>137</td><td>Figura en un almacén distinto del propuesto</td></tr>
+<tr><td>En varios almacenes</td><td>226</td><td>El mismo material repartido en más de un almacén de la base</td></tr>
+<tr><td>Pendiente de validar</td><td>322</td><td>No hay propuesta de almacén para esa base y tipo</td></tr>
+</tbody></table>
+<p><strong>Qué está observado y qué es una propuesta.</strong> A qué base pertenece cada almacén <strong>está observado</strong>: en la bajada, cada código de almacén aparece bajo un único centro. Qué almacén <em>debería</em> tener el stock de Farmacia <strong>no está en ningún archivo</strong>: se propone a partir de la composición observada de cada almacén —qué materiales y cuántas unidades concentra—, <strong>nunca por parecido de nombres ni de códigos</strong>, y hay que validarlo con cada base.</p>
+<table><thead><tr><th>Base</th><th>Tipo</th><th>Almacén propuesto</th><th>Confianza</th></tr></thead><tbody>
+<tr><td>San Juan</td><td>Medicamento</td><td>2021</td><td>Clara</td></tr>
+<tr><td>San Juan</td><td>Descartable</td><td>2021</td><td>Clara</td></tr>
+<tr><td>Neuquén</td><td>Medicamento</td><td>6021</td><td>Clara</td></tr>
+<tr><td>Neuquén</td><td>Descartable</td><td>6022</td><td><strong>Ambigua</strong></td></tr>
+<tr><td>Salta</td><td>Medicamento</td><td>3013</td><td>Clara</td></tr>
+<tr><td>Salta</td><td>Descartable</td><td>3014</td><td>Clara</td></tr>
+</tbody></table>
+<p>La de Neuquén · Descartables salió <strong>ambigua</strong> porque un segundo almacén también concentra volumen: ahí hace falta preguntarle a la base antes de concluir nada. Tampoco viene la descripción de los almacenes, sólo el código.</p>
+<h3>Dónde quedan las decisiones</h3>
+<p>En una <strong>base SQLite compartida</strong>, firmadas con la cuenta con la que entraste, con el historial completo de cada caso.</p>
+<ul>
+<li>Lo que decide otro <strong>aparece solo</strong>, cada 20 segundos. El botón <strong>↻</strong> fuerza la actualización.</li>
+<li>Si estás en el modo revisión, no te cambia el caso de abajo de las manos: avisa y actualiza cuando salís.</li>
+<li>Si una escritura falla, el indicador lo dice y se reintenta sola. <strong>Nunca se da por guardado algo que no se guardó.</strong></li>
+<li>Si dos personas deciden el mismo caso, el sistema avisa a la segunda y le muestra quién había decidido antes. <strong>Nada se pierde:</strong> el historial guarda las dos, con nombre y hora.</li>
+</ul>
+<p>La base se respalda sola todos los días y se conservan los últimos 14.</p>
+<p><strong>Conviene exportar el Excel al terminar cada sesión igual</strong>: es la forma de compartir lo decidido con quien no entra a la aplicación. Trae una hoja «Decisiones» con el historial completo.</p>
+<h3>«Aplicar en SAP»: el resultado del trabajo</h3>
+<p>Decidir no sirve de nada si después hay que deducir de 1.991 casos qué le toca hacer a quien entra a SAP. Esa pregunta —<strong>«¿y entonces qué hago?»</strong>— la contesta una pantalla propia, que es también la primera hoja del Excel y la parte 4 del informe. Los tres salen del mismo cálculo.</p>
+<p>Está organizada en cuatro bloques, en el orden en que se leen:</p>
+<table><thead><tr><th>Bloque</th><th>Qué trae</th></tr></thead><tbody>
+<tr><td><strong>1 · Hay que hacerlo en SAP</strong></td><td>Lo decidido y listo para ejecutar, agrupado por lo que hay que hacer: <strong>altas</strong> de material, <strong>ajustes de existencia</strong>, <strong>movimientos de almacén</strong>, <strong>bajas de stock</strong> y <strong>maestro de materiales</strong>. Cada acción con sus casos y su cantidad.</td></tr>
+<tr><td><strong>2 · Todavía no se pudo decidir</strong></td><td>Lo que nadie decidió aún, con el grupo donde se decide y un botón que lleva directo ahí. No se ejecuta nada de esto.</td></tr>
+<tr><td><strong>3 · Decidido, y no hay nada que hacer</strong></td><td>Lo que quedó cerrado sin tocar SAP. Está contado para que se vea que se lo miró, que no es lo mismo que haberlo pasado por alto.</td></tr>
+<tr><td><strong>4 · Fuera del alcance</strong></td><td>Indumentaria, equipamiento y repuestos. Ni alta ni baja: de su ausencia no se concluye nada.</td></tr>
+</tbody></table>
+<p>Debajo, <strong>cómo se reparte entre las bases</strong> con su centro de SAP, porque quien ejecuta trabaja por centro. Y cada acción se despliega para ver el caso por caso.</p>
+<p><strong>Las cantidades nunca se mezclan.</strong> Un alta y un ajuste se miden en <strong>unidades contadas</strong> —las del recuento en el depósito—; una baja y un movimiento, en <strong>unidades en SAP</strong>; el maestro, en <strong>registros</strong>, que no tienen unidades. Las tres van en columnas separadas y rotuladas, y no se suman entre sí: son recuentos de universos distintos.</p>
+<p><strong>El importe sólo aparece sobre lo ya decidido</strong>, y lo que no tiene precio de última compra se informa como <em>sin importe</em>, nunca como cero.</p>
+<hr>
+<h2>Una aclaración que condiciona todo</h2>
+<p><strong>La bajada de SAP son los materiales que HOY tienen stock, no el maestro completo.</strong> Un material dado de alta en SAP con existencia cero no figura en el archivo.</p>
+<p>Consecuencia directa sobre lo que se puede afirmar: cuando un ítem del depósito no encuentra correspondencia, <strong>no está probado que no exista en SAP</strong>. Puede existir sin stock. Por eso el grupo 2 del sistema no dice «dar de alta» sino <strong>«verificar en el maestro»</strong>.</p>
+<p>Esa verificación —y, si el material ya existe sin stock, la decisión de reutilizar el código o darlo de baja y crearlo de nuevo— <strong>está fuera del alcance de este trabajo</strong>.</p>
+<p>Ahora bien: que esté fuera de alcance <strong>no bloquea la decisión</strong>. El sistema contempla las dos alternativas y pregunta cuál se toma: verificar primero, o crear igual asumiendo el riesgo de código duplicado. Lo que no hace es decidirlo solo ni esconder la consecuencia.</p>
+<p>Lo que sí se sostiene sin esa verificación: las identificaciones (grupo 4), las existencias sin stock en su base (grupo 3) y los candidatos a baja (grupo 7), porque esos materiales <strong>sí</strong> están en el archivo con stock.</p>
+<p>La misma limitación explica el alcance de la depuración del maestro: los 30 materiales con existencia cero que están a la vista son los que la bajada dejó ver, <strong>no todos los que el maestro tiene en cero</strong>.</p>
+<h2>Qué hace el análisis</h2>
+<p>El universo son <strong>los inventarios físicos</strong>, no SAP:</p>
+<table><thead><tr><th>Base</th><th>Sistema</th><th>Ítems</th><th>Unidades</th></tr></thead><tbody>
+<tr><td>San Juan</td><td>AVAIN</td><td>163</td><td>21.732</td></tr>
+<tr><td>Neuquén</td><td>Sistema Nico (informe IHSA)</td><td>243</td><td>33.107</td></tr>
+<tr><td>Salta</td><td>AVAIN</td><td>281</td><td>32.524</td></tr>
+<tr><td><strong>Total</strong></td><td></td><td><strong>687</strong></td><td><strong>87.363</strong></td></tr>
+</tbody></table>
+<p>Cada ítem se cruza contra el maestro de SAP (1.038 códigos, 1.482 combinaciones material-base). <strong>Una coincidencia sólo se acepta si está justificada por las características del material</strong>, nunca por el parecido del nombre: concentración, forma farmacéutica, volumen, calibre, medidas, talle, modelo o referencia, longitud, esterilidad, población y cantidades sin unidad.</p>
+<blockquote><p><strong>La esterilidad se agregó a esa lista.</strong> Estaba tratada como palabra de relleno, y por eso «Apósitos estériles» del depósito traía «APOSITO NO ESTERIL» como primer candidato: las dos denominaciones quedaban en «apósito». Un apósito estéril y uno no estéril son dos productos con código propio. Ahora contradecirse en la esterilidad descarta el candidato. Sirve para descartar, no para confirmar: que dos cosas sean estériles no las hace el mismo producto.</p></blockquote>
+<p>Tres reglas:</p>
+<ol>
+<li>Si los dos lados declaran la misma característica con valores distintos, <strong>no son el mismo material</strong>: el candidato se descarta y queda el motivo registrado.</li>
+<li>Si una característica se declara de un lado y no del otro, <strong>nada quedó verificado</strong> y el caso va a revisión.</li>
+<li>Sólo se identifica por el nombre un material que no declara ninguna característica de ningún lado (un otoscopio, un glucómetro, una llave de 3 vías).</li>
+</ol>
+<h3>Las seis clasificaciones</h3>
+<table><thead><tr><th></th><th>Casos</th><th>Qué significa</th><th>Acción</th></tr></thead><tbody>
+<tr><td><strong>A</strong> Identificado en SAP</td><td>227</td><td>Código verificado por nomenclatura y presentación</td><td>Mantener</td></tr>
+<tr><td><strong>B</strong> Sin correspondencia</td><td>59</td><td>Existe físicamente, no está entre los materiales <strong>con stock</strong></td><td>Elegir alternativa 1 o 2</td></tr>
+<tr><td><strong>C</strong> Candidato a baja</td><td>864</td><td>Stock en SAP que ningún inventario identificó en esa base</td><td>Proponer baja</td></tr>
+<tr><td><strong>D</strong> Requiere revisión</td><td>401</td><td>No se resuelve solo</td><td>Revisar y decidir</td></tr>
+<tr><td><strong>E</strong> Fuera del alcance</td><td>410</td><td>Indumentaria, equipos y repuestos</td><td><strong>No concluir nada</strong></td></tr>
+<tr><td><strong>F</strong> En SAP sin stock</td><td>30</td><td>Material de Farmacia con existencia <strong>cero</strong></td><td>Depurar el maestro</td></tr>
+</tbody></table>
+<p><strong>Por qué existen la E y la F:</strong> las dos salen de la misma pregunta —¿qué significa que un material de SAP no aparezca en el inventario?— y en las dos proponer una baja sería una conclusión falsa.</p>
+<ul>
+<li><strong>E.</strong> El inventario relevado es de Farmacia. Los materiales que no son medicamentos ni descartables nunca iban a figurar en él, así que su ausencia no prueba nada.</li>
+<li><strong>F.</strong> Figuran con existencia cero: <strong>no hay stock que dar de baja</strong>. Lo que corresponde decidir es qué pasa con el <em>registro</em> en el maestro. Salieron de la clase C, donde proponer una baja no tenía sentido.</li>
+</ul>
+<hr>
+<h2>Dos advertencias importantes</h2>
+<h3>1. No hay precio de última compra</h3>
+<p>El criterio de valorización pedido es <strong>precio de última compra</strong>, y ese dato <strong>no está en ninguno de los archivos recibidos</strong>. Se revisaron campo por campo:</p>
+<ul>
+<li>La bajada de SAP tiene «Valor libre util.» (valorización contable del stock) y un valor unitario derivado. No tiene precio de compra, ni fecha, ni proveedor, ni documento.</li>
+<li>El archivo de homologación declara que los campos de costo quedan fuera de ese trabajo.</li>
+<li>Los tres PDF de inventario no contienen ninguna mención de precio ni de compra.</li>
+</ul>
+<p>Por eso <strong>los 1.991 casos figuran como pendientes de valorización</strong> y no se informa ningún total. No se estimó ningún precio.</p>
+<p>Lo que sí se muestra, siempre rotulado como tal, es la valorización de stock de SAP. <strong>No es lo mismo</strong> y no debe presentarse como precio de compra.</p>
+<p><strong>Ya hay por dónde cargarlo.</strong> En <strong>Maestro → Maestro general</strong> se baja la planilla con los 1.038 códigos, se completa la columna «Importe última compra» y se vuelve a subir. En cuanto entra, el sistema calcula el impacto económico de las decisiones tomadas:</p>
+<ul>
+<li><strong>Cómo se calcula:</strong> unidades del caso × importe de última compra del material decidido. Las unidades son las <strong>contadas en el depósito</strong> para los ítems físicos y las de <strong>stock en SAP</strong> para los materiales que ningún inventario identificó.</li>
+<li><strong>Sólo lo ya decidido</strong> suma: una decisión que todavía no se tomó no vale plata.</li>
+<li>Un caso sin importe <strong>no suma cero</strong>: queda contado aparte como pendiente de valorizar. Un cero sería una afirmación falsa sobre su valor.</li>
+</ul>
+<p>Para que el dato sea auditable conviene que la bajada traiga además moneda, fecha de la compra, documento de respaldo y proveedor.</p>
+<h3>2. Las altas y las bajas son propuestas, no acciones</h3>
+<p>Nada de este trabajo modifica SAP. La propuesta conversada —crear lo no encontrado y dar de baja lo restante— se interpretó como <strong>criterio de clasificación, no como autorización</strong>.</p>
+<p>Además, la lista de candidatos a baja es <strong>provisional mientras queden casos en revisión</strong>: hoy hay <strong>156 candidatos a baja</strong> que figuran como posible equivalencia de un ítem todavía sin resolver. Si esos casos se resuelven a favor, dejan de ser bajas. El sistema avisa antes de dejar aprobar una de ellas.</p>
+<hr>
+<h2>Un hallazgo que conviene mirar</h2>
+<p><strong>48 ítems están identificados pero SAP no registra stock de ese material en su base.</strong> Hay existencia física y el código existe. No son altas: lo que corresponde es registrar la existencia en ese centro o revisar dónde está cargado el stock. Se filtran en el sistema y están marcados en el Excel.</p>
+<hr>
+<h2>El Excel</h2>
+<p><strong>Ocho hojas</strong>, no quince, y en el orden en que se leen: primero qué hay que hacer, después el detalle, y al final de dónde sale cada cifra. Las seis que partían el detalle por clasificación decían en qué categoría cayó cada caso, pero no la frase que alguien tiene que ejecutar.</p>
+<table><thead><tr><th>Hoja</th><th>Para qué</th></tr></thead><tbody>
+<tr><td><code>Aplicar en SAP</code></td><td><strong>El resumen de las decisiones.</strong> Una fila por acción: qué dar de alta, qué dar de baja, qué ajustar, qué mover, con los casos y las cantidades de cada una, separadas por magnitud; después lo que falta decidir, lo que no requiere nada y lo que está fuera del alcance; y el reparto por base con su centro.</td></tr>
+<tr><td><code>Qué hacer en SAP</code></td><td><strong>El detalle de la anterior.</strong> Una fila por caso con la acción concreta —crear el material en el centro X almacén Y, ajustar N unidades, mover de almacén, dar de baja— y una columna que dice si todavía falta decidirla. Ordenada por acción, con autofiltro.</td></tr>
+<tr><td><code>Resumen</code></td><td>Indicadores (fórmulas vivas sobre <code>Casos</code>), el glosario de magnitudes, la propuesta de almacén por base y tipo, las equivalencias declaradas y cómo se decide una correspondencia.</td></tr>
+<tr><td><code>Casos</code></td><td>El detalle completo, <strong>50 columnas</strong>, con autofiltro.</td></tr>
+<tr><td><code>Maestro general</code></td><td>Una fila por código de SAP, sin duplicar por base ni por almacén, con el importe de última compra.</td></tr>
+<tr><td><code>Lotes</code></td><td>Trazabilidad al renglón de lote del informe original.</td></tr>
+<tr><td><code>Decisiones</code></td><td>El historial: quién decidió qué y cuándo.</td></tr>
+<tr><td><code>Control</code></td><td>Integridad contra las fuentes, con fórmulas vivas.</td></tr>
+</tbody></table>
+<p><strong>El formato está corregido.</strong> Antes una nota larga en una columna angosta se envolvía en veinte renglones y estiraba la fila a media pantalla. Ahora sólo el encabezado envuelve texto, y el alto del título, la nota y el encabezado está fijado en todas las hojas.</p>
+<p>En la hoja <code>Casos</code>, las columnas <strong>AN a AS</strong> son la ubicación del stock y las <strong>AT a AX</strong>, la alternativa elegida en la clase B. Se agregaron al final a propósito, para no mover ninguna letra de las fórmulas que ya estaban.</p>
+<p>Tiene fórmulas reales —<code>COUNTIFS</code>, <code>SUMIFS</code>, <code>SUBTOTAL</code>—, formatos numéricos y de fecha, filtros, panel fijo y anchos de columna. Los totales usan <code>SUBTOTAL</code>, así que <strong>respetan el filtro aplicado</strong>.</p>
+<h2>Verificación hecha</h2>
+<ul>
+<li>Los filtros, la búsqueda, la ficha, las decisiones y la persistencia se probaron en un navegador real, sin errores de JavaScript.</li>
+<li>El Excel exportado se abrió y recalculó: los 1.991 casos y todos los cortes por base y por tipo coinciden con el sistema.</li>
+<li>El PDF tiene 15 páginas; cada número de página impreso coincide con la página real y cada entrada del índice cae en su sección. Ninguna hoja se pasa de alto, lo que se comprueba midiendo el contenido renderizado antes de imprimir.</li>
+<li>Los controles de integridad comparan los totales del sistema contra los de los archivos originales: los 10 cierran.</li>
+<li>Hay una auditoría reproducible en <code>scripts/v3/auditar.py</code>: compara el dataset contra lo que efectivamente quedó escrito en el Excel recalculado, en el texto del PDF y en el HTML del sistema. Son 87 comprobaciones y pasan todas.</li>
+</ul>
+<h2>Los archivos originales no se tocaron</h2>
+<p>Se conservan tal como se recibieron. El Excel del trabajo anterior (<code>Stock SAP vs Inventario Fisico Avain - cruce.xlsx</code>) también se mantiene sin cambios.</p>
+<p class="pie">Manual del sistema de inventario físico vs SAP · San Juan, Neuquén y Salta. Se imprime a PDF desde el navegador (Archivo → Imprimir → Guardar como PDF).</p>
+</div></body></html>

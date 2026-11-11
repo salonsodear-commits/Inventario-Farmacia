@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><title>Mail - Publicar el sistema de inventario vs SAP</title></head>
+<body style="margin:0;padding:24px;background:#ffffff;">
+<div style="font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#000000;line-height:1.45;max-width:860px;">
+
+<p style="margin:0 0 4px 0;"><b>Asunto:</b> Publicar en un servidor el sistema de inventario f&iacute;sico vs SAP (ingreso con Entra ID)</p>
+
+<p style="margin:14px 0 12px 0;">Hola,</p>
+
+<p style="margin:0 0 12px 0;">Les escribo para pedirles que <b>publiquen en un servidor interno</b> una
+aplicaci&oacute;n que desarrollamos para conciliar el inventario f&iacute;sico de Farmacia contra SAP.
+Hoy funciona, pero cada uno la abre en su computadora y las decisiones quedan ah&iacute;: necesitamos
+que est&eacute; disponible para todos y que el ingreso sea con la <b>cuenta corporativa</b>.</p>
+
+<p style="margin:0 0 6px 0;"><b>De qu&eacute; se trata, en tres l&iacute;neas</b></p>
+<p style="margin:0 0 12px 0;">Las bases de San Juan, Neuqu&eacute;n y Salta contaron lo que hay en el
+dep&oacute;sito; SAP tiene registrado lo que deber&iacute;a haber. Los dos listados nombran los mismos
+productos de maneras distintas, as&iacute; que el sistema establece la correspondencia producto por
+producto y deja <b>1.991 casos</b> para decidir. <b>No se conecta a SAP ni lo modifica:</b> lo que
+produce es el pedido de trabajo &mdash;qu&eacute; dar de alta, qu&eacute; dar de baja, qu&eacute; ajustar&mdash;
+con el nombre de qui&eacute;n decidi&oacute; cada cosa.</p>
+
+<p style="margin:0 0 6px 0;"><b>C&oacute;mo se usa</b></p>
+<p style="margin:0 0 12px 0;">Es una p&aacute;gina web. Se entra, se elige una base o las tres, y cada
+caso aparece como una pregunta concreta con lo que dice el dep&oacute;sito de un lado y lo que dice
+SAP del otro; se contesta con un clic, de a uno o en lote. Al final, la pantalla
+&laquo;Aplicar en SAP&raquo; resume qu&eacute; hay que hacer con cada decisi&oacute;n, y todo se puede bajar
+en Excel. El manual adjunto lo explica entero.</p>
+
+<p style="margin:0 0 6px 0;"><b>Lo que necesitamos de ustedes</b></p>
+<ol style="margin:0 0 12px 0;padding-left:22px;">
+  <li style="margin-bottom:5px;">Un <b>servidor Linux chico</b> con <b>Node 22.5 o superior</b>. No hay base de
+      datos externa ni dependencias que instalar: la aplicaci&oacute;n usa s&oacute;lo lo que viene con Node y
+      guarda en un archivo SQLite en disco, con respaldo diario autom&aacute;tico.</li>
+  <li style="margin-bottom:5px;">Un <b>nombre DNS interno con HTTPS</b>, por ejemplo
+      <span style="font-family:Consolas,monospace;">inventario.emergencias.com.ar</span>. Puede ir detr&aacute;s
+      del proxy que ya usen.</li>
+  <li style="margin-bottom:5px;">Un <b>registro de aplicaci&oacute;n en Microsoft Entra ID</b>, que es lo que
+      permite entrar con las credenciales corporativas:
+      <ul style="margin:5px 0 0 0;padding-left:20px;">
+        <li>tipo de cuenta: <b>s&oacute;lo este inquilino</b>;</li>
+        <li>plataforma <b>Web</b> (no SPA: el secreto queda en el servidor, el navegador nunca ve un
+            token de Microsoft);</li>
+        <li>URI de redirecci&oacute;n:
+            <span style="font-family:Consolas,monospace;">https://&lt;el nombre que elijan&gt;/auth/callback</span>;</li>
+        <li>y pasarnos <b>Id. de aplicaci&oacute;n</b>, <b>Id. de directorio</b> y un <b>secreto de cliente</b>.</li>
+      </ul>
+      Los permisos que Azure agrega por defecto alcanzan: no hace falta consentimiento de administrador
+      ni ning&uacute;n permiso adicional.</li>
+  <li>Dejarla restringida a <b>@emergencias.com.ar</b>. La aplicaci&oacute;n ya valida el dominio y rechaza
+      invitados, adem&aacute;s de lo que configuren ustedes.</li>
+</ol>
+
+<p style="margin:0 0 12px 0;">El paquete adjunto trae todo: el servicio para systemd, un Dockerfile por si
+prefieren contenedor, el archivo de configuraci&oacute;n de ejemplo y el instructivo paso a paso
+(<span style="font-family:Consolas,monospace;">EMPEZAR-ACA.md</span>). De configuraci&oacute;n,
+<b>obligatorias son cuatro variables</b> &mdash;las tres del registro de Azure m&aacute;s la URI de
+redirecci&oacute;n&mdash;; el resto tiene valores por defecto y est&aacute; comentado en el archivo de ejemplo.
+Si quieren verla andar antes de registrar nada en Azure, arranca sin login con un solo comando,
+escuchando s&oacute;lo en localhost.</p>
+
+<p style="margin:0 0 12px 0;"><b>Datos que maneja:</b> el inventario de Farmacia y el stock de SAP de las
+tres bases, m&aacute;s las decisiones que se van tomando. Sin datos personales m&aacute;s all&aacute; del
+nombre de quien decide, que es justamente el punto.</p>
+
+<p style="margin:0 0 12px 0;">Adjunto el paquete de instalaci&oacute;n y el manual. Quedo a disposici&oacute;n
+para lo que haga falta, y si prefieren una llamada corta para verlo juntos, cuando les quede c&oacute;modo.</p>
+
+<p style="margin:0 0 2px 0;">Gracias,</p>
+
+</div>
+</body>
+</html>

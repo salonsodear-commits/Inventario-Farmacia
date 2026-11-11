@@ -571,6 +571,39 @@ ubic = m["almacenes"].get("ubicacion", {})
 ok(len(ubic) > 0, "el dataset dice en qué almacén figura cada material por base",
    "%d pares base|material" % len(ubic))
 
+# ------------------------------------------------------------------- manual
+# El manual sale del LEEME: si se edita uno y no se regenera el otro, quedan
+# dos manuales distintos circulando.
+print("\n=== 4c. EL MANUAL Y EL CORREO ===")
+MAN = RAIZ + "Manual - sistema de inventario fisico vs SAP.html"
+ok(os.path.exists(MAN), "existe el manual en HTML")
+if os.path.exists(MAN):
+    man = io.open(MAN, encoding="utf-8").read()
+    leeme = io.open(RAIZ + "LEEME - sistema de gestion.md", encoding="utf-8").read()
+    plano_man = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", man))
+    import html as _h
+    plano_man = _h.unescape(plano_man)
+    ok("**" not in man, "no quedaron asteriscos de Markdown sin convertir")
+    ok(man.count("<table>") >= 10, "las tablas del LEEME están como tablas",
+       "%d tablas" % man.count("<table>"))
+    faltan = [f for f in ["Aplicar en SAP", "tres salidas, no una",
+                          "Ya lo busqué: existe con este código",
+                          "un caso espera en más de un grupo"]
+              if f in leeme and f not in plano_man]
+    ok(not faltan, "el manual dice lo mismo que el LEEME",
+       "falta: " + ", ".join(faltan) if faltan else "")
+COR = RAIZ + "Mail - Publicar el sistema de inventario vs SAP.html"
+ok(os.path.exists(COR), "existe el correo para IT")
+if os.path.exists(COR):
+    cor = io.open(COR, encoding="utf-8").read()
+    for frase, titulo in [
+        ("Entra ID", "el correo pide el ingreso con Entra ID"),
+        ("auth/callback", "y dice cuál es la URI de redirección"),
+        ("Node 22.5", "y qué versión de Node hace falta"),
+        ("No se conecta a SAP ni lo modifica", "y aclara que no toca SAP"),
+    ]:
+        ok(frase.lower() in cor.lower(), titulo)
+
 # ---------------------------------------------------------------- originales
 print("\n=== 5. LOS ORIGINALES ===")
 for n, md5 in [("Stock SAP vs Inventario Fisico Avain - cruce.xlsx",

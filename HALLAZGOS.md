@@ -224,7 +224,7 @@ Neuquén 9, Salta 23.
 centro, o ubicar en qué centro está cargada. Es una categoría de trabajo que el análisis
 anterior no distinguía.
 
-## 156 candidatos a baja dependen de un caso todavía en revisión
+## 155 candidatos a baja dependen de un caso todavía en revisión
 
 Figuran como posible equivalencia de un ítem físico sin resolver. Si el caso se resuelve
 a favor, dejan de ser candidatos a baja. **La lista de bajas es provisional mientras
@@ -244,33 +244,66 @@ correctamente separados:
 | `CLARITROMICINA` | `CLARITROMICINA 500 COMPRIMIDOS` | «500» puede ser mg o envase | a revisión |
 | `Aciclovir crema 5,0% x10gr` | `ACICLOVIR 400 MG COMPRIMIDOS` | crema vs comprimido y 5% vs 400 mg | sin correspondencia |
 
-## Por qué el 59% queda en revisión
+## Por qué el 58% queda en revisión
 
-402 de 687 ítems requieren decisión humana. No es una falla del cruce: es la
+401 de 687 ítems requieren decisión humana. No es una falla del cruce: es la
 consecuencia directa del criterio pedido. Los motivos:
 
 | Motivo | Casos | Qué hay que hacer |
 |---|---|---|
-| Coincidencia parcial de denominación | 160 | confirmar si el candidato es el material |
-| Falta un atributo para confirmar la presentación | 146 | completar la presentación en SAP o en el inventario |
-| Varios códigos SAP posibles | 68 | elegir entre candidatos concretos |
+| Coincidencia parcial de denominación | 154 | confirmar si el candidato es el material |
+| Falta un atributo para confirmar la presentación | 144 | completar la presentación, o declarar equivalentes las dos |
+| Varios códigos SAP posibles | 76 | elegir entre candidatos concretos |
 | Conflicto de presentación | 19 | verificar si falta en SAP el material con la presentación correcta |
 | Nomenclatura insuficiente | 8 | precisar la nomenclatura |
 
 Cada caso llega con el candidato más probable y el motivo exacto, así que la revisión es
 de confirmar o descartar, no de investigar desde cero.
 
-## El inventario de Neuquén reusa códigos internos
+De las 227 identificaciones automáticas, **179 son de confianza alta** y **48 de confianza
+media**, que conviene repasar primero.
 
-Diecisiete códigos del depósito de Neuquén están usados por **dos productos distintos**:
-el 522 es «Abbocath n° 22» y también «ESTETOSCOPIO»; el 500, «AMBU PEDIATRICO» y «CANULAS
-DE MAYO N°5». Son 34 ítems en total.
+> Estas cifras se movieron respecto de la primera versión de esta etapa (402 en revisión,
+> 160/146/68 en los tres primeros motivos). El motivo está más abajo: la esterilidad dejó de
+> tratarse como palabra de relleno y pasó a ser una característica comparable, lo que
+> descartó 47 candidatos que no correspondían.
 
-No es un error de lectura: así vienen en el reporte. Pero el sistema identificaba cada
-caso por **centro + código del depósito**, y las decisiones se guardan por identificador,
-así que dos ítems que no tienen nada que ver compartían la misma decisión: decidir uno
-decidía el otro. Ahora, cuando un código vuelve a aparecer en su base, el identificador
-lleva un sufijo (`1060-522`, `1060-522#2`).
+## La esterilidad pasó a ser una característica comparable
+
+En la primera versión de esta etapa, «estéril» y «no estéril» se trataban como palabras de
+relleno: no distinguían nada. Así, «Apósitos estériles» coincidía con `APOSITO NO ESTERIL`,
+que es exactamente el material opuesto.
+
+Ahora es una característica como la concentración o el calibre: si un lado declara estéril y
+el otro no estéril, no son el mismo material. **Se descartaron 47 candidatos que no
+correspondían**, y 401 casos —en vez de 402— quedaron en revisión, con otro reparto de
+motivos. Las cifras de arriba son las de después del cambio.
+
+## El código del depósito no es clave única, y el sistema lo usaba como tal
+
+Es el hallazgo 3.2 de la primera etapa, que seguía teniendo consecuencias: **17 códigos del
+depósito de Neuquén identifican dos productos distintos cada uno** —el 522 es «Abbocath
+n° 22» y también «ESTETOSCOPIO»; el 500, «AMBU PEDIATRICO» y «CANULAS DE MAYO N°5»—, 34
+ítems en total.
+
+El cruce ya lo contemplaba: se hace por código **más** denominación. Lo que no lo
+contemplaba era el sistema de gestión, que identificaba cada caso por **centro + código** y
+guarda las decisiones por identificador. Dos ítems que no tienen nada que ver compartían
+la misma decisión: decidir uno decidía el otro. Ahora, cuando un código vuelve a aparecer
+en su base, el identificador lleva un sufijo (`1060-522`, `1060-522#2`).
 
 **Vale la pena avisarle a la base**, porque el mismo problema lo tiene cualquier sistema
 que use ese código como clave.
+
+## El análisis no era reproducible
+
+Dos corridas del mismo código sobre los mismos archivos daban **297 casos distintos**. Los
+candidatos de cada ítem se recorrían en el orden de un conjunto de cadenas, y Python
+aleatoriza ese orden en cada proceso; cuando dos candidatos empataban, ganaba cualquiera.
+
+Ya está corregido: se recorren ordenados y el empate lo rompe el código de material. Tres
+corridas con semillas de hash distintas dan el mismo archivo.
+
+**Qué cambió al arreglarlo:** ninguna clasificación y ningún código asignado —se comparó
+caso por caso—. Sólo el orden en que se listan los candidatos de un ítem y cuál de dos
+bajas igualmente bloqueadas figuraba como tal.
