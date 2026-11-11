@@ -47,44 +47,160 @@ var Informe = (function () {
   }
 
   // ---------------------------------------------------------- construcción
+  /* El informe tiene dos lectores a la vez: el que no sabe nada del tema y el
+     que tiene que ejecutar en SAP. Antes resolvía al segundo en veintidós
+     páginas y al primero no lo resolvía nunca. Ahora las dos primeras páginas
+     contestan de cero —qué es esto, qué es SAP, por qué no coinciden los
+     nombres— y la parte 4 dice exactamente qué hay que hacer, con cantidades.
+     Nada se perdió: lo que era una página de tablas operativas se resumió y
+     quedó apuntado a dónde vive el detalle, que es el Excel y el sistema. */
   function construir() {
     paginas = []; indice = []; anclaPendiente = null; nAncla = 0;
     var d = D(), k = d.kpis, m = d.meta;
     var t = App.conteos(d.casos);
+    var pl = App.plan(d.casos);
     var dec = d.casos.filter(function (c) {
       return ef(c).aprobacion !== "Sin decidir";
     }).length;
+    var al = k.almacen || {}, am = m.almacenes;
 
-    // ---- PARTE 1 · explicación del caso
-    marcar("Parte 1 · El caso", 0);
-    marcar("Objetivo y situación", 1);
-    pagina("1 · Objetivo y situación que se busca resolver", `
-      <h4>Objetivo</h4>
-      <p>Determinar, para cada producto que existe físicamente en los depósitos de Farmacia de
-      las tres bases, si está correctamente identificado con un código de SAP, si hace falta
-      crear uno nuevo, o si en SAP hay materiales que ya no corresponden. Y, sobre esa base,
-      dejar ordenada la gestión de las decisiones.</p>
-      <h4>La situación</h4>
-      <p>SAP y los sistemas de los depósitos nombran los mismos productos de maneras distintas.
-      Un mismo ítem puede llamarse «Abbocath Nº 14» en el depósito y «CATETER INTRAVENOSO 14G
-      T/ABBOCATH» en SAP. A la inversa, dos productos que no son el mismo pueden tener nombres
-      casi iguales y diferir en la concentración, el volumen o el calibre, que es justamente lo
-      que los distingue.</p>
-      <p>Mientras esa correspondencia no esté establecida material por material, no se puede
-      saber qué stock está bien registrado, qué falta crear ni qué sobra en el sistema. Tampoco
-      se puede valorizar nada con precisión.</p>
-      <h4>Qué cambió respecto del análisis anterior</h4>
-      <p>El trabajo previo partía del stock de SAP y le cruzaba el recuento. Acá se invierte el
-      punto de partida: <b>el universo son los inventarios físicos</b>. Lo que existe
-      físicamente es lo que hay que identificar; SAP pasa a ser la contraparte contra la cual se
-      verifica, y aporta además los materiales con stock que ningún inventario reconoció.</p>
-      <p>El segundo cambio es el criterio de coincidencia. Antes alcanzaba un parecido alto de
-      nombre. Ahora <b>una coincidencia sólo se acepta si está justificada por las
-      características del material</b>.</p>`, "Parte 1");
+    function faq(pares) {
+      return '<div class="faq">' + pares.map(function (x) {
+        return '<div class="q"><b>' + x[0] + "</b><span>" + x[1] + "</span></div>";
+      }).join("") + "</div>";
+    }
+    /* Una fila por acción del plan, con la cantidad en la columna de su
+       magnitud y nunca en otra. */
+    function filasPlan(bloque) {
+      var fs = [];
+      bloque.fams.forEach(function (f) {
+        f.acciones.forEach(function (a) {
+          fs.push([esc(f.titulo), esc(a.verbo.replace(/^PENDIENTE · /, "")),
+                   num(a.n), a.contadas ? num(a.contadas) : "—",
+                   a.sap ? num(a.sap) : "—", a.registros ? num(a.registros) : "—"]);
+        });
+      });
+      var tc = 0, ts = 0, tr = 0;
+      bloque.fams.forEach(function (f) {
+        tc += f.contadas; ts += f.sap; tr += f.registros; });
+      fs.push(["<b>Total</b>", "", "<b>" + num(bloque.n) + "</b>",
+               tc ? "<b>" + num(tc) + "</b>" : "—", ts ? "<b>" + num(ts) + "</b>" : "—",
+               tr ? "<b>" + num(tr) + "</b>" : "—"]);
+      /* La tabla del plan puede llegar a diez renglones: va más apretada que
+         las demás para que la hoja la aguante entera. */
+      return tabla(["Grupo", "Qué hacer en SAP", "Casos", "Unidades contadas",
+                    "Unidades en SAP", "Registros"], fs, ["", "", "n", "n", "n", "n"])
+        .replace('<table class="t">', '<table class="t cp">');
+    }
 
-    marcar("Fuentes de información", 1);
-    pagina("2 · Fuentes de información utilizadas", `
-      <h4>Inventarios físicos · el universo del análisis</h4>` +
+    // ====================================================== PARTE 1
+    marcar("Parte 1 · Para entender de qué se trata", 0);
+    marcar("Esto, en una página", 1);
+    pagina("1 · Esto, en una página", `
+      <h4>Qué se buscó resolver</h4>
+      <p>Las tres bases contaron lo que hay en el depósito de Farmacia. SAP, por su lado,
+      tiene registrado lo que debería haber. Los dos listados nombran los mismos productos
+      de maneras distintas, así que no se pueden comparar de frente: hay que establecer,
+      producto por producto, cuál material de SAP es cuál ítem del depósito. Mientras esa
+      correspondencia no esté hecha, no se puede saber qué stock está bien registrado, qué
+      falta crear, qué sobra, ni valorizar nada.</p>
+      <h4>Qué se hizo</h4>
+      <ul>
+        <li>Se leyeron los tres inventarios físicos: <b>` + num(k.items_fisicos) + ` ítems</b>
+        y <b>` + num(k.unidades_fisicas) + ` unidades</b> contadas.</li>
+        <li>Se los cruzó contra el stock de SAP al ` + esc(m.sap.corte) + `, con un criterio
+        que <b>no acepta una correspondencia por parecido de nombre</b>: tienen que coincidir
+        las características del material.</li>
+        <li>De ahí salieron <b>` + num(k.total_casos) + ` casos</b> para resolver, cada uno
+        con su clasificación, su curso de acción propuesto y la justificación de por qué
+        quedó así.</li>
+      </ul>
+      <h4>Qué hay que hacer ahora</h4>
+      <p>Resolver, en el sistema de gestión, los casos que requieren una decisión humana, y
+      después aplicar en SAP lo decidido. <b>La sección 7 de este informe dice exactamente
+      qué:</b> qué crear, qué dar de baja, qué ajustar y qué mover, con las cantidades de
+      cada cosa. Hoy hay <b>` + num(pl.ejecutar) + ` casos listos para aplicar</b> y
+      <b>` + num(pl.falta) + ` esperando una decisión</b>.</p>
+      <p class="aviso"><b>Nada de esto modifica SAP, y nada lo modificó nunca.</b> Ni este
+      informe ni el sistema escriben en SAP. Lo que producen es el pedido de trabajo, con el
+      nombre de quien decidió cada cosa y la fecha. La ejecución es un paso posterior.</p>
+      <h4>Las tres advertencias que cambian cómo se leen los números</h4>
+      <ol>
+        <li><b>La bajada de SAP son los materiales con stock, no el maestro completo.</b>
+        Que un ítem del depósito no haya encontrado correspondencia <b>no prueba que no
+        exista en SAP</b>: puede existir con existencia cero.</li>
+        <li><b>Las unidades contadas y las unidades de SAP no se suman.</b> Son dos recuentos
+        de universos distintos: lo que había en el estante y lo que el sistema dice que
+        debería haber. Compararlos es el objeto del trabajo; sumarlos no significa nada.</li>
+        <li><b>No hay valorización.</b> El precio de última compra no está en ninguno de los
+        archivos recibidos, así que ` + num(k.pendientes_valorizacion) + ` casos figuran como
+        pendientes de valorizar. <b>No se estimó ningún precio.</b></li>
+      </ol>`, "Parte 1");
+
+    marcar("Las preguntas de siempre", 1);
+    pagina("2 · Las preguntas de siempre", `
+      <p class="cont">Para quien no viene trabajando el tema. Cada respuesta se amplía más
+      adelante, en la sección que corresponde.</p>` +
+      faq([
+        ["¿Qué es SAP, acá?",
+         "El sistema donde la organización registra sus materiales y su stock. Un " +
+         "<b>material</b> es un código con una descripción —por ejemplo " +
+         "<i>2001555 · SONDA T/K-27</i>—; el stock dice cuántas unidades hay registradas " +
+         "en cada base."],
+        ["¿Y el inventario físico?",
+         "El recuento hecho en el depósito: alguien contó lo que hay en el estante y lo " +
+         "informó desde el sistema del depósito. San Juan y Salta informan desde AVAIN; " +
+         "Neuquén, desde otro sistema."],
+        ["¿Por qué no coinciden los nombres?",
+         "Porque los cargaron personas distintas, en sistemas distintos, con años de " +
+         "diferencia. «Abbocath Nº 14» en el depósito y «CATETER INTRAVENOSO 14G " +
+         "T/ABBOCATH» en SAP son el mismo producto."],
+        ["¿Por qué no se resuelve por parecido de nombre?",
+         "Porque dos productos que no son el mismo tienen nombres casi iguales: lo que " +
+         "los distingue es la concentración, el volumen o el calibre. Asignar por " +
+         "parecido es justamente el error que este trabajo evita."],
+        ["¿Qué es un «caso»?",
+         "Una fila de este trabajo: un ítem contado en un depósito, o un material de SAP " +
+         "con stock que ningún inventario reconoció en esa base. Es la unidad en la que " +
+         "se decide."],
+        ["¿Qué diferencia hay entre centro y almacén?",
+         "El <b>centro</b> es la base: 1120 San Juan, 1060 Neuquén, 1130 Salta. El " +
+         "<b>almacén</b> es el depósito dentro de esa base. Un material puede estar bien " +
+         "identificado y figurar en el almacén equivocado: eso no lo convierte en alta ni " +
+         "en baja."],
+        ["¿Esto cambia algo en SAP?",
+         "No. Ni el informe ni el sistema escriben en SAP. Producen el pedido de trabajo " +
+         "para quien lo ejecute, con quién decidió cada cosa."],
+        ["¿Quién decide?",
+         "Una persona, caso por caso, en el sistema de gestión. Cada decisión queda " +
+         "registrada con nombre y fecha, y se puede volver atrás."],
+        ["¿Por qué hay tantos casos «en revisión»?",
+         "Porque el criterio es exigente a propósito. Cada uno trae el candidato más " +
+         "probable y el motivo exacto por el que no se dio por confirmado, así que la " +
+         "revisión es rápida."],
+        ["¿Cómo puede ser que algo que está en el depósito no exista en SAP?",
+         "Lo más probable es que exista <b>sin stock</b>. La bajada recibida sólo trae los " +
+         "materiales con existencia. Por eso, antes de crear nada, hay que consultar el " +
+         "maestro completo."],
+        ["¿Cuánta plata representa todo esto?",
+         "Todavía no se puede decir: falta el precio de última compra, que no está en " +
+         "ningún archivo recibido. No se inventó ningún valor ni se puso cero donde falta " +
+         "el dato."],
+        ["¿Qué pasa si me equivoco?",
+         "Cualquier decisión se puede reabrir y volver a decidir. Queda el historial de " +
+         "quién decidió qué y cuándo, así que siempre se ve qué cambió."],
+        ["¿Hay que terminarlo de una vez?",
+         "No. Se puede trabajar por base y de a grupos; el sistema guarda dónde quedó cada " +
+         "uno y lo devuelve ahí la próxima vez."],
+        ["¿Dónde se trabaja esto?",
+         "En el <b>sistema de gestión</b>, que es una página web donde se decide caso por " +
+         "caso. El <b>Excel</b> es la foto para compartir y revisar fuera del sistema. Este " +
+         "<b>PDF</b> explica el criterio y el estado."],
+      ]), "Parte 1");
+
+    marcar("De dónde salen los números", 1);
+    pagina("3 · De dónde salen los números", `
+      <h4>Los inventarios físicos · el universo del análisis</h4>` +
       tabla(["Base", "Sistema", "Informe", "Ítems", "Unidades", "Renglones de lote"],
         m.fuentes.map(function (f) {
           return [esc(f.base), "<b>" + esc(f.sistema) + "</b>", esc(f.informe),
@@ -94,32 +210,22 @@ var Informe = (function () {
           "<b>" + num(m.fuentes.reduce(function (a, f) { return a + f.unidades; }, 0)) + "</b>",
           "<b>" + num(m.fuentes.reduce(function (a, f) { return a + f.renglones_lote; }, 0)) + "</b>"]]),
         ["", "", "", "n", "n", "n"]) + `
-      <p class="nota">San Juan y Salta informan desde AVAIN, con el reporte «Stock en Almacén».
-      Neuquén informa desde un sistema distinto —el que en la operación se conoce como Sistema
-      Nico—, cuyo reporte es el «Inventario completo de Farmacia» de IHSA. Los formatos son
-      diferentes y se procesaron por separado, conservando en los tres casos el detalle por
-      lote y su vencimiento.</p>
-      <h4>Contraparte · SAP</h4>
-      <p>Archivo <b>` + esc(m.sap.archivo) + `</b>, con corte al ` + esc(m.sap.corte) + `.
-      Contiene ` + num(m.sap.codigos_unicos) + ` códigos de material distintos y
+      <p class="nota">Los formatos de los dos sistemas son distintos y se procesaron por
+      separado, conservando en los tres casos el detalle por lote y su vencimiento. Los
+      archivos originales no se modificaron, y cada registro conserva de qué base, de qué
+      sistema y de qué informe proviene.</p>
+      <h4>La contraparte · SAP</h4>
+      <p>Archivo <b>` + esc(m.sap.archivo) + `</b>, con corte al ` + esc(m.sap.corte) + `:
+      ` + num(m.sap.codigos_unicos) + ` códigos de material distintos y
       ` + num(m.sap.pares_material_base) + ` combinaciones de material y base.</p>
-      <p class="aviso"><b>Qué es y qué no es esta bajada.</b> Son <b>únicamente los materiales
-      que hoy tienen stock</b> en SAP. <b>No es el maestro completo de materiales:</b> un
-      material dado de alta con existencia cero no figura en el archivo.</p>
-      <p>Esto tiene una consecuencia directa sobre lo que el análisis puede afirmar: que un ítem
-      del inventario físico no encuentre correspondencia <b>no prueba que no exista en SAP</b>.
-      Puede existir sin stock. Verificarlo contra el maestro completo <b>queda fuera del alcance
-      de este trabajo</b> y es el paso previo obligatorio antes de proponer cualquier alta.</p>
-      <h4>Integridad de las fuentes</h4>
-      <p>Los archivos originales no se modificaron. Cada registro conserva de qué base, de qué
-      sistema y de qué informe proviene. El sistema incluye controles que comparan sus propios
-      totales contra los de las fuentes; se detallan en la parte 2.</p>`, "Parte 1");
-
-    marcar("Qué se cuenta", 1);
-    pagina("3 · Tres maneras de contar lo mismo", `
+      <p class="aviso"><b>Qué es y qué no es esta bajada.</b> Son <b>los materiales que hoy
+      tienen stock</b>. <b>No es el maestro completo:</b> un material dado de alta con
+      existencia cero no figura. Por eso que un ítem no encuentre correspondencia no prueba
+      que no exista en SAP, y verificarlo contra el maestro completo <b>queda fuera del
+      alcance de este trabajo</b>: es el paso previo obligatorio antes de cualquier alta.</p>
+      <h4>Tres maneras de contar lo mismo</h4>
       <p>A lo largo del informe aparecen cifras que miden cosas distintas. Confundirlas
-      cambia por completo la lectura, así que conviene fijar el vocabulario antes de los
-      resultados.</p>` +
+      cambia por completo la lectura.</p>` +
       tabla(["", "Qué es", "Cuántos hay"], [
         ["<b>ítem</b>", "Un producto contado en un inventario físico: una fila del PDF de la base.",
          "<b>" + num(k.items_fisicos) + "</b>"],
@@ -131,91 +237,61 @@ var Informe = (function () {
         ["<b>material</b>", "Un código de SAP. Un mismo material aparece en varios casos si " +
          "tiene stock en más de una base.", "—"],
       ], ["eti-col"]) + `
-      <h4>La trampa que conviene conocer</h4>
-      <p class="aviso"><b>Las unidades contadas en el depósito y las unidades de stock en SAP
-      no son la misma magnitud, y no se suman.</b> Son dos recuentos de universos distintos:
-      uno es lo que había en el estante el día del inventario, el otro es lo que el sistema
-      dice que debería haber. Compararlos es justamente el objeto de este trabajo; sumarlos
-      no significa nada. Por eso, cada vez que las dos aparecen juntas, van en columnas
-      separadas y rotuladas.</p>
-      <h4>Por qué los casos son más que los ítems</h4>
       <p>Los ` + num(k.items_fisicos) + ` ítems contados generan ` + num(k.items_fisicos) + `
       casos. A eso se suman ` + num(k.total_casos - k.items_fisicos) + ` casos que no salen de
-      ningún recuento: son materiales que SAP registra con stock en una base y que ningún
+      ningún recuento: materiales que SAP registra con stock en una base y que ningún
       inventario identificó ahí. Como el ajuste se registra por centro, un mismo material con
       stock en dos bases son dos casos.</p>`, "Parte 1");
 
-    marcar("Criterio de cruce y metodología", 1);
-    pagina("4 · Cómo se valida una correspondencia", `
-      <p>La regla de fondo: <b>el parecido del nombre genera el candidato, las características
-      deciden</b>. No se asigna un código por similitud textual.</p>
-      <h4>Características que se extraen de cada material</h4>` +
-      tabla(["Característica", "Qué distingue", "Ejemplo de diferencia que impide la coincidencia"], [
-        ["Concentración", "La dosis o proporción del principio activo", "Ibuprofeno 600 mg frente a Ibuprofeno 400 mg"],
-        ["Forma farmacéutica", "Comprimido, ampolla, crema, jarabe, gotas, aerosol, sobre…", "Diclofenac ampolla frente a Diclofenac comprimidos"],
-        ["Volumen o presentación", "El contenido del envase", "Agua oxigenada 500 ml frente a 100 ml"],
-        ["Calibre", "El gauge o número de agujas y catéteres", "Abbocath Nº 14 frente a Nº 22"],
-        ["Medidas", "Las dimensiones de gasas, apósitos y similares", "Gasa 10×10 frente a apósito 10×20"],
-        ["Talle", "El talle de guantes y descartables", "Guantes talle M frente a talle S"],
-        ["Modelo o referencia", "Designadores propios del rubro", "Sonda K-30 frente a sonda K-10"],
-        ["Longitud", "Medida simple en cm o mm", "Pinza de 20 cm frente a una de 14 cm"],
-        ["Población", "Adulto, pediátrico, neonatal", "Pinza Magill pediátrica frente a la de adulto"],
-        ["Cantidad sin unidad", "Números que pueden ser dosis o envase", "«Claritromicina 500» no se puede interpretar sin más datos"],
+    // ====================================================== PARTE 2
+    marcar("Parte 2 · Cómo se decidió cada caso", 0);
+    marcar("Cómo se valida una correspondencia", 1);
+    pagina("4 · Cómo se decide que dos nombres son el mismo producto", `
+      <p>La regla de fondo: <b>el parecido del nombre genera el candidato, las
+      características deciden.</b></p>` +
+      tabla(["Característica", "Ejemplo de diferencia que impide la coincidencia"], [
+        ["Concentración", "Ibuprofeno 600 mg frente a Ibuprofeno 400 mg"],
+        ["Forma farmacéutica", "Diclofenac ampolla frente a Diclofenac comprimidos"],
+        ["Volumen o presentación", "Agua oxigenada 500 ml frente a 100 ml"],
+        ["Calibre", "Abbocath Nº 14 frente a Nº 22"],
+        ["Medidas", "Gasa 10×10 frente a apósito 10×20"],
+        ["Talle", "Guantes talle M frente a talle S"],
+        ["Modelo o referencia", "Sonda K-30 frente a sonda K-10"],
+        ["Longitud", "Pinza de 20 cm frente a una de 14 cm"],
+        ["Población", "Pinza Magill pediátrica frente a la de adulto"],
+        ["Esterilidad", "Apósito estéril frente a apósito no estéril"],
+        ["Cantidad sin unidad", "«Claritromicina 500» no se puede interpretar sin más datos"],
       ]) + `
       <h4>Las tres reglas de decisión</h4>
       <ol>
-        <li><b>Si los dos lados declaran la misma característica con valores distintos, no son el
-        mismo material.</b> El candidato se descarta y queda registrado el motivo.</li>
-        <li><b>Si una característica se declara de un lado y no del otro, nada quedó verificado</b>
-        y el caso va a revisión. Sólo puede identificarse por el nombre un material que no declara
-        ninguna característica de ningún lado, como un otoscopio o un glucómetro.</li>
-        <li><b>Cuanta más característica queda verificada, menos tiene que cargar el nombre.</b>
-        Sin ninguna verificada, la denominación tiene que coincidir casi por completo en los dos
-        sentidos.</li>
+        <li><b>Si los dos lados declaran la misma característica con valores distintos, no son
+        el mismo material.</b> El candidato se descarta y queda registrado el motivo.</li>
+        <li><b>Si una característica se declara de un lado y no del otro, nada quedó
+        verificado</b> y el caso va a revisión. Sólo puede identificarse por el nombre un
+        material que no declara ninguna característica de ningún lado, como un otoscopio.</li>
+        <li><b>Cuanta más característica queda verificada, menos tiene que cargar el
+        nombre.</b> Sin ninguna verificada, la denominación tiene que coincidir casi por
+        completo en los dos sentidos.</li>
       </ol>
-      <p class="nota">Cada caso guarda qué candidatos se evaluaron, en qué coincidían y en qué se
-      contradecían. Esa justificación figura en la ficha del sistema y en el Excel, de modo que
-      cualquier identificación puede auditarse sin rehacer el análisis.</p>`, "Parte 1");
+      <h4>Cuando una nomenclatura no corresponde a una sola</h4>
+      <p>La correspondencia <b>no es uno a uno en ninguno de los dos sentidos</b>. SAP puede
+      tener el mismo producto abierto en varios códigos, y cada base escribe el nombre a su
+      manera. El sistema permite declarar los dos casos: <b>una del depósito = varios de
+      SAP</b>, que se agrupan bajo un nombre unificado y dejan de ser candidatos a baja; y
+      <b>varias del depósito = uno de SAP</b>, que se deciden juntas.</p>
+      <p>La sugerencia de equivalencia <b>no sale del parecido del nombre</b>: dos ítems se
+      proponen sólo si comparten un candidato en SAP, ninguna característica declarada por los
+      dos está en conflicto, y coinciden en alguna verificable. Una sugerencia falsa es peor
+      que ninguna.</p>
+      <p class="nota">Caso aparte: cuando un lado informa la presentación y el otro no
+      —«comprimidos» contra «60 comprimidos»—, no hay conflicto sino falta de dato. Esas
+      presentaciones se pueden <b>declarar equivalentes</b> de una vez para todo el material.
+      Cada caso guarda qué candidatos se evaluaron, en qué coincidían y en qué se
+      contradecían, así que cualquier identificación puede auditarse sin rehacer el análisis:
+      esa justificación está en la ficha del sistema y en el Excel.</p>`, "Parte 2");
 
-    marcar("Cuando los nombres no alcanzan", 1);
-    pagina("5 · Cuando una nomenclatura no corresponde a una sola", `
-      <p>El depósito y SAP no nombran igual, y la correspondencia <b>no es uno a uno en
-      ninguno de los dos sentidos</b>. Tratarla como si lo fuera obliga a contestar la misma
-      pregunta varias veces, y a veces a contestarla distinto.</p>` +
-      tabla(["Sentido", "Qué pasa", "Ejemplo"], [
-        ["<b>Una del depósito =<br>varios de SAP</b>",
-         "SAP tiene el mismo producto abierto en más de un código. Se agrupan bajo un nombre " +
-         "unificado y los códigos agrupados dejan de ser candidatos a baja.",
-         "Un ítem del depósito que corresponde a dos códigos de SAP del mismo producto."],
-        ["<b>Varias del depósito =<br>uno de SAP</b>",
-         "Cada base escribe el nombre a su manera, y a veces la misma base tiene dos " +
-         "renglones del mismo producto. Se declaran equivalentes y se deciden juntos.",
-         "«Dexametasona 8mg Amp x 2 ml» en San Juan y «Dexametasona inyectable 1 amp=2ml " +
-         "x8mg» en Salta."],
-      ]) + `
-      <h4>Cómo se propone una equivalencia</h4>
-      <p>El sistema sugiere qué otros ítems del depósito podrían ser el mismo producto, pero
-      <b>no por el parecido del nombre</b>. Dos ítems se proponen sólo si comparten un
-      candidato en SAP <b>y además</b> ninguna característica declarada por los dos está en
-      conflicto, y coinciden en alguna característica verificable —concentración, forma,
-      volumen, calibre, medidas, esterilidad—. Cuando ninguno declara características, se
-      exige que los nombres sean casi iguales.</p>
-      <p class="aviso"><b>Por qué tanta exigencia.</b> Una primera versión proponía
-      equivalencias por «comparten un candidato», y eso juntaba «Ácido acetilsalicílico
-      100 mg» con «N-acetilcisteína 600»: el candidato lo genera el parecido del nombre, no
-      el producto. Una sugerencia falsa es peor que ninguna, porque invita justamente al
-      error que este trabajo viene evitando.</p>
-      <p>La propuesta sigue siendo una propuesta: la confirma una persona, y al confirmarla
-      queda registrado qué nomenclaturas se declararon equivalentes, con qué nombre y quién
-      lo decidió.</p>
-      <h4>El almacén, donde se decide</h4>
-      <p>Al evaluar un candidato se ve <b>en qué almacén está su stock</b> y si es el almacén
-      propuesto para esa base. No hace falta ir a buscarlo a otra pantalla: parte de la
-      decisión es si el código que se está por asignar tiene el stock donde debería.</p>`,
-      "Parte 1");
-
-    marcar("Clasificación y cursos de acción", 1);
-    pagina("6 · Clasificación de los casos y cursos de acción", `
+    marcar("Las seis clasificaciones", 1);
+    pagina("5 · Las seis clasificaciones y qué se hace con cada una", `
       <p>Cada caso recibe una clasificación, un curso de acción y un estado de revisión.</p>` +
       tabla(["", "Clasificación", "Qué significa", "Curso de acción"], [
         [et("A"), "Identificado en SAP", "Existe físicamente y se encontró un código cuya nomenclatura y presentación se corresponden.", "Mantener la identificación. No se propone alta."],
@@ -225,18 +301,13 @@ var Informe = (function () {
         [et("E"), "Fuera del alcance", "Indumentaria, equipamiento y repuestos.", "No concluir nada."],
         [et("F"), "En SAP sin stock", "Material de Farmacia que figura en la bajada con existencia CERO.", "No hay stock que dar de baja: decidir qué pasa con el registro en el maestro."],
       ], ["eti-col"]) + `
-      <h4>Por qué existen las clasificaciones E y F</h4>
+      <h4>Por qué existen la E y la F</h4>
       <p>Las dos salen de la misma pregunta: ¿qué significa que un material de SAP no aparezca
-      en el inventario? Hay dos casos donde proponer una baja sería una conclusión falsa.</p>
-      <p><b>E.</b> De los materiales con stock en SAP, una parte no son medicamentos ni
-      descartables: son indumentaria, equipamiento y repuestos. El inventario relevado es
-      <b>de Farmacia</b>, así que esos materiales nunca iban a figurar en él. Tratar su
-      ausencia como motivo de baja sería una conclusión falsa, y por eso se apartan con la
-      acción explícita de no concluir nada.</p>
-      <p><b>F.</b> Otra parte figura en la bajada con <b>existencia cero</b>. Proponer su baja
-      no tiene sentido, porque no hay stock que dar de baja. Lo que corresponde decidir es qué
-      pasa con el <b>registro</b> en el maestro: se mantiene, se bloquea o se da de baja. Es
-      una decisión de otra naturaleza y tiene su propia sección en este informe.</p>
+      en el inventario? Hay dos casos donde proponer una baja sería una conclusión falsa.
+      <b>E:</b> indumentaria, equipamiento y repuestos nunca iban a figurar en un inventario
+      <b>de Farmacia</b>, así que se apartan con la acción explícita de no concluir nada.
+      <b>F:</b> materiales con <b>existencia cero</b>, donde no hay stock que dar de baja; lo
+      que corresponde decidir es qué pasa con el <b>registro</b> en el maestro.</p>
       <h4>Las propuestas no son acciones ejecutadas</h4>
       <p>Crear lo no encontrado y dar de baja lo restante se interpreta acá como <b>criterio de
       clasificación, no como autorización</b>. Nada de este trabajo modifica SAP: las altas y
@@ -246,73 +317,20 @@ var Informe = (function () {
       provisional mientras queden casos en revisión: si un caso se resuelve identificando un
       material, ese material deja de ser candidato a baja. Hoy hay
       <b>` + num(k.bajas_bloqueadas) + ` candidatos a baja</b> que figuran como posible
-      equivalencia de un ítem todavía sin resolver.</p>`, "Parte 1");
+      equivalencia de un ítem todavía sin resolver. <b>Aprobar las bajas primero es el error
+      más caro</b>, y por eso van últimas en el orden de trabajo.</p>`, "Parte 2");
 
-    marcar("Criterio de valorización", 1);
-    pagina("7 · Criterio de valorización y alcance del análisis", `
-      <h4>Criterio pedido: precio de última compra</h4>
-      <p class="aviso"><b>Ese dato no está disponible en ninguno de los archivos recibidos.</b>
-      Se revisaron campo por campo:</p>
-      <ul>
-        <li>La bajada de stock de SAP tiene «Valor libre util.» (la valorización contable del
-        stock) y un valor unitario que resulta de dividirla por las unidades. <b>No tiene precio
-        de compra, ni fecha, ni proveedor, ni documento.</b></li>
-        <li>El archivo de homologación declara explícitamente que los campos de costo quedan
-        fuera de ese trabajo.</li>
-        <li>Los tres PDF de inventario físico no contienen ninguna mención de precio ni de
-        compra.</li>
-      </ul>
-      <p>En consecuencia, <b>los ` + num(k.pendientes_valorizacion) + ` casos figuran como
-      pendientes de valorización</b> y no se informa ningún total por última compra. No se
-      estimó ningún precio.</p>
-      <h4>Lo que sí se informa, y cómo</h4>
-      <p>Para no perder la información económica que existe, se expone en paralelo la
-      valorización de stock de SAP, <b>siempre rotulada como lo que es</b> y nunca sumada ni
-      presentada como precio de compra. Es el valor contable dividido por las unidades: un
-      promedio ponderado de lo que está valorizado, no lo que costó la última reposición.</p>
-      <h4>Cómo se completa cuando el dato esté</h4>
-      <p>El sistema admite cargar el precio de última compra por material y recalcula solo. El
-      archivo tiene que traer:</p>` +
-      tabla(["Campo", "Contenido"], m.valorizacion.layout_esperado.map(function (x) {
-        return ["<b>" + esc(x.campo) + "</b>", esc(x.descripcion)];
-      })) + `
-      `, "Parte 1");
-
-    marcar("Alcance y limitaciones", 1);
-    pagina("8 · Alcance y limitaciones del análisis", `
-      <p>Lo que este trabajo puede afirmar, y lo que no.</p>
-      <ul>
-        <li>El análisis cubre los tres inventarios físicos recibidos y el stock de SAP de las
-        tres bases al ` + esc(m.sap.corte) + `. No cubre movimientos posteriores.</li>
-        <li><b>La contraparte de SAP son los materiales con stock, no el maestro completo.</b>
-        Por eso la clasificación B no afirma que el material no exista en SAP, sino que no está
-        entre los que hoy tienen existencia. Confirmarlo contra el maestro —y, si ya existe sin
-        stock, decidir si se le asigna ese código o se da de baja y se crea de nuevo— está fuera
-        del alcance de este trabajo.</li>
-        <li>La identificación se valida sobre la <b>denominación y la presentación declaradas en
-        los textos</b>. Si un texto de SAP no declara la presentación, el caso va a revisión en
-        lugar de resolverse por aproximación.</li>
-        <li>Las cantidades físicas son las informadas en cada reporte. El informe de Neuquén
-        declara él mismo una diferencia entre el stock actual y el saldo de movimientos en dos
-        medicamentos; se conservó el stock actual, que es el total declarado.</li>
-        <li>No se valorizó nada por falta del dato de compra.</li>
-      </ul>`, "Parte 1");
-
-    // ---- PARTE 2 · resultados
-    marcar("Parte 2 · Resultados", 0);
+    // ====================================================== PARTE 3
+    marcar("Parte 3 · Cómo quedó el análisis", 0);
     marcar("Resumen ejecutivo", 1);
     var pctId = t.A / k.items_fisicos * 100;
-    pagina("9 · Resumen ejecutivo", `
-      <p>Se analizaron <b>` + num(k.items_fisicos) + ` ítems</b> relevados en los inventarios
-      físicos de las tres bases, que suman <b>` + num(k.unidades_fisicas) + ` unidades</b>
-      contadas. Cruzados contra SAP, y sumando los materiales de SAP que ningún inventario
-      identificó, el universo de gestión es de <b>` + num(k.total_casos) + ` casos</b>.</p>` +
-      '<p class="glosa"><b>Ítem</b>: un producto contado. <b>Unidad</b>: cada unidad de ' +
-      'ese producto; un solo ítem puede ser 500. <b>Caso</b>: una fila de este trabajo. ' +
-      'Las cifras que siguen son <b>casos</b>, salvo donde diga otra cosa.</p>' +
+    pagina("6 · Cómo quedó el análisis", `
+      <p class="cont">` + num(k.items_fisicos) + ` ítems y ` + num(k.unidades_fisicas) + `
+      unidades contadas, más los materiales de SAP que ningún inventario identificó:
+      ` + num(k.total_casos) + ` casos de gestión.</p>` +
       '<div class="kpifila">' +
       [["A", t.A, "Identificados en SAP", "casos · de " + num(k.items_fisicos) + " ítems"],
-       ["B", t.B, "Pendientes de alta", "casos · sin correspondencia"],
+       ["B", t.B, "Sin correspondencia", "casos · posible alta"],
        ["C", t.C, "Candidatos a baja", "casos · material SAP"],
        ["D", t.D, "En revisión", "casos · no se resuelven solos"],
        ["E", t.E, "Fuera del alcance", "casos · no son de Farmacia"],
@@ -321,42 +339,25 @@ var Informe = (function () {
         return '<div class="kpi ' + x[0] + '"><div class="n">' + num(x[1]) +
           '</div><div class="t">' + x[2] + '</div><div class="d">' + x[3] + "</div></div>";
       }).join("") + "</div>" + `
-      <h4>Lectura</h4>
       <ul>
         <li>De los ` + num(k.items_fisicos) + ` ítems contados, <b>` + num(t.A) + ` quedaron
         identificados</b> con un código verificado por presentación (` + pctId.toFixed(0) + `%),
-        <b>` + num(t.B) + ` no encontraron correspondencia</b> entre los materiales con stock en
-        SAP y <b>` + num(t.D) + ` requieren una decisión humana</b>.</li>
-        <li><b>Los ` + num(t.B) + ` no son altas confirmadas.</b> La bajada de SAP trae sólo los
-        materiales con existencia, así que esos ítems podrían estar ya dados de alta con stock
-        cero. Verificarlo contra el maestro completo está fuera del alcance de este trabajo.</li>
-        <li>La proporción en revisión es alta a propósito: el criterio no admite resolver por
-        parecido de nombre. Cada uno de esos casos trae el candidato más probable y el motivo
-        exacto por el que no se dio por confirmado, así que la revisión es rápida.</li>
-        <li><b>` + num(t.C) + ` materiales con stock en SAP</b> no fueron identificados por
-        ningún inventario en su base y quedan como candidatos a baja, de los cuales
-        <b>` + num(k.bajas_bloqueadas) + ` dependen</b> de que se resuelva antes un caso en
-        revisión.</li>
-        <li><b>` + num(k.sin_stock_en_base) + ` ítems están identificados pero SAP no registra
+        <b>` + num(t.B) + ` no encontraron correspondencia</b> entre los materiales con stock
+        y <b>` + num(t.D) + ` requieren una decisión humana</b>. La proporción en revisión es
+        alta a propósito: el criterio no admite resolver por parecido de nombre. De las
+        identificaciones, ` + num(k.confianza.Alta || 0) + ` son de confianza alta y
+        ` + num(k.confianza.Media || 0) + ` de confianza media, que conviene repasar
+        primero.</li>
+        <li><b>Los ` + num(t.B) + ` no son altas confirmadas</b>: podrían estar ya dados de
+        alta con stock cero, y eso se verifica contra el maestro completo.</li>
+        <li><b>` + num(k.sin_stock_en_base) + ` ítems están identificados y SAP no registra
         stock de ese material en su base.</b> Hay existencia física y el código existe: no son
         altas, hay que registrar la existencia o revisar en qué centro está cargada.</li>
-        <li><b>` + num(t.F) + ` materiales figuran en SAP con existencia cero.</b> No son
-        candidatos a baja de stock: lo que hay que decidir es qué pasa con el registro en el
-        maestro. Son la punta visible de un universo de depuración que no se puede dimensionar
-        sin el maestro completo.</li>
-        <li><b>La ubicación es un problema aparte.</b> De los materiales con stock,
-        <b>` + num((k.almacen || {})["Almacén a cambiar"] || 0) + ` figuran en un almacén
-        distinto del propuesto</b> y <b>` + num((k.almacen || {})["Material en múltiples almacenes"] || 0) + `
-        están repartidos en varios</b>. Están bien identificados: lo que no coincide es el
-        lugar. No son altas ni bajas.</li>
-        <li><b>No hay valorización</b>: el precio de última compra no está en los archivos
-        recibidos. Los ` + num(k.pendientes_valorizacion) + ` casos están pendientes.</li>
+        <li><b>La ubicación es un problema aparte.</b>
+        <b>` + num(al["Almacén a cambiar"] || 0) + `</b> materiales figuran en un almacén
+        distinto del propuesto y <b>` + num(al["Material en múltiples almacenes"] || 0) + `</b>
+        en varios a la vez: están bien identificados, lo que no coincide es el lugar.</li>
       </ul>
-      <p class="aviso">Nada de lo informado modifica SAP. Las altas y bajas son propuestas
-      sujetas a revisión y aprobación.</p>`, "Parte 2");
-
-    marcar("Resultados por base y por tipo", 1);
-    pagina("10 · Resultados por base y por tipo de material", `
       <h4>Por base</h4>` +
       tabla(["Base", "Sistema", "Ítems físicos", "Unidades", "A", "B", "C", "D", "E", "Casos"],
         m.bases.map(function (b) {
@@ -369,137 +370,92 @@ var Informe = (function () {
           "<b>" + num(t.B) + "</b>", "<b>" + num(t.C) + "</b>", "<b>" + num(t.D) + "</b>",
           "<b>" + num(t.E) + "</b>", "<b>" + num(k.total_casos) + "</b>"]]),
         ["", "", "n", "n", "n", "n", "n", "n", "n", "n"]) + `
-      <h4>Por tipo de material</h4>` +
-      tabla(["Tipo", "Casos", "A", "B", "C", "D", "E"],
-        Object.keys(k.por_tipo).map(function (tp) {
-          var g = k.por_tipo[tp];
-          return [esc(tp), num(g.casos), num(g[m.clases[0]]), num(g[m.clases[1]]),
-                  num(g[m.clases[2]]), num(g[m.clases[3]]), num(g[m.clases[4]])];
-        }), ["", "n", "n", "n", "n", "n", "n"]) + `
-      <h4>Motivos de los casos en revisión</h4>` +
+      <h4>Por qué cada caso quedó en revisión</h4>` +
       tabla(["Motivo", "Casos", "Qué hay que hacer"],
         Object.keys(k.motivos).sort(function (a, b) { return k.motivos[b] - k.motivos[a]; })
         .map(function (mo) {
           var q = {
             "Coincidencia parcial de denominación": "Confirmar si el candidato es el material o no lo es.",
-            "Falta un atributo para confirmar la presentación": "Completar la presentación en el texto de SAP o en el inventario.",
+            "Falta un atributo para confirmar la presentación": "Completar la presentación, o declararlas equivalentes.",
             "Varios códigos SAP posibles": "Elegir cuál de los candidatos corresponde.",
             "Conflicto de presentación": "Verificar si existe en SAP el material con la presentación correcta.",
             "Nomenclatura insuficiente para decidir": "Precisar la nomenclatura antes de decidir.",
           }[mo] || "Revisar el caso.";
           return [esc(mo), num(k.motivos[mo]), esc(q)];
-        }), ["", "n", ""]) + `
-      <h4>Confianza de las identificaciones</h4>
-      <p>De las ` + num(t.A) + ` identificaciones, <b>` + num(k.confianza.Alta || 0) + ` son de
-      confianza alta</b> (varias características verificadas y denominación muy coincidente) y
-      <b>` + num(k.confianza.Media || 0) + ` de confianza media</b>, que conviene repasar
-      primero. El sistema permite filtrarlas.</p>`, "Parte 2");
+        }), ["", "n", ""]), "Parte 3");
 
-    marcar("Valorización", 1);
-    pagina("11 · Resultados de la valorización", `
-      <h4>Valorización por precio de última compra</h4>` +
-      tabla(["Concepto", "Resultado"], [
-        ["Criterio aplicado", "<b>Precio de última compra</b>"],
-        ["Materiales valorizados", "<b>0</b>"],
-        ["Pendientes de valorización", "<b>" + num(k.pendientes_valorizacion) + "</b>"],
-        ["Valorización total", "<b>No se puede calcular</b>"],
-        ["Motivo", "El dato no está en ninguno de los archivos recibidos"],
+    // ====================================================== PARTE 4
+    marcar("Parte 4 · Qué hay que aplicar en SAP", 0);
+    marcar("Qué hay que hacer, y con qué cantidades", 1);
+    var bEj = pl.todos[0], bFa = pl.todos[1], bNa = pl.todos[2], bFu = pl.todos[3];
+    pagina("7 · Qué hay que aplicar en SAP", `
+      <p>El resultado de las decisiones registradas al generar el informe:
+      <b>` + num(dec) + ` casos decididos</b> de los ` + num(pl.decidibles) + ` que requieren
+      decisión, cada uno con la cantidad que le corresponde.</p>
+      <p class="aviso"><b>Cómo leer las cantidades.</b> Las <b>unidades contadas</b> son las
+      del recuento en el depósito: la cantidad de un alta o de un ajuste. Las <b>unidades en
+      SAP</b> son las que el sistema registra: la cantidad de una baja o de un movimiento de
+      almacén. Los <b>registros</b> son materiales del maestro, sin unidades. <b>Las tres
+      columnas miden cosas distintas y no se suman entre sí.</b></p>
+      <h4>Hay que hacerlo en SAP · ` + num(bEj.n) + ` casos</h4>` +
+      (bEj.n ? filasPlan(bEj)
+        : '<p class="vacio">Todavía no hay ninguna decisión tomada que haya que aplicar en ' +
+          "SAP. Las decisiones se toman en el sistema y esta sección se rearma sola.</p>") + `
+      <h4>Decidido, y no hay nada que hacer · ` + num(bNa.n) + ` casos</h4>
+      <p class="cont">Se revisaron y se cerraron sin trabajo en SAP. Están contados para que
+      se vea que se los miró.` + (bNa.n ? " " + bNa.fams.map(function (f) {
+        return f.acciones.map(function (a) {
+          return esc(a.verbo.replace(/^Ninguna · /, "")) + " " + num(a.n);
+        }).join(" · ");
+      }).join(" · ") + "." : " Todavía no hay ninguno.") + `</p>
+      <h4>Cómo se reparte entre las bases</h4>
+      <p class="cont">Cada base se ejecuta en su centro de SAP.</p>` +
+      tabla(["Base", "Centro", "Hay que hacerlo en SAP", "Sin decidir", "Sin acción",
+             "Fuera del alcance"],
+        m.bases.filter(function (b) { return pl.porBase[b]; }).map(function (b) {
+          var x = pl.porBase[b];
+          var ce = (d.casos.filter(function (c) { return c.base === b && c.centro; })[0] || {}).centro;
+          return [esc(b), esc(ce || ""), num(x.ejecutar), num(x.falta), num(x.nada),
+                  num(x.fuera)];
+        }), ["", "", "n", "n", "n", "n"]) + `
+      <p class="nota">El detalle caso por caso —código, nomenclatura de los dos lados,
+      almacén, cantidades y quién lo decidió— está en el Excel, hoja <b>«Qué hacer en SAP»</b>.
+      Este mismo resumen es la hoja <b>«Aplicar en SAP»</b> y la pantalla del mismo nombre en
+      el sistema.</p>`, "Parte 4");
+
+    marcar("Lo que falta decidir y lo que queda afuera", 1);
+    pagina("8 · Lo que no se pudo decidir, y lo que está fuera del alcance", `
+      <h4>Todavía no se pudo decidir · ` + num(bFa.n) + ` casos</h4>
+      <p>Nada de esto se ejecuta hasta que alguien lo decida, en el sistema, caso por caso o
+      en lote. El orden importa: cada grupo destraba al siguiente.</p>` +
+      (bFa.n ? filasPlan(bFa) : '<p class="vacio">No queda nada sin decidir.</p>') +
+      tabla(["En qué orden conviene trabajarlos", "Por qué"], [
+        ["<b>1 · Identificación</b>", "Sin código no se puede saber si falta existencia, si el almacén está mal ni si algo sobra."],
+        ["<b>2 · Altas de material</b>", "Consultar el maestro completo antes de crear, o crear asumiendo el riesgo de duplicado."],
+        ["<b>3 · Ajustes de existencia</b>", "Requiere el código ya decidido."],
+        ["<b>4 · Movimientos de almacén</b>", "Requiere el código decidido y el almacén validado por la base."],
+        ["<b>· Maestro de materiales</b>", "Independiente del resto: se puede resolver en cualquier momento."],
+        ["<b>5 · Bajas de stock</b>", "Van últimas: la lista se achica sola al resolver los códigos."],
       ]) + `
-      <h4>Referencia de SAP · no es precio de última compra</h4>
-      <p>A título informativo, el valor contable del stock de SAP asociado a cada grupo. Es el
-      valor de stock dividido por las unidades, <b>no lo que costó la última compra</b>. No debe
-      informarse como valorización ni sumarse a ella.</p>` +
-      tabla(["Clasificación", "Valor de stock de SAP"],
-        m.clases.map(function (cl) {
-          return [esc(cl), pesos(k.referencia_sap[cl])];
-        }), ["", "n"]) + `
-      <p class="nota">Las clasificaciones B y D no tienen referencia porque todavía no tienen
-      un código de SAP confirmado, y la F tampoco porque no tiene stock.</p>`, "Parte 2");
+      <h4>Fuera del alcance · ` + num(bFu.n) + ` casos</h4>
+      <p>Indumentaria, equipamiento y repuestos: nunca iban a figurar en un inventario <b>de
+      Farmacia</b>. <b>De su ausencia no se concluye nada</b>, ni alta ni baja. Están contados
+      aparte para que se vea que se los miró y se decidió no concluir, que no es lo mismo que
+      haberlos pasado por alto.</p>
+      <p class="aviso"><b>Qué hay que confirmar:</b> que quedan definitivamente fuera del
+      alcance y por qué otra vía se controlan. Es una decisión de la organización.</p>`,
+      "Parte 4");
 
-    marcar("Controles de integridad", 1);
-    pagina("12 · Controles de integridad contra las fuentes", `
-      <p>Antes de mirar ningún resultado conviene saber si las cifras cierran. Estos controles
-      comparan lo que informa el sistema contra los totales de los archivos originales,
-      renglón por renglón.</p>` +
-      tabla(["Control", "En la fuente", "En el sistema", "Estado"],
-        d.control.map(function (c) {
-          return [esc(c.control), num(c.fuente), num(c.sistema),
-                  '<b class="' + (c.estado === "Coincide" ? "ok" : "") + '">' + esc(c.estado) + "</b>"];
-        }), ["", "n", "n", ""]) + `
-      <p class="nota">En el Excel exportado son fórmulas vivas: si alguien corrige un dato y
-      deja de cerrar, el estado cambia solo. Ahí se agregan además tres controles sobre las
-      decisiones nuevas: que toda alternativa 2 tenga su riesgo registrado, que toda decisión
-      de ubicación defina un almacén destino, y que todo stock de SAP tenga un estado de
-      ubicación.</p>
-      <p class="aviso"><b>Qué prueban y qué no.</b> Que los ítems y las unidades coincidan con
-      los PDF originales prueba que no se perdió ni se duplicó nada al leerlos. No prueba que
-      el recuento físico sea correcto: eso depende de cómo se hizo el inventario en cada base,
-      y queda fuera de este trabajo.</p>`, "Parte 2");
-
-    marcar("Estado de la gestión", 1);
-    pagina("13 · Estado de la gestión de decisiones", `
-      <p>El sistema registra qué se decidió, quién lo decidió y cuándo. Este informe refleja el
-      estado al momento de generarlo.</p>` +
-      tabla(["Estado", "Casos"], [
-        ["Decisiones registradas", "<b>" + num(dec) + "</b>"],
-        ["Pendientes de decidir", "<b>" + num(d.casos.length - dec) + "</b>"],
-        ["Correspondencias confirmadas", num(d.casos.filter(function (c) {
-          return ef(c).aprobacion === "Correspondencia confirmada"; }).length)],
-        ["Propuestas aprobadas", num(d.casos.filter(function (c) {
-          return ef(c).aprobacion === "Aprobado"; }).length)],
-        ["Propuestas rechazadas", num(d.casos.filter(function (c) {
-          return ef(c).aprobacion === "Rechazado"; }).length)],
-        ["Marcados como pendientes de validación", num(d.casos.filter(function (c) {
-          return ef(c).estado_revision === "Pendiente de validación"; }).length)],
-        ["Casos con observación registrada", num(d.casos.filter(function (c) {
-          return !!ef(c).observaciones; }).length)],
-        ["Códigos SAP corregidos a mano", num(d.casos.filter(function (c) {
-          return ef(c).corregido; }).length)],
-      ], ["", "n"]) +
-      (dec === 0 ? '<p class="nota">Todavía no se registró ninguna decisión: lo que figura en el ' +
-        'detalle es el resultado del análisis automático, pendiente de revisión humana.</p>' : "") + `
-      <h4>Nomenclaturas unificadas</h4>
-      <p>Cuando un mismo producto del inventario físico corresponde a varios códigos de SAP
-      —porque el depósito usa una nomenclatura unificada y SAP lo tiene abierto en más de un
-      código— se agrupan bajo el nombre del depósito. Los códigos agrupados dejan de ser
-      candidatos a baja en esa base.</p>` +
-      (function () {
-        var gs = d.casos.filter(function (c) { return ef(c).materiales.length > 1; });
-        if (!gs.length) return '<p class="nota">Todavía no se agrupó ningún caso.</p>';
-        return tabla(["Nomenclatura unificada", "Base", "Códigos SAP", "Revisor"],
-          gs.slice(0, 20).map(function (c) {
-            var e = ef(c);
-            return [esc(e.unificada || c.nombre_fisico), esc(c.base),
-                    esc(e.materiales.join(" · ")), esc(e.revisor)];
-          }));
-      })() + `
-      <h4>Observaciones registradas</h4>` +
-      (function () {
-        var con = d.casos.filter(function (c) { return !!ef(c).observaciones; });
-        if (!con.length) return '<p class="nota">No hay observaciones registradas.</p>';
-        return tabla(["Caso", "Base", "Ítem / material", "Observación", "Revisor"],
-          con.slice(0, 22).map(function (c) {
-            var e = ef(c);
-            return [num(c.n), esc(c.base), esc(c.nombre_fisico || c.texto_sap),
-                    esc(e.observaciones), esc(e.revisor)];
-          }));
-      })(), "Parte 2");
-
-    // ---- PARTE 3 · detalle
-    // ---- PARTE 3 · las tres dimensiones que se deciden aparte
-    marcar("Parte 3 · Las decisiones", 0);
-
-    marcar("Ubicación del stock", 1);
-    var al = k.almacen || {}, am = m.almacenes;
-    pagina("14 · Ubicación del stock: centros y almacenes", `
-      <p>El <b>centro</b> es la base; el <b>almacén</b> es el depósito dentro de esa base.
-      Son dos campos distintos de SAP y hasta acá sólo se había mirado el centro. Hay tres
+    // ====================================================== PARTE 5
+    marcar("Parte 5 · Lo que falta y quién decide", 0);
+    marcar("Centros y almacenes", 1);
+    pagina("9 · Dónde está el stock: centros y almacenes", `
+      <p>El <b>centro</b> es la base; el <b>almacén</b> es el depósito dentro de esa base. Son
+      dos campos distintos de SAP y hasta acá sólo se había mirado el centro. Hay tres
       cuestiones independientes y conviene no mezclarlas: si el material está bien
       <b>identificado</b>, si tiene <b>stock</b>, y si ese stock está en el <b>almacén que
-      corresponde</b>. Un material perfectamente identificado puede figurar en el almacén
-      equivocado, y eso no lo convierte en candidato a alta ni a baja.</p>
-      <h4>Cómo quedó la ubicación de los materiales con stock</h4>` +
-      tabla(["Estado", "Casos", "Qué significa"], [
+      corresponde</b>.</p>` +
+      tabla(["Estado de la ubicación", "Casos", "Qué significa"], [
         ["Almacén correcto", num(al["Almacén correcto"] || 0), "El stock está en el almacén propuesto para esa base y tipo."],
         ["Almacén a cambiar", num(al["Almacén a cambiar"] || 0), "Figura en un almacén distinto del propuesto. Hay que evaluar el cambio con la base."],
         ["En varios almacenes", num(al["Material en múltiples almacenes"] || 0), "El mismo material tiene stock en más de un almacén de la misma base. No se consolidó nada."],
@@ -515,34 +471,22 @@ var Informe = (function () {
                     return esc(x.almacen) + " (" + num(x.unidades) + " un.)"; }).join(" · ") : "—"];
         }), ["", "", "", "", ""]) + `
       <p class="nota"><b>Clara</b> significa que el almacén propuesto concentra el grueso del
-      stock de ese tipo y los otros quedan muy por detrás. <b>Ambigua</b> significa que un
-      segundo almacén también concentra volumen y la propuesta <b>no es concluyente</b>: ahí
-      hace falta preguntarle a la base. Hoy la única ambigua es Neuquén · Descartables.</p>`,
-      "Parte 3");
-
-    pagina("14 · Ubicación del stock (continuación)", `
+      stock de ese tipo. <b>Ambigua</b> significa que un segundo almacén también concentra
+      volumen y la propuesta <b>no es concluyente</b>: ahí hace falta preguntarle a la base.</p>
       <h4>Qué está observado y qué es una propuesta</h4>
-      <p>La distinción es importante porque las dos cosas se parecen y no valen lo mismo.</p>
-      <p><b>Observado:</b> a qué base pertenece cada almacén. En la bajada, cada código de
-      almacén aparece bajo un único centro, así que eso <b>no es una suposición</b>: está en
-      el archivo. Los almacenes observados son <b>` + (am.observados || []).length + `</b>,
-      repartidos así:</p>` +
-      tabla(["Base", "Almacenes que aparecen en la bajada"],
-        Object.keys(am.por_base || {}).map(function (b) {
-          return [esc(b), esc((am.por_base[b] || []).join(" · "))]; })) + `
-      <p class="aviso"><b>Propuesta a validar:</b> qué almacén <i>debería</i> contener el
-      stock de Farmacia en cada base <b>no está en ningún archivo recibido</b>. Se propone a
-      partir de la composición observada de cada almacén —qué materiales y cuántas unidades
+      <p><b>Observado:</b> a qué base pertenece cada almacén. En la bajada, cada uno de los
+      ` + (am.observados || []).length + ` códigos de almacén aparece bajo un único centro, así
+      que eso <b>no es una suposición</b>: está en el archivo. El listado por base está en el
+      Excel.</p>
+      <p class="aviso"><b>Propuesta a validar:</b> qué almacén <i>debería</i> contener el stock
+      de Farmacia en cada base <b>no está en ningún archivo recibido</b>. Se propone a partir
+      de la composición observada de cada almacén —qué materiales y cuántas unidades
       concentra—, <b>nunca por parecido de nombres ni de códigos</b>. Hay que validarla con
-      cada base antes de concluir nada.</p>
-      <h4>Qué falta para cerrar esta parte</h4>
-      <ul>` + (am.falta || []).map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + `</ul>
-      <p class="aviso"><b>Nada de esto mueve stock.</b> Una decisión de ubicación registrada
-      en el sistema es una propuesta de traslado, o una corrección del almacén esperado: la
-      ejecución en SAP es un paso posterior. El detalle material por material está en el
-      Excel, hoja «Casos», columnas AN a AS.</p>`, "Parte 3");
+      cada base antes de concluir nada. <b>Nada de esto mueve stock:</b> una decisión de
+      ubicación es una propuesta de traslado, y la ejecución en SAP es un paso posterior.</p>`,
+      "Parte 5");
 
-    marcar("Las dos alternativas de la clase B", 1);
+    marcar("El maestro completo y la depuración", 1);
     var rb = { ruta: 0, verif: 0, crear: 0, cerrado: 0, no: 0 };
     d.casos.forEach(function (c) {
       if (L(c) !== "B") return;
@@ -553,31 +497,6 @@ var Informe = (function () {
       if (!e.verificacion) { rb.verif++; return; }
       rb.cerrado++;
     });
-    pagina("15 · Los ítems sin correspondencia: dos alternativas, no una", `
-      <p>Son <b>` + num(t.B) + ` ítems</b> que existen en el depósito y no aparecieron entre
-      los materiales que <b>hoy tienen stock</b> en SAP. Eso <b>no prueba que no existan en
-      SAP</b>: la bajada recibida no es el maestro completo, así que el material puede estar
-      dado de alta con existencia cero. Por eso el trabajo no es «dar de alta»: es elegir
-      expresamente cómo se trabaja cada caso, entre dos alternativas.</p>` +
-      tabla(["", "Alternativa", "Qué implica", "Qué riesgo tiene"], [
-        [alt(1), "<b>Consultar en SAP antes de crear</b>", "El maestro cargado son los materiales de la bajada, con existencia y en cero. Uno que nunca tuvo existencia en ninguno de los tres centros podría no figurar, así que se puede confirmar en SAP antes de crear. Si aparece y sirve, se le asigna ese código y no se crea nada.", "Ninguno sobre los datos. El costo es de tiempo: el caso queda abierto hasta que se cargue el resultado de la consulta."],
-        [alt(2), "<b>Crear igual, sin verificar</b>", "Se avanza con el alta aunque no se haya verificado el maestro. El sistema no lo impide: lo pregunta expresamente, exige confirmar que se entiende el riesgo y registra quién lo decidió.", "<b>Código duplicado.</b> Si el material ya existía con stock cero, queda el mismo producto abierto dos veces, con el stock, los consumos, los precios y el histórico partidos entre los dos códigos. El código viejo sigue vivo hasta que alguien lo depure."],
-      ], ["eti-col"]) + `
-      <h4>Cómo están hoy esos ` + num(t.B) + ` ítems</h4>` +
-      tabla(["Estado", "Casos"], [
-        ["Sin alternativa elegida", num(rb.ruta)],
-        ["Alternativa 1 · esperando el resultado de la consulta al maestro", num(rb.verif)],
-        ["Alternativa 1 · verificación ya cargada y caso cerrado", num(rb.cerrado)],
-        ["Alternativa 2 · crear sin verificar, con el riesgo asumido", num(rb.crear)],
-        ["Se decidió no darlos de alta", num(rb.no)],
-      ], ["", "n"]) + `
-      <p class="aviso"><b>La decisión de crear sin verificar y la de depurar el maestro están
-      ligadas.</b> Son las dos caras de lo mismo: si se crea un código nuevo sin haber mirado
-      el maestro, el código viejo —si existe— hay que encontrarlo y limpiarlo. Por eso cada
-      caso que toma la alternativa 2 queda anotado en el plan de depuración de la sección
-      siguiente.</p>`, "Parte 3");
-
-    marcar("Depuración del maestro", 1);
     var uni = App.universoDep();
     var cu = { "": 0 }, exc = 0;
     App.DP.ACCIONES.forEach(function (x) { cu[x] = 0; });
@@ -587,124 +506,144 @@ var Informe = (function () {
       if (acc.excepcion) exc++;
     });
     var pol = App.depuracion().politica;
-    pagina("16 · Depuración del maestro de materiales", `
-      <p>Al separar los candidatos a baja apareció un grupo que no era lo que parecía:
-      <b>` + num(t.F) + ` materiales que figuran en SAP con existencia CERO</b>. Proponer su
-      baja no tiene sentido, porque <b>no hay stock que dar de baja</b>. Lo que corresponde
-      decidir es otra cosa: qué pasa con el <b>registro</b> en el maestro.</p>` +
-      tabla(["Acción posible", "Qué hace", "Qué tan reversible es"], [
-        ["<b>Mantener</b>", "El registro queda como está.", "Lo más conservador: no se pierde histórico ni se rompe ninguna referencia, pero el maestro sigue creciendo."],
-        ["<b>Bloquear</b>", "El material no se puede usar en documentos nuevos; el registro y su histórico se conservan.", "El camino intermedio y el reversible: si hizo falta, se desbloquea."],
-        ["<b>Dar de baja del maestro</b>", "Se propone eliminar el registro.", "El más drástico y el más difícil de volver atrás: hay que estar seguro de que no queda ninguna referencia viva."],
-      ]) + `
-      <h4>El alcance real de esta depuración</h4>
-      <p class="aviso"><b>Lo que se ve no es todo el universo a depurar.</b> La bajada recibida
-      trae los materiales <b>con stock</b>; estos ` + num(t.F) + ` aparecieron igual con
-      existencia cero y son la <b>punta visible</b>. Cuántos materiales tiene el maestro
-      completo en cero <b>no se puede saber con los archivos recibidos</b>. El sistema permite
-      importar el maestro completo en CSV: con eso el universo se completa solo.</p>
-      <h4>Cómo está la depuración hoy</h4>` +
-      tabla(["", ""], [
-        ["Materiales sin stock a la vista", num(uni.length)],
-        ["Política masiva vigente", pol ? esc(pol.accion) + " · " + esc(pol.criterio) : "sin definir"],
-        ["Sin decidir", num(cu[""] || 0)],
-        ["Mantener", num(cu[App.DP.MANT] || 0)],
-        ["Bloquear", num(cu[App.DP.BLOQ] || 0)],
-        ["Dar de baja del maestro", num(cu[App.DP.BAJA] || 0)],
-        ["Excepciones registradas a la política masiva", num(exc)],
-      ], ["", "n"]) + `
-      <p>Se puede decidir material por material o fijar una <b>política masiva</b> para todo
-      el conjunto. La decisión individual <b>manda sobre la masiva</b>: cuando difiere, el
-      material queda anotado como <b>excepción</b>, con su motivo escrito. Así una limpieza
-      masiva no borra los casos que había que mirar de cerca.</p>
-      <h4>Qué falta para poder ejecutarla</h4>
-      <ul>` + (m.depuracion.falta || []).map(function (x) {
-        return "<li>" + esc(x) + "</li>"; }).join("") + `</ul>`, "Parte 3");
+    pagina("10 · Lo que falta para cerrar: el maestro completo", `
+      <h4>Los ` + num(t.B) + ` ítems sin correspondencia: dos alternativas, no una</h4>
+      <p>Existen en el depósito y no aparecieron entre los materiales que <b>hoy tienen
+      stock</b> en SAP. Eso <b>no prueba que no existan</b>. Por eso el trabajo no es «dar de
+      alta»: es elegir expresamente cómo se trabaja cada caso.</p>` +
+      tabla(["", "Alternativa", "Qué riesgo tiene"], [
+        [alt(1), "<b>Consultar en SAP antes de crear.</b> Si aparece y sirve, se le asigna ese código y no se crea nada.", "Ninguno sobre los datos. El costo es de tiempo: el caso queda abierto hasta que se cargue el resultado."],
+        [alt(2), "<b>Crear igual, sin verificar.</b> El sistema no lo impide: lo pregunta, exige confirmar que se entiende el riesgo y registra quién lo decidió.", "<b>Código duplicado.</b> Si el material ya existía con stock cero, queda el mismo producto abierto dos veces, con el stock, los consumos y el histórico partidos."],
+      ], ["eti-col"]) + `
+      <p class="cont">Cómo están hoy: ` + num(rb.ruta) + ` sin alternativa elegida ·
+      ` + num(rb.verif) + ` esperando el resultado de la consulta · ` + num(rb.cerrado) + `
+      con la verificación cargada · ` + num(rb.crear) + ` crear sin verificar, con el riesgo
+      asumido · ` + num(rb.no) + ` se decidió no darlos de alta.</p>
+      <h4>La depuración del maestro · ` + num(t.F) + ` materiales con existencia cero</h4>
+      <p>No hay stock que dar de baja. Lo que corresponde decidir es qué pasa con el
+      <b>registro</b>: <b>mantener</b> —lo más conservador, el maestro sigue creciendo—,
+      <b>bloquear</b> —no se puede usar en documentos nuevos, se conserva el histórico, y es
+      reversible— o <b>dar de baja del maestro</b> —el más drástico y el más difícil de volver
+      atrás—.</p>
+      <p class="cont">Hoy: ` + num(uni.length) + ` materiales sin stock a la vista ·
+      política masiva ` + (pol ? "<b>" + esc(pol.accion) + "</b>" : "<b>sin definir</b>") + ` ·
+      ` + num(cu[""] || 0) + ` sin decidir · ` + num(cu[App.DP.MANT] || 0) + ` mantener ·
+      ` + num(cu[App.DP.BLOQ] || 0) + ` bloquear · ` + num(cu[App.DP.BAJA] || 0) + ` dar de
+      baja · ` + num(exc) + ` excepciones registradas a la política masiva.</p>
+      <p>Se puede decidir material por material o fijar una <b>política masiva</b>. La decisión
+      individual <b>manda sobre la masiva</b>: cuando difiere, el material queda anotado como
+      <b>excepción</b>, con su motivo escrito, así una limpieza masiva no borra los casos que
+      había que mirar de cerca.</p>
+      <p class="aviso"><b>Lo que se ve no es todo el universo a depurar.</b> La bajada trae los
+      materiales <b>con stock</b>; estos ` + num(t.F) + ` aparecieron igual con existencia cero
+      y son la <b>punta visible</b>. Cuántos materiales tiene el maestro completo en cero
+      <b>no se puede saber con los archivos recibidos</b>. El sistema permite importar el
+      maestro completo en CSV: con eso el universo se completa solo. <b>Crear sin verificar y
+      depurar el maestro son las dos caras de lo mismo</b>, y por eso cada caso que toma la
+      alternativa 2 queda anotado en el plan de depuración.</p>`, "Parte 5");
 
-    marcar("Dónde está el detalle", 1);
-    pagina("17 · Dónde está el detalle de cada caso", `
-      <p>Este informe <b>no lleva el listado de los ` + num(k.total_casos) + ` casos</b>.
-      Imprimir cada material uno por uno daría decenas de páginas que nadie lee y que quedan
-      desactualizadas apenas se toma la primera decisión. El detalle vive donde se puede
-      filtrar, ordenar y actualizar.</p>` +
-      tabla(["Si hace falta…", "Dónde está"], [
-        ["Tomar las decisiones", "En el <b>sistema</b>, solapa «Inicio»: cada caso aparece como una pregunta concreta, con lo que dice el depósito de un lado y lo que dice SAP del otro, y se contesta con un clic. Se puede acotar a una base, filtrar y decidir en lote."],
-        ["Saber por dónde va el proceso", "En «Inicio», la <b>hoja de ruta</b>: seis etapas con el avance calculado del estado real y la próxima acción recomendada."],
-        ["Ver un material puntual con toda su justificación", "En el <b>sistema</b>, solapa «Buscar»: filtra por base, tipo, clasificación, almacén, estado y texto libre. Cada ficha trae la comparación característica por característica."],
-        ["Cargar el importe de última compra", "En el sistema, <b>Maestro → Maestro general</b>: se baja la planilla con un renglón por código de SAP, se completa la columna del importe y se vuelve a subir el mismo archivo."],
-        ["Trabajar una lista completa en Excel", "En el archivo <b>«Inventario fisico vs SAP - analisis.xlsx»</b>, hoja «Casos»: una fila por caso, " + num(50) + " columnas, con autofiltro y fórmulas vivas."],
-        ["<b>Saber qué hacer con cada ítem en SAP</b>", "Mismo Excel, hoja <b>«Qué hacer en SAP»</b>: una fila por caso con la acción concreta —crear, ajustar stock, mover de almacén, dar de baja— y si todavía falta decidirla. Está ordenada por acción, así cada bloque de trabajo queda junto."],
-        ["Qué nomenclaturas quedaron declaradas equivalentes", "Excel, hoja «Resumen»: los nombres del depósito de un lado, los códigos de SAP del otro, y en qué sentido va cada grupo. Ahí mismo, las presentaciones declaradas equivalentes."],
-        ["La ubicación de cada material", "Excel, hoja «Casos» columnas AN a AS; la propuesta de almacén por base y tipo, en el «Resumen»."],
-        ["Qué se decidió para cada ítem sin correspondencia", "Excel, hoja «Casos» columnas AT a AX, con el centro y el almacén donde se daría de alta."],
-        ["El maestro de materiales con los importes", "Excel, hoja «Maestro general»: una fila por código de SAP, sin duplicar por base ni por almacén."],
-        ["Quién decidió qué y cuándo", "Excel, hoja «Decisiones»: el historial completo, con nombre y fecha."],
-        ["Verificar que las cifras cierran contra las fuentes", "Excel, hoja «Control»: cada control se recalcula solo sobre la hoja «Casos»."],
-        ["Entender cómo se decidió una correspondencia", "Excel, hoja «Resumen», bloque «Cómo se decide una correspondencia», y las secciones 4 y 6 de este informe."],
-      ]) + `
-      <p class="aviso"><b>Los tres salen del mismo dato.</b> El sistema, el Excel y este
-      informe se arman a partir del mismo conjunto de casos y de las mismas decisiones
-      registradas. Por eso las cifras coinciden: si se decide algo en el sistema y se vuelve
-      a exportar, el Excel y el PDF lo reflejan.</p>`, "Parte 3");
+    marcar("Valorización y controles", 1);
+    pagina("11 · Valorización y controles de integridad", `
+      <h4>Valorización · el criterio pedido fue precio de última compra</h4>
+      <p class="aviso"><b>Ese dato no está disponible en ninguno de los archivos recibidos.</b>
+      La bajada de SAP tiene el valor contable del stock y un valor unitario que resulta de
+      dividirlo por las unidades, pero <b>no precio de compra, ni fecha, ni proveedor, ni
+      documento</b>. El archivo de homologación declara que los campos de costo quedan fuera
+      de ese trabajo, y los tres PDF de inventario no mencionan precios. En consecuencia,
+      <b>` + num(k.pendientes_valorizacion) + ` casos figuran como pendientes de
+      valorización</b> y no se informa ningún total. <b>No se estimó ningún precio.</b></p>
+      <p>Para no perder la información económica que existe, se expone en paralelo la
+      valorización de stock de SAP, <b>siempre rotulada como lo que es</b> y nunca sumada ni
+      presentada como precio de compra: es el valor contable dividido por las unidades, un
+      promedio ponderado de lo que está valorizado, no lo que costó la última reposición.
+      Por clasificación: ` + m.clases.filter(function (cl) { return k.referencia_sap[cl]; })
+        .map(function (cl) {
+          return esc(cl.split(" ")[0]) + " " + pesos(k.referencia_sap[cl]); }).join(" · ") + `.
+      Las clasificaciones sin cifra todavía no tienen un código de SAP confirmado, o no
+      tienen stock.</p>
+      <p class="nota">Cuando el dato esté, se carga solo: en el sistema, <b>Maestro → Maestro
+      general</b> se baja una planilla con un renglón por código de SAP, se completa la columna
+      del importe de última compra y se vuelve a subir el mismo archivo. Lo que quede sin
+      importe se informa como pendiente, <b>nunca como cero</b>.</p>
+      <h4>Controles de integridad contra las fuentes</h4>` +
+      tabla(["Control", "En la fuente", "En el sistema", "Estado"],
+        d.control.map(function (c) {
+          return [esc(c.control), num(c.fuente), num(c.sistema),
+                  '<b class="' + (c.estado === "Coincide" ? "ok" : "") + '">' + esc(c.estado) + "</b>"];
+        }), ["", "n", "n", ""]) + `
+      <p class="aviso"><b>Qué prueban y qué no.</b> Que los ítems y las unidades coincidan con
+      los PDF originales prueba que <b>no se perdió ni se duplicó nada al leerlos</b>. No
+      prueba que el recuento físico sea correcto: eso depende de cómo se hizo el inventario en
+      cada base, y queda fuera de este trabajo.</p>`, "Parte 5");
 
     marcar("Próximos pasos", 1);
-    pagina("18 · Próximos pasos, en orden", `
-      <p>El orden importa: cada paso cambia los números del siguiente. Aprobar las bajas
-      primero sería el error más caro, porque la lista de bajas se achica a medida que se
-      resuelven los casos en revisión.</p>
+    pagina("12 · Próximos pasos, en orden", `
+      <p>El orden importa: cada paso cambia los números del siguiente.</p>
       <ol>
         <li><b>Resolver los ` + num(t.D) + ` casos en revisión.</b> Es el trabajo principal y
         el que destraba el resto. Conviene empezar por los
         ` + num(k.motivos["Varios códigos SAP posibles"] || 0) + ` de «varios códigos
-        posibles», que se deciden eligiendo entre candidatos ya identificados, y seguir por
-        los ` + num(k.motivos["Conflicto de presentación"] || 0) + ` de «conflicto de
-        presentación», que suelen revelar que falta en SAP el material con la presentación
-        correcta.</li>
-        <li><b>Elegir la alternativa de los ` + num(t.B) + ` ítems sin correspondencia.</b>
-        Para cada uno: verificar primero el maestro completo, o decidir crearlo igual
-        asumiendo el riesgo de duplicado. Son dos caminos legítimos y la herramienta registra
-        cuál se eligió y por qué.</li>
+        posibles», que se deciden eligiendo entre candidatos ya identificados.</li>
+        <li><b>Elegir la alternativa de los ` + num(t.B) + ` ítems sin correspondencia:</b>
+        verificar primero el maestro completo, o crear asumiendo el riesgo de duplicado.</li>
         <li><b>Pedir el maestro completo de materiales de SAP.</b> Es lo único que permite
-        cerrar la alternativa 1 y, de paso, dimensionar de verdad la depuración. Hoy no está
-        entre los archivos recibidos.</li>
-        <li><b>Validar la propuesta de almacén esperado con cada base.</b> Son seis
-        combinaciones de base y tipo; una, Neuquén · Descartables, quedó marcada como ambigua
-        y necesita respuesta antes de concluir nada. Recién con eso validado tienen sentido
-        las ` + num((k.almacen || {})["Almacén a cambiar"] || 0) + ` ubicaciones a cambiar.</li>
+        cerrar la alternativa 1 y dimensionar de verdad la depuración.</li>
+        <li><b>Validar la propuesta de almacén esperado con cada base.</b> Recién con eso
+        validado tienen sentido las ` + num(al["Almacén a cambiar"] || 0) + ` ubicaciones a
+        cambiar.</li>
         <li><b>Resolver los ` + num(k.sin_stock_en_base) + ` ítems con existencia física y sin
-        stock en SAP en su base.</b> No son altas: el código existe. Hay que registrar la
-        existencia o ubicar en qué centro está cargada.</li>
+        stock en SAP en su base.</b> No son altas: el código existe.</li>
         <li><b>Revisar las ` + num(k.bajas_bloqueadas) + ` bajas que dependen de un caso en
         revisión</b> antes que el resto, porque pueden dejar de ser bajas.</li>
-        <li><b>Definir la política de depuración del maestro</b> sobre los
-        ` + num(t.F) + ` materiales sin stock a la vista, con sus excepciones.</li>
-        <li><b>Conseguir el precio de última compra.</b> Es lo único que impide valorizar.
-        El sistema ya tiene por dónde cargarlo: en <i>Maestro → Maestro general</i> se baja
-        una planilla con un renglón por código de SAP, se completa la columna del importe y
-        se vuelve a subir el mismo archivo. Con eso valoriza los
-        ` + num(k.pendientes_valorizacion) + ` casos sin más trabajo, y lo que quede sin
-        importe se informa como pendiente, nunca como cero.</li>
+        <li><b>Definir la política de depuración</b> sobre los ` + num(t.F) + ` materiales sin
+        stock a la vista, con sus excepciones.</li>
+        <li><b>Conseguir el precio de última compra</b> y cargarlo en el maestro.</li>
         <li><b>Recién después, aprobar las ` + num(t.C) + ` bajas restantes</b> y elevar el
         paquete para su ejecución en SAP.</li>
-      </ol>`, "Parte 3");
+      </ol>
+      <h4>Dónde está cada cosa</h4>` +
+      tabla(["Si hace falta…", "Dónde está"], [
+        ["<b>Saber qué hay que hacer en SAP</b>", "Sistema, pantalla <b>«Aplicar en SAP»</b>, y Excel, hoja <b>«Aplicar en SAP»</b>: el resumen por acción con sus cantidades. El detalle caso por caso, en la hoja «Qué hacer en SAP»."],
+        ["Tomar las decisiones", "Sistema, pantalla <b>«Trabajar»</b>: cada caso aparece como una pregunta concreta, con lo que dice el depósito de un lado y lo que dice SAP del otro. Se puede acotar a una base, filtrar y decidir en lote."],
+        ["Ver un material puntual con su justificación", "Sistema, pantalla «Buscar», o Excel, hoja «Casos»: una fila por caso, con la comparación característica por característica."],
+        ["Cargar el importe de última compra", "Sistema, <b>Maestro → Maestro general</b>: se baja la planilla, se completa la columna del importe y se vuelve a subir el mismo archivo."],
+        ["La ubicación de cada material", "Excel, hoja «Casos», columnas AN a AS; la propuesta de almacén por base y tipo, en el «Resumen»."],
+        ["Quién decidió qué y cuándo", "Excel, hoja «Decisiones»: el historial completo, con nombre y fecha."],
+        ["Verificar que las cifras cierran", "Excel, hoja «Control»: cada control se recalcula solo sobre la hoja «Casos»."],
+      ]) + `
+      <p class="nota"><b>Los tres salen del mismo dato:</b> el sistema, el Excel y este
+      informe se arman del mismo conjunto de casos y de las mismas decisiones registradas.</p>`,
+      "Parte 5");
 
-    pagina("19 · Decisiones que requieren validación", `
-      <p>Ninguna de éstas la puede tomar el análisis: dependen de un criterio de la
-      organización. Están listadas acá para que se definan antes de ejecutar nada.</p>` +
+    marcar("Límites y decisiones que requieren validación", 1);
+    pagina("13 · Los límites del análisis y las decisiones que no le corresponden", `
+      <h4>Lo que este trabajo puede afirmar, y lo que no</h4>
+      <ul>
+        <li>Cubre los tres inventarios recibidos y el stock de SAP al ` + esc(m.sap.corte) + `.
+        <b>No cubre movimientos posteriores.</b></li>
+        <li>La contraparte son los materiales <b>con stock</b>, no el maestro completo: la
+        clasificación B no afirma que el material no exista en SAP.</li>
+        <li>La identificación se valida sobre la <b>denominación y la presentación declaradas
+        en los textos</b>. Si un texto de SAP no declara la presentación, el caso va a revisión
+        en lugar de resolverse por aproximación.</li>
+        <li>Las cantidades físicas son las informadas en cada reporte. El informe de Neuquén
+        declara él mismo una diferencia entre el stock actual y el saldo de movimientos en dos
+        medicamentos; se conservó el stock actual, que es el total declarado.</li>
+      </ul>
+      <h4>Las decisiones que dependen de un criterio de la organización</h4>
+      <p>Ninguna de éstas la puede tomar el análisis. Están listadas acá para que se definan
+      antes de ejecutar nada.</p>` +
       tabla(["Decisión", "Por qué requiere validación"], [
-        ["Alcance del recuento", "El inventario cubrió Farmacia. Hay que confirmar que los " + num(t.E) + " materiales de indumentaria, equipamiento y repuestos quedan definitivamente fuera y cómo se controlan."],
-        ["Criterio de baja", "La propuesta de dar de baja todo lo no identificado afecta a " + num(t.C) + " combinaciones de material y base. Conviene validar que la ausencia en el recuento es motivo suficiente, o si se exige una verificación previa en depósito."],
-        ["Crear sin verificar, o esperar el maestro", "Para los " + num(t.B) + " ítems sin correspondencia hay que definir si se admite crear sin verificar el maestro completo —asumiendo el riesgo de código duplicado— o si se espera. La herramienta permite las dos, registra cuál se eligió y liga la primera al plan de depuración."],
-        ["Qué hacer con un código que ya existe", "Para los ítems que resulten existir en SAP con otro código: se les asigna ese código, o se da de baja y se crea uno nuevo. La decisión afecta la trazabilidad histórica del material."],
-        ["Almacén esperado por base y tipo", "La propuesta sale de la composición observada de cada almacén, no de los nombres ni de los códigos. Cada base tiene que confirmar cuál es el almacén de Farmacia, y si medicamentos y descartables van separados."],
-        ["Qué hacer con el maestro sin stock", "Mantener, bloquear o dar de baja. Puede definirse una política masiva con excepciones anotadas, pero el criterio y quién lo autoriza son una decisión de la organización."],
-        ["Unidad de la baja", "Un material identificado en una base y no en otra: se da de baja sólo el stock de la base, no el material. Hay que confirmar que ése es el criterio."],
+        ["Alcance del recuento", "Confirmar que los " + num(t.E) + " materiales de indumentaria, equipamiento y repuestos quedan definitivamente fuera, y por qué vía se controlan."],
+        ["Criterio de baja", "Afecta a " + num(t.C) + " combinaciones de material y base. Hay que validar si la ausencia en el recuento es motivo suficiente, o si se exige una verificación previa en depósito."],
+        ["Crear sin verificar, o esperar el maestro", "Para los " + num(t.B) + " ítems sin correspondencia: si se admite crear sin verificar el maestro completo —asumiendo el riesgo de código duplicado— o si se espera. La herramienta permite las dos y registra cuál se eligió."],
+        ["Qué hacer con un código que ya existe", "Si se le asigna ese código, o se da de baja y se crea uno nuevo. Afecta la trazabilidad histórica del material."],
+        ["Almacén esperado por base y tipo", "Cada base tiene que confirmar cuál es el almacén de Farmacia, y si medicamentos y descartables van separados."],
+        ["Qué hacer con el maestro sin stock", "Mantener, bloquear o dar de baja. Puede ser una política masiva con excepciones, pero el criterio y quién lo autoriza son de la organización."],
+        ["Unidad de la baja", "Un material identificado en una base y no en otra: se da de baja el stock de esa base, no el material. Confirmar que ése es el criterio."],
         ["Fuente del precio", "Definir de qué reporte sale el precio de última compra y con qué corte, para que la valorización sea reproducible."],
         ["Responsable de la validación por base", "Las decisiones quedan registradas con nombre. Hay que definir quién valida cada base y quién cierra con Farmacia."],
-      ]) + `
-      <p class="aviso"><b>Recordatorio.</b> Ninguna de las propuestas de este informe modifica
-      SAP. La ejecución es un paso posterior, externo a esta herramienta, y requiere la
-      aprobación registrada de cada caso.</p>`, "Parte 3");
+      ]), "Parte 5");
 
     return { paginas: paginas, indice: indice };
   }
@@ -869,7 +808,16 @@ var Informe = (function () {
   table.t td.n,table.t th.n{text-align:right;white-space:nowrap}
   table.t th.eti-col,table.t td.eti-col{width:22px}
   table.t tr:nth-child(even) td{background:#fafaf8}
+  table.t.cp td{padding:2.5px 6px}
   .sub2{font-size:7.6pt;color:var(--itx3)}
+  /* Las preguntas de entrada, a dos columnas: entran doce en una página y se
+     leen salteadas, que es como se lee una lista de preguntas. */
+  .faq{column-count:2;column-gap:8mm;margin-top:4px}
+  .faq .q{break-inside:avoid;page-break-inside:avoid;margin-bottom:9px}
+  .faq .q>b:first-child{display:block;color:var(--ia);font-size:9.4pt;margin-bottom:1px}
+  .faq .q span b{color:var(--itx)}
+  .faq .q span{display:block;font-size:8.8pt;color:var(--itx2);line-height:1.45;
+    text-align:justify}
   .glosa{font-size:8.4pt;color:var(--itx2);background:#f6f6f3;border-radius:4px;
     padding:7px 10px;margin:0 0 11px;line-height:1.55}
   .glosa b{color:var(--itx)}

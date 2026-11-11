@@ -7,7 +7,7 @@ y las decisiones van a una base compartida.
 |---|---|---|
 | **La aplicación** | Se instala y se sirve (ver [`servidor/README.md`](servidor/README.md)) | **Revisar, decidir y registrar.** Es la herramienta de trabajo. |
 | **Excel** | `Inventario fisico vs SAP - analisis.xlsx` | Analizar y seguir trabajando sobre los datos. Con fórmulas vivas. |
-| **PDF** | `Inventario fisico vs SAP - informe integral.pdf` | Explicar el caso y los resultados a quien no vio nada de esto. 20 páginas. |
+| **PDF** | `Inventario fisico vs SAP - informe integral.pdf` | Explicar el caso y los resultados a quien no vio nada de esto. 15 páginas: las dos primeras contestan de cero, y la parte 4 dice qué hay que aplicar en SAP. |
 | **Copia de consulta** | `Inventario fisico vs SAP - consulta.html` | Mirar el análisis sin levantar nada. **No se puede decidir ahí.** |
 
 Los tres primeros salen del **mismo análisis y las mismas decisiones**, por eso
@@ -74,7 +74,7 @@ por dónde empezar: la pantalla de inicio lo dice.
 
 1. Entrá con tu cuenta de Emergencias. Tu nombre queda en cada decisión que tomes: no hay
    campo que completar, y por eso el registro es confiable.
-2. **Inicio es el panel de gestión.** Arriba, la **hoja de ruta**: seis etapas, en qué
+2. **«Trabajar» es el panel de gestión.** Arriba, la **hoja de ruta**: seis etapas, en qué
    etapa está el proceso, cuánto avanzó cada una y cuál es el próximo paso concreto.
 3. Elegí el **alcance**: las tres bases o una sola. Todo lo que está abajo lo respeta —los
    indicadores, los pendientes y las decisiones en lote—.
@@ -86,17 +86,19 @@ por dónde empezar: la pantalla de inicio lo dice.
 6. Para resolver muchos juntos: tildá los que quieras —o «elegir los N del filtro»— y usá
    la barra de arriba. Antes de aplicar, el sistema muestra **a cuántos materiales, bases y
    almacenes alcanza** y cuáles de los elegidos no cumplen las condiciones.
-7. Al terminar, **Descargar Excel**.
+7. Cuando haya decisiones tomadas, **«Aplicar en SAP»**: el resumen de qué hay que hacer
+   con cada una, con sus cantidades.
+8. Al terminar, **Excel ↓**.
 
 ### Qué hace cada solapa de arriba
 
 | | |
 |---|---|
-| **Inicio** | Donde se gestiona: estado, filtros, decisiones de a una o en lote, por base o integral. Es el panel central. |
-| **Revisar** | El modo de a uno: un caso por pantalla, con el teclado. Para avanzar rápido sobre un grupo entero y para los casos que necesitan elegir entre varios códigos. |
+| **Trabajar** | Donde se decide: estado, filtros, decisiones de a una o en lote, por base o integral. Tiene dos modos: la **bandeja**, para ver y decidir muchos, y el **modo de a uno**, un caso por pantalla con el teclado, para lo que necesita elegir entre varios códigos. |
 | **Buscar** | Encontrar un material puntual y ver su ficha. No es otro panel de gestión. |
 | **Maestro** | La administración del catálogo: el maestro general con los importes de última compra, las equivalencias declaradas, el almacén propuesto de cada base y los materiales sin stock. **No se deciden casos acá.** |
-| **Informe** | El informe ejecutivo con el estado actualizado. |
+| **Aplicar en SAP** | **El resultado.** Qué decisiones se tomaron y qué hay que hacer con cada una: qué dar de alta, qué dar de baja, qué ajustar y qué mover, con sus cantidades; más lo que todavía no se pudo decidir y lo que está fuera del alcance. Es lo que se le pasa a quien ejecuta en SAP. |
+| **Informe** | El informe explicativo con el estado actualizado. Contesta de cero qué es todo esto. |
 | **Cómo se usa** | Esto mismo, dentro del sistema. |
 
 ### La hoja de ruta
@@ -276,7 +278,7 @@ maestro: *no existe* (se propone el alta), *existe sin stock y se reutiliza el c
 
 ### La solapa «Maestro»: la administración del catálogo
 
-Maestro tiene cuatro apartados y ninguno decide casos: eso es Inicio. Acá se administra
+Maestro tiene cuatro apartados y ninguno decide casos: eso es «Trabajar». Acá se administra
 **lo que es cada material**, no qué se hace con cada diferencia.
 
 **Maestro general.** Una fila por **código de SAP**, reuniendo todo lo que se sabe de él:
@@ -296,7 +298,7 @@ archivo**. También acepta CSV. La importación:
 - **no toca ninguna decisión ni ninguna equivalencia.**
 
 **Equivalencias de nomenclatura.** Los grupos ya declarados, con los dos lados y el
-sentido de cada uno. Se declaran al resolver un caso, en Inicio; una vez confirmada, la
+sentido de cada uno. Se declaran al resolver un caso, en «Trabajar»; una vez confirmada, la
 equivalencia vale para todas las bases.
 
 **Almacenes por base.** Lo observado y lo propuesto, separados, con la confianza de cada
@@ -377,6 +379,33 @@ La base se respalda sola todos los días y se conservan los últimos 14.
 **Conviene exportar el Excel al terminar cada sesión igual**: es la forma de
 compartir lo decidido con quien no entra a la aplicación. Trae una hoja
 «Decisiones» con el historial completo.
+
+### «Aplicar en SAP»: el resultado del trabajo
+
+Decidir no sirve de nada si después hay que deducir de 1.991 casos qué le toca hacer
+a quien entra a SAP. Esa pregunta —**«¿y entonces qué hago?»**— la contesta una
+pantalla propia, que es también la primera hoja del Excel y la parte 4 del informe.
+Los tres salen del mismo cálculo.
+
+Está organizada en cuatro bloques, en el orden en que se leen:
+
+| Bloque | Qué trae |
+|---|---|
+| **1 · Hay que hacerlo en SAP** | Lo decidido y listo para ejecutar, agrupado por lo que hay que hacer: **altas** de material, **ajustes de existencia**, **movimientos de almacén**, **bajas de stock** y **maestro de materiales**. Cada acción con sus casos y su cantidad. |
+| **2 · Todavía no se pudo decidir** | Lo que nadie decidió aún, con el grupo donde se decide y un botón que lleva directo ahí. No se ejecuta nada de esto. |
+| **3 · Decidido, y no hay nada que hacer** | Lo que quedó cerrado sin tocar SAP. Está contado para que se vea que se lo miró, que no es lo mismo que haberlo pasado por alto. |
+| **4 · Fuera del alcance** | Indumentaria, equipamiento y repuestos. Ni alta ni baja: de su ausencia no se concluye nada. |
+
+Debajo, **cómo se reparte entre las bases** con su centro de SAP, porque quien ejecuta
+trabaja por centro. Y cada acción se despliega para ver el caso por caso.
+
+**Las cantidades nunca se mezclan.** Un alta y un ajuste se miden en **unidades
+contadas** —las del recuento en el depósito—; una baja y un movimiento, en **unidades
+en SAP**; el maestro, en **registros**, que no tienen unidades. Las tres van en columnas
+separadas y rotuladas, y no se suman entre sí: son recuentos de universos distintos.
+
+**El importe sólo aparece sobre lo ya decidido**, y lo que no tiene precio de última
+compra se informa como *sin importe*, nunca como cero.
 
 ---
 
@@ -512,14 +541,15 @@ sistema y están marcados en el Excel.
 
 ## El Excel
 
-**Siete hojas**, no quince. Las seis que partían el detalle por clasificación decían en
-qué categoría cayó cada caso, pero no la frase que alguien tiene que ejecutar: esa frase
-estaba repartida entre hojas y columnas y había que armarla a mano. Ahora la dice una
-columna.
+**Ocho hojas**, no quince, y en el orden en que se leen: primero qué hay que hacer,
+después el detalle, y al final de dónde sale cada cifra. Las seis que partían el detalle
+por clasificación decían en qué categoría cayó cada caso, pero no la frase que alguien
+tiene que ejecutar.
 
 | Hoja | Para qué |
 |---|---|
-| `Qué hacer en SAP` | **La hoja operativa.** Una fila por caso con la acción concreta —crear el material en el centro X almacén Y, ajustar N unidades, mover de almacén, dar de baja— y una columna que dice si todavía falta decidirla. Ordenada por acción, así cada bloque de trabajo queda junto. |
+| `Aplicar en SAP` | **El resumen de las decisiones.** Una fila por acción: qué dar de alta, qué dar de baja, qué ajustar, qué mover, con los casos y las cantidades de cada una, separadas por magnitud; después lo que falta decidir, lo que no requiere nada y lo que está fuera del alcance; y el reparto por base con su centro. |
+| `Qué hacer en SAP` | **El detalle de la anterior.** Una fila por caso con la acción concreta —crear el material en el centro X almacén Y, ajustar N unidades, mover de almacén, dar de baja— y una columna que dice si todavía falta decidirla. Ordenada por acción, con autofiltro. |
 | `Resumen` | Indicadores (fórmulas vivas sobre `Casos`), el glosario de magnitudes, la propuesta de almacén por base y tipo, las equivalencias declaradas y cómo se decide una correspondencia. |
 | `Casos` | El detalle completo, **50 columnas**, con autofiltro. |
 | `Maestro general` | Una fila por código de SAP, sin duplicar por base ni por almacén, con el importe de última compra. |
@@ -545,7 +575,7 @@ el filtro aplicado**.
   navegador real, sin errores de JavaScript.
 - El Excel exportado se abrió y recalculó: los 1.991 casos y todos los cortes por base y
   por tipo coinciden con el sistema.
-- El PDF tiene 20 páginas; cada número de página impreso coincide con la página real y
+- El PDF tiene 15 páginas; cada número de página impreso coincide con la página real y
   cada entrada del índice cae en su sección. Ninguna hoja se pasa de alto, lo que se
   comprueba midiendo el contenido renderizado antes de imprimir.
 - Los controles de integridad comparan los totales del sistema contra los de los archivos

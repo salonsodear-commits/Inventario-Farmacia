@@ -106,6 +106,8 @@ var App = (function () {
        Son dos modos de la misma pantalla, no dos pantallas. */
     modo: "bandeja",
     bf: { texto: "", tipo: "", motivo: "", almacen: "", obs: "" },
+    /* Qué acciones del plan están desplegadas en «Aplicar en SAP». */
+    apl: {},
   };
 
 
@@ -343,6 +345,346 @@ var App = (function () {
       })
       .sort(function (a, b) { return b.items.length - a.items.length; });
   }
+  // ------------------------------------------------------- QUÉ APLICAR EN SAP
+  /* La pregunta que tiene que poder contestarse al final es una sola: «qué
+     hago yo en SAP». Se contesta acá, una vez, y de este mismo cálculo salen
+     la pantalla «Aplicar en SAP», la primera hoja del Excel y la sección del
+     informe. Tres salidas, un solo criterio: si cambia algo, cambia en los
+     tres lados a la vez. */
+
+  /* Las dos magnitudes, siempre separadas. Un alta se mide en unidades
+     CONTADAS en el depósito; una baja, en unidades que SAP registra. Sumarlas
+     daría un número que no significa nada. */
+  function unContadas(c) { return c.cantidad_fisica || 0; }
+  function unDeSap(c) {
+    return c.origen === "Inventario físico" ? (c.stock_sap_en_base || 0) : (c.stock_sap || 0);
+  }
+
+  /* La acción concreta, derivada del estado del caso y de lo decidido.
+     Devuelve el verbo (con el que se agrupa), el detalle (con el que se
+     ejecuta), si todavía falta decidirla, y la cantidad con su magnitud. */
+  function accionSap(c) {
+    var e = efectivo(c), l = L(c);
+    var d = decisiones()[c.id] || {};
+    var mat = e.materiales.join(" · ") || c.material_sap || "";
+    var ub = (c.almacenes || []).map(function (x) { return x.almacen; });
+    var esp = c.almacen_esperado || c.almacen_base || "";
+    var fis = unContadas(c), sap = unDeSap(c);
+
+    if (l === "E") {
+      return { verbo: "Ninguna · fuera del alcance", det:
+        "El inventario relevado es de Farmacia. Su ausencia no permite concluir nada.",
+        pend: false, un: 0, mag: "" };
+    }
+    if (l === "F") {
+      var dep = accionDep(c.material_sap) || { accion: "" };
+      if (!dep.accion) return { verbo: "PENDIENTE · decidir el registro del maestro",
+        det: "El material " + mat + " está en el maestro con existencia cero. " +
+             "Hay que decidir si se mantiene, se bloquea o se da de baja.",
+        pend: true, un: 1, mag: "registro" };
+      return { verbo: dep.accion === DP_BAJA
+                 ? "Dar de baja del maestro" : dep.accion + " en el maestro",
+        det: "Material " + mat + ", sin existencia. " + dep.accion + "." +
+             (dep.motivo ? " Motivo: " + dep.motivo : ""),
+        pend: false, un: 1, mag: "registro" };
+    }
+    if (e.aprobacion === "Rechazado") {
+      return { verbo: "Ninguna · se rechazó la propuesta",
+        det: "Se revisó y se decidió no hacer nada." +
+             (e.observaciones ? " " + e.observaciones : ""), pend: false, un: 0, mag: "" };
+    }
+
+    if (l === "B") {
+      if (!e.ruta_b && !e.verificacion) return { verbo: "PENDIENTE · decidir si se crea",
+        det: "«" + (c.nombre_fisico || "") + "» está contado en " + c.base +
+             " y ningún material del maestro le corresponde.",
+        pend: true, un: fis, mag: "contadas" };
+      if (e.ruta_b === RB_VERIF && !e.verificacion)
+        return { verbo: "PENDIENTE · consultar en SAP",
+          det: "Se eligió consultar en SAP antes de crear. Falta cargar el resultado.",
+          pend: true, un: fis, mag: "contadas" };
+      var ce = d.centro_alta || c.centro || "", al = d.almacen_alta || esp;
+      if (e.verificacion && e.verificacion.indexOf("baja y alta nueva") >= 0)
+        return { verbo: "Dar de baja el código viejo y crear uno nuevo",
+          det: "Dar de baja " + (e.codigo_maestro || "el código encontrado") +
+               " y crear el material de «" + (c.nombre_fisico || "") + "» en el centro " +
+               ce + ", almacén " + al + ".", pend: false, un: fis, mag: "contadas" };
+      return { verbo: "Crear el material en SAP",
+        det: "Crear «" + (c.nombre_fisico || "") + "» (" + (c.presentacion || "sin presentación") +
+             ") en el centro " + ce + ", almacén " + al + ". " +
+             num(fis) + " unidades contadas en " + c.base + ".",
+        pend: false, un: fis, mag: "contadas" };
+    }
+
+    if (l === "C") {
+      if (resueltoPorAgrupacion(c))
+        return { verbo: "Ninguna · quedó identificado",
+          det: "Se identificó al agrupar nomenclaturas: ya no es candidato a baja.",
+          pend: false, un: 0, mag: "" };
+      if (e.aprobacion === "Sin decidir") return { verbo: "PENDIENTE · decidir la baja",
+        det: "SAP registra " + num(sap) + " unidades de " + mat + " en " +
+             c.base + " y ningún inventario lo identificó." +
+             (c.bloqueado_por_revision ? " Depende de un caso en revisión." : ""),
+        pend: true, un: sap, mag: "sap" };
+      return { verbo: "Dar de baja el stock",
+        det: "Dar de baja " + num(sap) + " unidades de " + mat + " en " +
+             c.base + (ub.length ? ", almacén " + ub.join(" y ") : "") + ".",
+        pend: false, un: sap, mag: "sap" };
+    }
+
+    // Clase A y D: lo primero es tener el código; después, el almacén.
+    if (!e.materiales.length) {
+      return { verbo: "PENDIENTE · decidir a qué código corresponde",
+        det: "«" + (c.nombre_fisico || "") + "» en " + c.base + ". " +
+             (c.motivo || "") + ".", pend: true, un: fis, mag: "contadas" };
+    }
+    if (e.aprobacion === "Sin decidir") {
+      return { verbo: "PENDIENTE · confirmar el código",
+        det: "El análisis propone " + mat + " para «" + (c.nombre_fisico || "") +
+             "». Falta confirmarlo.", pend: true, un: fis, mag: "contadas" };
+    }
+    if (c.material_sin_stock_en_base) {
+      var alAj = d.almacen_ajuste || esp;
+      if (!d.ajuste_stock && !e.almacen_decidido)
+        return { verbo: "PENDIENTE · decidir el ajuste de stock",
+          det: "Hay " + num(fis) + " unidades contadas en " + c.base +
+               " y SAP no registra existencia de " + mat + " ahí.",
+          pend: true, un: fis, mag: "contadas" };
+      return { verbo: "Ajustar el stock",
+        det: "Cargar " + num(fis) + " unidades de " + mat +
+             " en el almacén " + alAj + " (" + c.base + "), que hoy figura sin existencia.",
+        pend: false, un: fis, mag: "contadas" };
+    }
+    if (e.almacen_decidido) {
+      if (/^Lo valida/.test(e.almacen_decidido))
+        return { verbo: "PENDIENTE · lo valida la base",
+          det: "El almacén quedó para que lo confirme el responsable de " + c.base + ".",
+          pend: true, un: sap, mag: "sap" };
+      if (/es el correcto/.test(e.almacen_decidido))
+        return { verbo: "Ninguna · ya está bien",
+          det: "El stock está en el almacén correcto; se corrige la propuesta del análisis.",
+          pend: false, un: 0, mag: "" };
+      return { verbo: "Mover de almacén",
+        det: e.almacen_decidido + " · material " + mat + " en " + c.base + ".",
+        pend: false, un: sap, mag: "sap" };
+    }
+    if (c.almacen_estado === "Almacén a cambiar" || c.almacen_estado === "Material en múltiples almacenes")
+      return { verbo: "PENDIENTE · decidir el almacén",
+        det: "El stock de " + mat + " figura en " + (ub.join(" y ") || "—") +
+             " y el propuesto para " + c.base + " · " + c.tipo + " es " + (esp || "—") + ".",
+        pend: true, un: sap, mag: "sap" };
+    return { verbo: "Ninguna · ya está bien",
+      det: "Identificado como " + mat + " y con el stock donde corresponde.",
+      pend: false, un: 0, mag: "" };
+  }
+
+  /* Las acciones posibles, en orden, con el bloque y la familia a la que
+     pertenece cada una. Esta tabla es la única lista: de acá salen el orden
+     del Excel, los bloques de la pantalla y los del informe. */
+  var ACCIONES = [
+    ["Crear el material en SAP", "ejecutar", "altas"],
+    ["Dar de baja el código viejo y crear uno nuevo", "ejecutar", "altas"],
+    ["Ajustar el stock", "ejecutar", "existencias"],
+    ["Mover de almacén", "ejecutar", "ubicacion"],
+    ["Dar de baja el stock", "ejecutar", "bajas"],
+    ["Dar de baja del maestro", "ejecutar", "maestro"],
+    ["Bloquear en el maestro", "ejecutar", "maestro"],
+    ["PENDIENTE · decidir a qué código corresponde", "falta", "traza", "revision"],
+    ["PENDIENTE · confirmar el código", "falta", "traza", "identificados"],
+    ["PENDIENTE · decidir si se crea", "falta", "altas", "altas"],
+    ["PENDIENTE · consultar en SAP", "falta", "altas", "altas"],
+    ["PENDIENTE · decidir el ajuste de stock", "falta", "existencias", "existencias"],
+    ["PENDIENTE · decidir el almacén", "falta", "ubicacion", "almacenes"],
+    ["PENDIENTE · lo valida la base", "falta", "ubicacion", "almacenes"],
+    ["PENDIENTE · decidir el registro del maestro", "falta", "maestro", "depurar"],
+    ["PENDIENTE · decidir la baja", "falta", "bajas", "bajas"],
+    ["Mantener en el maestro", "nada", "maestro"],
+    ["Ninguna · ya está bien", "nada", "resuelto"],
+    ["Ninguna · quedó identificado", "nada", "resuelto"],
+    ["Ninguna · se rechazó la propuesta", "nada", "resuelto"],
+    ["Ninguna · fuera del alcance", "fuera", "fuera"],
+  ];
+  var ACC = {};
+  ACCIONES.forEach(function (x, i) {
+    ACC[x[0]] = { bloque: x[1], fam: x[2], seg: x[3] || "", i: i }; });
+
+  /* Qué significa cada acción, en una frase. Va en el Excel y en el informe:
+     el que ejecuta en SAP no tiene por qué saber de qué clasificación salió
+     el caso, pero sí qué le están pidiendo exactamente. */
+  var EXPLICA = {
+    "Crear el material en SAP":
+      "Dar de alta el material. Las unidades contadas son la existencia que hay " +
+      "que cargar en el centro y el almacén indicados.",
+    "Dar de baja el código viejo y crear uno nuevo":
+      "Se consultó SAP: el material existe pero no sirve. Se da de baja ese " +
+      "código y se crea uno nuevo.",
+    "Ajustar el stock":
+      "El material existe en SAP y hay mercadería contada, pero esa base no " +
+      "registra existencia: hay que cargarla en el almacén indicado.",
+    "Mover de almacén":
+      "El material está bien identificado; el stock figura en un almacén que no " +
+      "corresponde y se traslada dentro de la misma base.",
+    "Dar de baja el stock":
+      "SAP registra esas unidades y ningún inventario las encontró. Se da de baja " +
+      "el stock de esa base, no el material.",
+    "Dar de baja del maestro":
+      "Material sin existencia: se decidió eliminar el registro del maestro.",
+    "Bloquear en el maestro":
+      "Material sin existencia: se decidió que no pueda usarse en documentos " +
+      "nuevos, conservando el registro y su histórico.",
+    "Mantener en el maestro":
+      "Material sin existencia: se decidió dejar el registro como está. No hay " +
+      "nada que hacer en SAP.",
+    "PENDIENTE · decidir a qué código corresponde":
+      "Falta decidir a qué material de SAP corresponde el ítem contado. Hasta " +
+      "que no esté, no se puede hacer nada con el caso.",
+    "PENDIENTE · confirmar el código":
+      "El análisis propone un código y falta que una persona lo confirme.",
+    "PENDIENTE · decidir si se crea":
+      "Falta elegir entre consultar el maestro completo antes de crear, o crear " +
+      "asumiendo el riesgo de duplicar un código que ya exista sin stock.",
+    "PENDIENTE · consultar en SAP":
+      "Se eligió consultar el maestro antes de crear y falta cargar el resultado " +
+      "de esa consulta.",
+    "PENDIENTE · decidir el ajuste de stock":
+      "Hay existencia física y SAP no la registra en esa base: falta decidir el " +
+      "ajuste y en qué almacén se carga.",
+    "PENDIENTE · decidir el almacén":
+      "El stock figura en un almacén distinto del propuesto: falta decidir si se " +
+      "mueve o si la propuesta del análisis estaba mal.",
+    "PENDIENTE · lo valida la base":
+      "La decisión del almacén quedó para que la confirme el responsable de la base.",
+    "PENDIENTE · decidir el registro del maestro":
+      "Material sin existencia: falta decidir si se mantiene, se bloquea o se da " +
+      "de baja del maestro.",
+    "PENDIENTE · decidir la baja":
+      "Falta aprobar o rechazar la baja del stock que ningún inventario encontró " +
+      "en esa base.",
+    "Ninguna · ya está bien":
+      "Identificado, con existencia y con el stock en el almacén que corresponde.",
+    "Ninguna · quedó identificado":
+      "Era candidato a baja y al agrupar nomenclaturas resultó identificado: la " +
+      "baja ya no corresponde.",
+    "Ninguna · se rechazó la propuesta":
+      "Se revisó y se decidió expresamente no hacer nada.",
+    "Ninguna · fuera del alcance":
+      "Indumentaria, equipamiento o repuestos. El inventario relevado es de " +
+      "Farmacia, así que su ausencia no permite concluir nada.",
+  };
+
+  var BLOQUES = [
+    { id: "ejecutar", titulo: "Hay que hacerlo en SAP",
+      nota: "Decidido y listo para ejecutar. Nada de esto lo hizo el sistema: " +
+            "es el pedido de trabajo." },
+    { id: "falta", titulo: "Todavía no se pudo decidir",
+      nota: "No se ejecuta nada de esto hasta que alguien lo decida. " +
+            "Se decide en «Trabajar»." },
+    { id: "nada", titulo: "Decidido, y no hay nada que hacer",
+      nota: "Quedó resuelto sin que haya que tocar SAP. Está acá para que se " +
+            "vea que se revisó, no para hacer algo con él." },
+    { id: "fuera", titulo: "Fuera del alcance",
+      nota: "El inventario relevado es de Farmacia. De estos materiales no se " +
+            "concluye nada, ni alta ni baja." },
+  ];
+
+  /* Cada familia dice en qué se miden sus cantidades. El rótulo va siempre
+     pegado al número: un «300» sin decir si son unidades contadas, unidades
+     de SAP o registros del maestro es un número que invita a equivocarse. */
+  var FAMILIAS = {
+    altas: { titulo: "Altas de material", mag: "unidades contadas",
+             nota: "Productos contados en el depósito a los que ningún material de " +
+                   "SAP les corresponde. Hay que crear el material." },
+    existencias: { titulo: "Ajustes de existencia", mag: "unidades contadas",
+                   nota: "El código existe y la mercadería está: lo que falta es la " +
+                         "existencia cargada en esa base." },
+    ubicacion: { titulo: "Movimientos de almacén", mag: "unidades en SAP",
+                 nota: "El material está bien identificado y tiene stock. Lo que no " +
+                       "corresponde es el almacén donde figura." },
+    bajas: { titulo: "Bajas de stock", mag: "unidades en SAP",
+             nota: "Stock que SAP registra en una base y que ningún inventario " +
+                   "encontró ahí." },
+    maestro: { titulo: "Maestro de materiales", mag: "registros",
+               nota: "Materiales sin existencia: no hay stock que dar de baja. Lo que " +
+                     "se decide es qué pasa con el registro." },
+    traza: { titulo: "Identificación", mag: "unidades contadas",
+             nota: "Sin saber a qué código de SAP corresponde el ítem, no hay acción " +
+                   "posible: es lo primero." },
+    resuelto: { titulo: "Sin acción", mag: "",
+                nota: "Revisado y cerrado sin trabajo en SAP." },
+    fuera: { titulo: "Fuera del alcance", mag: "",
+             nota: "Indumentaria, equipamiento y repuestos." },
+  };
+
+  /* El resumen consolidado: qué hay que aplicar en SAP, con sus cantidades,
+     qué quedó sin decidir y qué está fuera del alcance. Es lo mismo que se ve
+     en la pantalla, se baja en el Excel y se imprime en el informe. */
+  function plan(lista) {
+    var casos = lista || D.casos.filter(enAlcance);
+    var pre = precios();
+    var bls = BLOQUES.map(function (b) {
+      return { id: b.id, titulo: b.titulo, nota: b.nota, n: 0, fams: [], _f: {} };
+    });
+    var porId = {};
+    bls.forEach(function (b) { porId[b.id] = b; });
+    var porBase = {}, codigos = {};
+
+    casos.forEach(function (c) {
+      var a = accionSap(c);
+      var meta = ACC[a.verbo] || { bloque: "nada", fam: "resuelto", i: 99 };
+      var b = porId[meta.bloque];
+      var fam = b._f[meta.fam] || (b._f[meta.fam] = {
+        id: meta.fam, titulo: FAMILIAS[meta.fam].titulo, mag: FAMILIAS[meta.fam].mag,
+        nota: FAMILIAS[meta.fam].nota, n: 0, contadas: 0, sap: 0, registros: 0,
+        importe: 0, sinImporte: 0, _a: {} });
+      var acc = fam._a[a.verbo] || (fam._a[a.verbo] = {
+        verbo: a.verbo, i: meta.i, seg: meta.seg, n: 0, contadas: 0, sap: 0,
+        registros: 0, importe: 0, sinImporte: 0, casos: [] });
+
+      var e = efectivo(c);
+      var cod = e.materiales[0] || c.material_sap || "";
+      var p = (typeof pre[cod] === "number" && isFinite(pre[cod])) ? pre[cod] : null;
+      /* Sólo lo que ya se decidió tiene impacto económico: una decisión que
+         todavía no se tomó no vale plata. Es el mismo criterio que economía(),
+         y por eso las dos cifras cierran entre sí. */
+      var vale = meta.bloque === "ejecutar" && a.un && a.mag !== "registro";
+      var imp = (vale && p !== null) ? a.un * p : null;
+
+      [b, fam, acc].forEach(function (x) { x.n++; });
+      [fam, acc].forEach(function (x) {
+        if (a.mag === "contadas") x.contadas += a.un;
+        if (a.mag === "sap") x.sap += a.un;
+        if (a.mag === "registro") x.registros += a.un;
+        if (imp === null) { if (vale) x.sinImporte++; } else x.importe += imp;
+      });
+      acc.casos.push({ c: c, a: a, cod: cod, importe: imp });
+      if (cod) codigos[cod] = 1;
+
+      var pb = porBase[c.base] || (porBase[c.base] = { ejecutar: 0, falta: 0, nada: 0, fuera: 0 });
+      pb[meta.bloque]++;
+    });
+
+    bls.forEach(function (b) {
+      b.fams = Object.keys(b._f).map(function (k) { return b._f[k]; });
+      b.fams.forEach(function (f) {
+        f.acciones = Object.keys(f._a).map(function (k) { return f._a[k]; })
+          .sort(function (x, y) { return x.i - y.i; });
+        f.i = f.acciones[0].i;
+        delete f._a;
+      });
+      b.fams.sort(function (x, y) { return x.i - y.i; });
+      delete b._f;
+    });
+
+    var decidibles = casos.filter(function (c) { return L(c) !== "E"; });
+    return { bloques: bls.filter(function (b) { return b.n > 0; }),
+             todos: bls, porBase: porBase,
+             casos: casos.length, materiales: Object.keys(codigos).length,
+             decidibles: decidibles.length,
+             falta: porId.falta.n, ejecutar: porId.ejecutar.n,
+             pct: decidibles.length
+               ? Math.round((decidibles.length - porId.falta.n) / decidibles.length * 100) : 0 };
+  }
+
   function pendiente(c) { return efectivo(c).aprobacion === "Sin decidir"; }
   /* La clase B se cierra en dos tiempos: primero se elige la alternativa, y si se eligió
      verificar el maestro, después se registra el resultado de esa verificación. Mientras
@@ -513,7 +855,8 @@ var App = (function () {
     /* Se retoma la pantalla de trabajo o el maestro, no cualquiera. Volver y
        aparecer en «Cómo se usa» o en el informe —que además se rearma entero—
        porque fue lo último que se abrió, desorienta más de lo que ayuda. */
-    if (ss.vista === "inicio" || ss.vista === "depurar") estado.vista = ss.vista;
+    if (ss.vista === "inicio" || ss.vista === "depurar" || ss.vista === "aplicar")
+      estado.vista = ss.vista;
     else estado.vista = "inicio";
     return true;
   }
@@ -522,7 +865,7 @@ var App = (function () {
   }
 
   // ------------------------------------------------------------- navegación
-  var VISTAS = ["inicio", "casos", "ficha", "depurar", "informe", "ayuda"];
+  var VISTAS = ["inicio", "casos", "ficha", "depurar", "aplicar", "informe", "ayuda"];
   function ir(vista, arg) {
     estado.vista = vista;
     VISTAS.forEach(function (v) {
@@ -536,6 +879,7 @@ var App = (function () {
     if (vista === "casos") pintarCasos();
     if (vista === "ficha") { if (arg) estado.fichaId = arg; pintarFicha(); }
     if (vista === "depurar") pintarMaestro();
+    if (vista === "aplicar") pintarAplicar();
     if (vista === "informe") document.getElementById("v-informe").innerHTML = Exportar.informeHtml();
     if (vista === "ayuda") pintarAyuda();
     guardarSesion();
@@ -700,7 +1044,7 @@ var App = (function () {
 
     // 6 · informe: se cierra cuando no queda nada pendiente.
     var e6 = { id: "informe", quien: "sistema", tit: "6 · El cierre",
-               det: "el informe con todo lo decidido y lo que queda",
+               det: "qué aplicar en SAP y el informe de lo decidido",
                hechos: listos === decidibles.length ? 1 : 0, total: 1 };
 
     var et = [e1, e2, e3, e4, e5, e6];
@@ -827,6 +1171,10 @@ var App = (function () {
       "se muestra a cuántos materiales, bases y almacenes alcanza.</li>" +
       "<li><b>Dejá las bajas para el final.</b> La lista se achica sola a medida que " +
       "resolvés los códigos: aprobarlas primero es el error más caro.</li>" +
+      "<li><b>Para ejecutar, andá a «Aplicar en SAP».</b> Ahí está el resumen de lo " +
+      "que se decidió, agrupado por lo que hay que hacer: qué crear, qué dar de baja, " +
+      "con qué cantidades, qué quedó sin decidir y qué está fuera del alcance. Es la " +
+      "misma información que la primera hoja del Excel.</li>" +
       "</ol>";
     h += '<div class="aviso info"><b>No hace falta terminar una etapa para pasar a la ' +
       "siguiente, y nada se pierde al cerrar.</b> El sistema guarda dónde quedaste —la " +
@@ -1012,8 +1360,10 @@ var App = (function () {
           : !lista.length && !s.hecho && !s.fuera && !sig
             ? '<p class="sub">No queda nada pendiente' +
               (estado.base ? " en " + esc(estado.base) : "") + ". " +
-              (estado.base ? "Probá con las otras bases o mirá el informe."
-                           : "El informe está listo para cerrar.") + "</p>"
+              "Lo que sigue ya no es decidir: es aplicarlo. El resumen de lo " +
+              "decidido —qué dar de alta, qué dar de baja y con qué cantidades— " +
+              'está en «Aplicar en SAP».</p>' +
+              '<button class="btn pri" id="bAplicar">Ver qué aplicar en SAP</button>'
             : "") +
         "</div>";
     } else {
@@ -1081,6 +1431,8 @@ var App = (function () {
       estado.modo = "bandeja"; guardarSesion(); pintarInicio(); });
     var b3 = el.querySelector("#bMaestroVer");
     if (b3) b3.addEventListener("click", function () { ir("depurar"); });
+    var b4 = el.querySelector("#bAplicar");
+    if (b4) b4.addEventListener("click", function () { ir("aplicar"); });
 
     var t = el.querySelector("#bfTexto");
     t.addEventListener("input", function (ev) {
@@ -3940,6 +4292,171 @@ var App = (function () {
                             : "Se descartaron las filas con stock distinto de cero." };
   }
 
+  // ------------------------------------------------------------- APLICAR
+  /* El resultado del trabajo, en una pantalla: qué se decidió y qué hay que
+     hacer con cada decisión en SAP. Las otras pantallas sirven para decidir;
+     ésta sirve para ejecutar. Sin ella, el que tiene que entrar a SAP tiene
+     que deducir de 1.991 casos qué le toca hacer. */
+  function cantidadesDe(x) {
+    var p = [];
+    if (x.contadas) p.push("<b>" + num(x.contadas) + "</b> unidades contadas");
+    if (x.sap) p.push("<b>" + num(x.sap) + "</b> unidades en SAP");
+    if (x.registros) p.push("<b>" + num(x.registros) + "</b> " +
+      (x.registros === 1 ? "registro del maestro" : "registros del maestro"));
+    return p.join(" · ");
+  }
+  /* El importe nunca se completa a ojo: lo que no tiene precio de última
+     compra se informa como pendiente de valorización, no como cero. */
+  function importeDe(x) {
+    var p = [];
+    if (x.importe) p.push("<b>" + pesos(x.importe) + "</b>");
+    if (x.sinImporte) p.push('<span class="mini">' + num(x.sinImporte) +
+      " sin importe de última compra</span>");
+    return p.join(" · ");
+  }
+
+  function pintarAplicar() {
+    var el = document.getElementById("v-aplicar");
+    var p = plan();
+    var h = '<section class="franja apcab">' +
+      '<div class="alc"><span class="k">Alcance</span><div class="alcbot">' +
+      '<button class="abot' + (estado.base ? "" : " on") + '" data-base="">Las tres bases</button>' +
+      D.meta.bases.map(function (b) {
+        return '<button class="abot' + (estado.base === b ? " on" : "") +
+          '" data-base="' + esc(b) + '">' + esc(b) + "</button>"; }).join("") +
+      "</div></div>" +
+      '<div class="inds">' +
+      ind("ok", num(p.ejecutar), "decisiones para aplicar en SAP") +
+      ind("pend", num(p.falta), "todavía sin decidir") +
+      ind("", num(p.casos), "casos en el alcance elegido") +
+      ind("", p.pct + "%", "decidido") +
+      "</div></section>";
+
+    h += '<div class="apintro"><h2>Qué hay que hacer en SAP</h2>' +
+      "<p>Esto es el resultado de las decisiones tomadas en «Trabajar», agrupadas por " +
+      "lo que hay que hacer con cada una. <b>El sistema no modifica SAP y nunca lo " +
+      "hizo:</b> es el pedido de trabajo para quien lo ejecute, y queda registrado " +
+      "quién decidió cada cosa.</p>" +
+      '<div class="aviso info"><b>Cómo leer las cantidades.</b> Las <b>unidades ' +
+      "contadas</b> son las del recuento en el depósito; las <b>unidades en SAP</b> son " +
+      "las que registra el sistema. Son dos recuentos distintos: van siempre separadas y " +
+      "no se suman. El maestro se cuenta en <b>registros</b>, no en unidades.</div></div>";
+
+    p.todos.forEach(function (b, i) {
+      h += '<section class="apbl ' + b.id + '"><header><span class="apn">' + (i + 1) +
+        "</span><div><h3>" + esc(b.titulo) + "</h3>" +
+        '<span class="apnota">' + esc(b.nota) + "</span></div>" +
+        '<span class="apcuenta">' + num(b.n) + " " +
+        (b.n === 1 ? "caso" : "casos") + "</span></header>";
+      if (!b.n) {
+        h += '<p class="apvacio">' + (b.id === "ejecutar"
+          ? "Todavía no hay ninguna decisión tomada que haya que aplicar en SAP."
+          : b.id === "falta" ? "No queda nada sin decidir en este alcance."
+          : "Ningún caso en este grupo.") + "</p></section>";
+        return;
+      }
+      b.fams.forEach(function (f) {
+        h += '<div class="apfam"><div class="apfamt"><b>' + esc(f.titulo) + "</b>" +
+          (f.mag ? '<span class="apmag">se mide en ' + esc(f.mag) + "</span>" : "") +
+          '<span class="apfamn">' + esc(f.nota) + "</span></div>";
+        f.acciones.forEach(function (a) {
+          var abierto = estado.apl[a.verbo];
+          h += '<div class="apacc' + (abierto ? " abierta" : "") + '">' +
+            '<div class="apfila">' +
+            '<span class="apverbo">' + esc(a.verbo.replace(/^PENDIENTE · /, "")) + "</span>" +
+            '<span class="apcasos">' + num(a.n) + " " + (a.n === 1 ? "caso" : "casos") + "</span>" +
+            '<span class="apcant">' + (cantidadesDe(a) || "—") + "</span>" +
+            '<span class="apimp">' + (importeDe(a) || "—") + "</span>" +
+            '<span class="apbot">' +
+            (a.seg ? '<button class="btn chico pri" data-apseg="' + esc(a.seg) +
+                     '">Decidirlos</button>' : "") +
+            '<button class="btn chico" data-apver="' + esc(a.verbo) + '">' +
+            (abierto ? "Ocultar" : "Ver el detalle") + "</button></span></div>";
+          if (abierto) h += detalleAccion(a);
+          h += "</div>";
+        });
+        h += "</div>";
+      });
+      h += "</section>";
+    });
+
+    /* El desglose por base: el que ejecuta en SAP trabaja por centro, así que
+       necesita saber cuánto le toca a cada uno. */
+    var bases = D.meta.bases.filter(function (b) { return p.porBase[b]; });
+    if (bases.length > 1) {
+      h += '<section class="apbl"><header><span class="apn">·</span><div>' +
+        "<h3>Cómo se reparte entre las bases</h3>" +
+        '<span class="apnota">Cada base se ejecuta en su centro de SAP.</span></div>' +
+        "</header><table class=\"apt\"><thead><tr><th>Base</th>" +
+        "<th class=\"n\">Para aplicar en SAP</th><th class=\"n\">Sin decidir</th>" +
+        "<th class=\"n\">Sin acción</th><th class=\"n\">Fuera del alcance</th>" +
+        "</tr></thead><tbody>" +
+        bases.map(function (b) {
+          var x = p.porBase[b];
+          return "<tr><td>" + esc(b) + '</td><td class="num">' + num(x.ejecutar) +
+            '</td><td class="num">' + num(x.falta) + '</td><td class="num">' + num(x.nada) +
+            '</td><td class="num">' + num(x.fuera) + "</td></tr>";
+        }).join("") + "</tbody></table></section>";
+    }
+
+    h += '<div class="apcierre"><p><b>El detalle completo, caso por caso, está en el ' +
+      "Excel.</b> La hoja «Aplicar en SAP» es este mismo resumen; la hoja «Qué hacer en " +
+      "SAP» trae una fila por caso con el código, la nomenclatura de los dos lados, el " +
+      "almacén, las cantidades y quién lo decidió.</p>" +
+      '<button class="btn pri" id="apExcel">Descargar el Excel</button>' +
+      '<button class="btn" id="apInforme">Ver el informe</button></div>';
+
+    el.innerHTML = h;
+    el.querySelectorAll("[data-base]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        estado.base = b.dataset.base; guardarSesion(); pintarAplicar(); }); });
+    el.querySelectorAll("[data-apver]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var k = b.dataset.apver;
+        if (estado.apl[k]) delete estado.apl[k]; else estado.apl[k] = 1;
+        pintarAplicar(); }); });
+    el.querySelectorAll("[data-apseg]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        estado.seg = b.dataset.apseg; estado.bpag = 1; estado.sel = {};
+        estado.bf.motivo = ""; estado.modo = "bandeja";
+        if (estado.seg === "depurar") return ir("depurar");
+        ir("inicio"); }); });
+    el.querySelectorAll("[data-apcaso]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        estado.volverA = "aplicar"; ir("ficha", b.dataset.apcaso); }); });
+    var bx = el.querySelector("#apExcel");
+    if (bx) bx.addEventListener("click", function () { Exportar.excel(); });
+    var bi = el.querySelector("#apInforme");
+    if (bi) bi.addEventListener("click", function () { ir("informe"); });
+  }
+
+  var TOPE_DET = 40;
+  function detalleAccion(a) {
+    var cs = a.casos.slice(0, TOPE_DET);
+    var h = '<div class="apdet"><table class="apt"><thead><tr>' +
+      "<th>Nº</th><th>Base</th><th>Código SAP</th><th>Material</th>" +
+      '<th class="num">Cantidad</th><th>Qué hacer</th><th></th>' +
+      "</tr></thead><tbody>";
+    cs.forEach(function (x) {
+      var c = x.c;
+      h += "<tr><td>" + num(c.n) + "</td><td>" + esc(c.base) + "</td><td>" +
+        esc(x.cod || "—") + "</td><td>" +
+        esc(c.nombre_fisico || c.texto_sap || "") + '</td><td class="num">' +
+        (x.a.un ? num(x.a.un) + ' <span class="mini">' +
+          (x.a.mag === "contadas" ? "contadas" : x.a.mag === "sap" ? "en SAP" : "registro") +
+          "</span>" : "—") +
+        "</td><td>" + esc(x.a.det) + "</td><td>" +
+        '<button class="enlace" data-apcaso="' + esc(c.id) + '">ver la ficha</button>' +
+        "</td></tr>";
+    });
+    h += "</tbody></table>";
+    if (a.casos.length > TOPE_DET)
+      h += '<p class="mini">Se muestran ' + TOPE_DET + " de " + num(a.casos.length) +
+        ". La lista completa está en el Excel, hoja «Qué hacer en SAP», " +
+        "filtrando esta misma acción en la primera columna.</p>";
+    return h + "</div>";
+  }
+
   // ------------------------------------------------------------- AYUDA
   function pintarAyuda() {
     document.getElementById("v-ayuda").innerHTML =
@@ -3950,7 +4467,7 @@ var App = (function () {
       'nombre y la fecha.</p></div>' +
       '<div class="bloque"><h3>El camino corto</h3><ol style="padding-left:19px;color:var(--tinta2)">' +
       "<li>Escribí tu nombre arriba, en <b>Revisor</b>.</li>" +
-      "<li>Andá a <b>Inicio</b>: ahí se trabaja. Arriba está la <b>hoja de ruta</b>, que dice " +
+      "<li>Andá a <b>Trabajar</b>: ahí se decide. Arriba está la <b>hoja de ruta</b>, que dice " +
       "en qué etapa está el proceso y cuál es el próximo paso.</li>" +
       "<li>Elegí el <b>alcance</b>: las tres bases o una sola. Todo lo de abajo lo respeta.</li>" +
       "<li>Elegí una <b>solapa</b> (son los siete grupos de siempre). Abajo aparece cada caso " +
@@ -3960,24 +4477,30 @@ var App = (function () {
       "de aplicar se muestra a qué materiales, bases y almacenes alcanza.</li>" +
       "<li>Cuando un caso tiene <b>varios códigos posibles</b>, el botón te lleva al modo de " +
       "a uno, que es donde se elige entre ellos y se declaran equivalencias.</li>" +
-      "<li>Al terminar, <b>Descargar Excel</b>: es tu respaldo y la forma de compartirlo.</li>" +
+      "<li>Cuando tengas decisiones tomadas, andá a <b>Aplicar en SAP</b>: ahí está el " +
+      "resumen de qué hay que hacer —qué crear, qué dar de baja, qué ajustar y qué mover— " +
+      "con las cantidades de cada cosa.</li>" +
+      "<li>Al terminar, <b>Excel ↓</b>: es tu respaldo y la forma de compartirlo.</li>" +
       "</ol></div>" +
       '<div class="bloque"><h3>Para qué es cada solapa de arriba</h3>' +
       '<table class="listalotes"><tbody>' +
-      '<tr><td style="white-space:nowrap"><b>Inicio</b></td><td>Donde se gestiona: estado del ' +
-      "análisis, filtros, decisiones de a una o en lote, por base o integral. Es el panel " +
-      "central; lo demás son apoyos.</td></tr>" +
-      '<tr><td style="white-space:nowrap"><b>Revisar</b></td><td>El modo de a uno: un caso por ' +
-      "pantalla, con el teclado. Sirve para avanzar rápido sobre un grupo entero y para los " +
-      "casos que necesitan elegir entre varios códigos.</td></tr>" +
+      '<tr><td style="white-space:nowrap"><b>Trabajar</b></td><td>Donde se decide: estado del ' +
+      "análisis, filtros, decisiones de a una o en lote, por base o integral. Tiene dos modos: " +
+      "la <b>bandeja</b>, para ver y decidir muchos, y el <b>modo de a uno</b>, un caso por " +
+      "pantalla con el teclado, para lo que necesita elegir entre varios códigos.</td></tr>" +
       '<tr><td style="white-space:nowrap"><b>Buscar</b></td><td>Encontrar un material puntual ' +
       "y ver su ficha. No es otro panel de gestión.</td></tr>" +
       '<tr><td style="white-space:nowrap"><b>Maestro</b></td><td>La administración del ' +
       "catálogo: el maestro general con los importes de última compra, las equivalencias " +
       "declaradas, el almacén propuesto para cada base y los materiales sin stock. " +
       "<b>No se deciden casos acá.</b></td></tr>" +
-      '<tr><td style="white-space:nowrap"><b>Informe</b></td><td>El informe ejecutivo, con el ' +
-      "estado actualizado. Se imprime o se guarda en PDF.</td></tr>" +
+      '<tr><td style="white-space:nowrap"><b>Aplicar en SAP</b></td><td>El resultado: qué ' +
+      "decisiones se tomaron y qué hay que hacer con cada una en SAP —qué dar de alta, qué " +
+      "dar de baja, qué ajustar, qué mover— con sus cantidades, más lo que todavía no se " +
+      "pudo decidir y lo que está fuera del alcance. <b>Es lo que se le pasa a quien ejecuta " +
+      "en SAP.</b></td></tr>" +
+      '<tr><td style="white-space:nowrap"><b>Informe</b></td><td>El informe explicativo, con ' +
+      "el estado actualizado. Contesta de cero qué es todo esto, y se guarda en PDF.</td></tr>" +
       "</tbody></table></div>" +
       '<div class="bloque"><h3>La hoja de ruta</h3>' +
       "<p>Seis etapas, en el orden en que conviene hacerlas. El avance <b>se calcula del " +
@@ -4342,5 +4865,8 @@ var App = (function () {
            precios: precios, maestroUnificado: maestroUnificado,
            resueltoPorAgrupacion: resueltoPorAgrupacion, equivPres: equivPres,
            grupos: grupos,
+           accionSap: accionSap, plan: plan, ACCIONES: ACCIONES, ACC: ACC,
+           FAMILIAS: FAMILIAS, EXPLICA: EXPLICA, BLOQUES: BLOQUES,
+           economia: economia,
            LETRA: LETRA, CORTO: CORTO };
 })();

@@ -91,9 +91,11 @@ def celdas(nombre):
         out.setdefault(row, {})[col] = val
     return out
 
-esperadas = ["Resumen", "Qué hacer en SAP", "Casos", "Maestro general", "Lotes",
-             "Decisiones", "Control"]
-ok(hojas == esperadas, "las 7 hojas, en orden", "%d hojas: %s" % (len(hojas), " · ".join(hojas)))
+esperadas = ["Aplicar en SAP", "Qué hacer en SAP", "Resumen", "Casos", "Maestro general",
+             "Lotes", "Decisiones", "Control"]
+ok(hojas == esperadas, "las 8 hojas, en orden", "%d hojas: %s" % (len(hojas), " · ".join(hojas)))
+ok(hojas[0] == "Aplicar en SAP",
+   "la primera hoja es el resumen de qué hay que hacer, no el tablero")
 
 res = celdas("Resumen")
 def buscar(etiqueta):
@@ -136,7 +138,38 @@ ok(cab_casos.get("O") == "Unidades CONTADAS en el depósito",
 ok(cab_casos.get("P") == "Unidades de STOCK EN SAP en esa base",
    "la columna P dice que son unidades de SAP")
 
-# La hoja que dice qué hacer: es la que reemplazó a las seis por clasificación.
+# La primera hoja: el resumen de las decisiones, que es lo que se lleva quien
+# tiene que ejecutar en SAP.
+apl = celdas("Aplicar en SAP")
+apl_txt = " \u2016 ".join(" | ".join(apl[n].get(c, "") for c in sorted(apl[n]))
+                          for n in sorted(apl))
+cab_apl = [apl[14].get(c, "") for c in ("A", "B", "C", "D", "E", "F", "G")]
+ok(cab_apl == ["Bloque", "Grupo", "Qué hacer en SAP", "Casos", "Unidades CONTADAS",
+               "Unidades en SAP", "Registros del maestro"],
+   "«Aplicar en SAP» separa las cantidades por magnitud", " | ".join(cab_apl))
+for bloque in ["Hay que hacerlo en SAP", "Todavía no se pudo decidir",
+               "Decidido, y no hay nada que hacer", "Fuera del alcance"]:
+    ok(bloque in apl_txt, "«Aplicar en SAP» trae el bloque «%s»" % bloque)
+ok("LAS CANTIDADES NO SE SUMAN ENTRE SÍ" in apl_txt,
+   "y advierte que las magnitudes no se suman entre sí")
+ok("CÓMO SE REPARTE ENTRE LAS BASES" in apl_txt,
+   "y reparte el trabajo por base, que es como se ejecuta en SAP")
+# La tabla del plan termina donde empieza el reparto por base.
+fin_apl = min([n for n in sorted(apl)
+               if apl[n].get("A", "").startswith("CÓMO SE REPARTE")] or [10 ** 6])
+filas_apl = [apl[n] for n in sorted(apl) if 14 < n < fin_apl and apl[n].get("C")]
+tot_apl = [f for f in filas_apl if str(f.get("C", "")).startswith("TOTAL")]
+ok(len(tot_apl) == 4, "cada bloque cierra con su total", "%d totales" % len(tot_apl))
+sum_apl = sum(int(float(f["D"])) for f in tot_apl if f.get("D"))
+ok(sum_apl == len(d["casos"]),
+   "los cuatro bloques suman los 1.991 casos y ninguno queda afuera", str(sum_apl))
+fuera_apl = [f for f in tot_apl if "Fuera del alcance" in str(f.get("C"))]
+ok(fuera_apl and int(float(fuera_apl[0]["D"])) == T["E"],
+   "lo que está fuera del alcance se cuenta aparte, no se mezcla")
+ok(all(f.get("J") for f in filas_apl if not str(f.get("C", "")).startswith("TOTAL")),
+   "cada acción explica en una frase qué significa exactamente")
+
+# La hoja que dice qué hacer con cada caso: es el detalle de la anterior.
 acc = celdas("Qué hacer en SAP")
 cab_acc = [acc[4].get(c, "") for c in ("A", "B", "C", "D", "E", "F")]
 ok(cab_acc[:5] == ["Qué hacer en SAP", "¿Falta decidirlo?", "Base", "Centro", "Almacén"],
@@ -249,8 +282,8 @@ paginas = txt.count("\f")
 crudo = subprocess.run(["pdftotext", PDF, "-"], capture_output=True,
                        check=True).stdout.decode("utf-8")
 plano = re.sub(r"\s+", " ", txt) + " \u2016 " + re.sub(r"\s+", " ", crudo)
-ok(paginas == 22, "22 páginas", str(paginas))
-ok(paginas < 30, "es un informe ejecutivo, no un listado")
+ok(paginas == 15, "15 páginas", str(paginas))
+ok(paginas <= 16, "es breve: contesta de cero sin volverse un listado")
 
 def miles(n):
     return "{:,}".format(int(n)).replace(",", ".")
@@ -268,11 +301,23 @@ ok("Detalle de los materiales identificados" not in txt,
    "el PDF ya no trae el listado de identificados")
 ok("Detalle de los materiales propuestos para baja" not in txt,
    "el PDF ya no trae el listado de bajas")
-ok("Dónde está el detalle" in txt, "el PDF dice dónde está el detalle")
+ok("Dónde está cada cosa" in txt, "el PDF dice dónde está cada cosa")
 
 for frase, titulo in [
     ("tres maneras de contar lo mismo", "el PDF fija el vocabulario antes de los resultados"),
-    ("no son la misma magnitud", "el PDF advierte que las unidades contadas y las de SAP no se suman"),
+    ("no se suman", "el PDF advierte que las unidades contadas y las de SAP no se suman"),
+    ("Esto, en una página", "el PDF abre con la página que se lee si no se lee ninguna otra"),
+    ("Las preguntas de siempre", "el PDF contesta las preguntas de quien no conoce el tema"),
+    ("¿Qué es SAP", "el PDF explica qué es SAP"),
+    ("centro es la base", "el PDF explica la diferencia entre centro y almacén"),
+    ("Una persona, caso por caso", "el PDF dice quién decide"),
+    ("Qué hay que aplicar en SAP", "el PDF trae el resumen de qué hay que aplicar en SAP"),
+    ("Hay que hacerlo en SAP", "con el bloque de lo que hay que ejecutar"),
+    ("Todavía no se pudo decidir", "el de lo que falta decidir"),
+    ("Fuera del alcance", "y el de lo que queda fuera del alcance"),
+    ("Cómo se reparte entre las bases", "y el reparto por base, que es como se ejecuta"),
+    ("Unidades contadas", "el PDF rotula las unidades contadas"),
+    ("Unidades en SAP", "y las unidades de SAP, por separado"),
     ("dos alternativas", "el PDF explica las dos alternativas de la clase B"),
     ("Código duplicado", "el PDF nombra el riesgo de código duplicado"),
     ("Depuración del maestro", "el PDF tiene la sección de depuración del maestro"),
@@ -288,12 +333,10 @@ for frase, titulo in [
      "el PDF explica el sentido «una del depósito = varios de SAP»"),
     ("Varias del depósito = uno de SAP",
      "el PDF explica el sentido «varias del depósito = uno de SAP»"),
-    ("no por el parecido del nombre",
+    ("no sale del parecido del nombre",
      "el PDF aclara que una equivalencia no se propone por el nombre"),
-    ("en qué almacén está su stock",
-     "el PDF dice que el almacén se ve donde se decide"),
-    ("la confirma una persona",
-     "el PDF deja claro que la equivalencia la confirma una persona"),
+    ("si ese stock está en el almacén que corresponde",
+     "el PDF separa identificación, existencia y ubicación"),
 ]:
     ok(frase.lower() in plano.lower(), titulo)
 
@@ -316,6 +359,22 @@ ok("Esta copia es para consultar" in h,
    "la copia explica dónde se decide")
 ok('data-vista="revisar"' not in h and ">Trabajar<" in h,
    "Inicio y Revisar son una sola pantalla")
+# La pantalla que contesta «y entonces qué hago»: sin ella hay que deducir de
+# 1.991 casos qué le toca a quien entra a SAP.
+ok('data-vista="aplicar"' in h and ">Aplicar en SAP<" in h,
+   "el sistema tiene la pantalla «Aplicar en SAP»")
+for frase, titulo in [
+    ("Hay que hacerlo en SAP", "con el bloque de lo decidido y listo para ejecutar"),
+    ("Todavía no se pudo decidir", "el de lo que nadie decidió todavía"),
+    ("Decidido, y no hay nada que hacer", "el de lo que se cerró sin tocar SAP"),
+    ("El inventario relevado es de Farmacia", "y el de lo que queda fuera del alcance"),
+    ("unidades contadas", "las cantidades del depósito van rotuladas"),
+    ("unidades en SAP", "y las de SAP, aparte"),
+    ("registros del maestro", "y el maestro se cuenta en registros, no en unidades"),
+    ("Cómo se reparte entre las bases", "y el trabajo se reparte por base"),
+    ("El sistema no modifica SAP", "y se dice que esto no modifica SAP"),
+]:
+    ok(frase.lower() in h.lower(), titulo)
 ap0 = io.open(RAIZ + "sistema/app.js", encoding="utf-8").read()
 sin_coment = re.sub(r"/\*[\s\S]*?\*/", "", re.sub(r"(?m)^\s*//.*$", "", ap0))
 ok("VER_REUSA" not in sin_coment and "reutiliza" not in sin_coment,

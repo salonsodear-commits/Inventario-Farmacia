@@ -15,6 +15,7 @@
     <button data-vista="inicio" aria-current="page">Trabajar</button>
     <button data-vista="casos">Buscar</button>
     <button data-vista="depurar">Maestro</button>
+    <button data-vista="aplicar">Aplicar en SAP</button>
     <button data-vista="informe">Informe</button>
     <button data-vista="ayuda">Cómo se usa</button>
   </nav>
@@ -23,8 +24,8 @@
     <div class="rev" id="cajaRevisor"><span>Revisor</span>
       <input type="text" id="revisor" placeholder="tu nombre"></div>
     <button class="btn chico" id="bActualizar" title="Traer lo que decidieron los demás">↻</button>
-    <button class="btn" id="bExcel">Descargar Excel</button>
-    <button class="btn" id="bPdf">Descargar PDF</button>
+    <button class="btn" id="bExcel" title="Descargar el Excel del análisis">Excel ↓</button>
+    <button class="btn" id="bPdf" title="Descargar el informe en PDF">PDF ↓</button>
     <button class="btn chico" id="bTema" title="Cambiar tema">◐</button>
   </div>
 </header>
@@ -37,6 +38,9 @@
   <section id="v-casos" class="oculto"></section>
   <section id="v-ficha" class="oculto"></section>
   <section id="v-depurar" class="oculto"></section>
+  <!-- El resultado del trabajo: qué decisiones se tomaron y qué hay que hacer
+       con cada una en SAP, con sus cantidades. -->
+  <section id="v-aplicar" class="oculto"></section>
   <section id="v-informe" class="oculto"></section>
   <section id="v-ayuda" class="oculto"></section>
 </main>

@@ -7,7 +7,9 @@
   --bg:#f5f5f3; --sup:#ffffff; --sup2:#f7f7f4; --sup3:#eeeeea;
   --linea:#e6e5e0; --linea2:#d5d4ce;
   --tinta:#13120f; --tinta2:#55534d; --tinta3:#8b8980;
-  --acento:#1F4E78; --acento2:#2a78d6; --acentoSuave:#eaf1fa;
+  /* El azul de los enlaces: #2a78d6 daba 4,42 sobre blanco, justo por debajo del
+     mínimo. Un punto más oscuro es el mismo azul y se lee. */
+  --acento:#1F4E78; --acento2:#2873cd; --acentoSuave:#eaf1fa;
   --cA:#1baf7a; --cB:#2a78d6; --cC:#eb6834; --cD:#6250d6; --cE:#9b9a94;
   --cA-f:#e6f6f0; --cB-f:#e9f1fc; --cC-f:#fdeee7; --cD-f:#eeecfb; --cE-f:#f0f0ed;
   --ok:#0f7f58; --alerta:#b8431f;
@@ -75,7 +77,11 @@ button,input,select,textarea{font:inherit;color:inherit}
   border:1px solid var(--linea);border-radius:9px;padding:0 4px 0 11px;height:36px}
 .rev span{font-size:11.5px;color:var(--tinta3);white-space:nowrap}
 .rev input{background:none;border:0;outline:none;width:118px;font-size:13.5px;padding:7px 4px}
-@media (max-width:1150px){
+/* Con seis solapas en el menú, la barra entera no entra en una pantalla de
+   portátil: por debajo de este ancho pasa a dos filas —el menú arriba y las
+   acciones abajo— en vez de desbordar a lo ancho, que obliga a scrollear de
+   costado para llegar al botón de descargar. */
+@media (max-width:1560px){
   .barra{height:auto;padding:10px 16px;flex-wrap:wrap}
   .der{width:100%;margin-left:0}
 }
@@ -869,7 +875,7 @@ tr.tot td{border-top:2px solid var(--linea2);font-weight:650}
   --bg:#f5f5f3; --sup:#ffffff; --sup2:#f7f7f4; --sup3:#eeeeea;
   --linea:#e6e5e0; --linea2:#d5d4ce;
   --tinta:#13120f; --tinta2:#55534d; --tinta3:#6b6960;
-  --acento:#1F4E78; --acento2:#2a78d6; --acentoSuave:#eaf1fa;
+  --acento:#1F4E78; --acento2:#2873cd; --acentoSuave:#eaf1fa;
   --cA:#1baf7a; --cB:#2a78d6; --cC:#eb6834; --cD:#6250d6; --cE:#9b9a94;
   --cA-f:#e6f6f0; --cB-f:#e9f1fc; --cC-f:#fdeee7; --cD-f:#eeecfb; --cE-f:#f0f0ed;
   --cA-t:#0e8a5e; --cB-t:#1b5fb0; --cC-t:#b84a18; --cD-t:#4a39b5; --cE-t:#6b6a64;
@@ -972,3 +978,81 @@ tr.tot td{border-top:2px solid var(--linea2);font-weight:650}
   color:var(--tinta2)}
 .guia li{margin-bottom:7px}
 .guia b{color:var(--tinta)}
+
+/* ===================== aplicar en SAP =====================
+   La pantalla del resultado: qué se decidió y qué hay que hacer con cada cosa
+   en SAP. Cuatro bloques, y dentro de cada uno las acciones con su cantidad.
+   El color del borde izquierdo distingue el bloque, pero nunca solo: cada uno
+   lleva su número y su título escritos. */
+.apintro{background:var(--sup);border:1px solid var(--linea);border-radius:var(--r);
+  padding:16px 18px;margin-bottom:14px;box-shadow:var(--s1)}
+.apintro h2{margin:0 0 6px;font-size:21px;letter-spacing:-.015em;
+  text-transform:none;color:var(--tinta);font-weight:700}
+.apintro p{margin:0 0 11px;font-size:13.5px;color:var(--tinta2);max-width:96ch;
+  line-height:1.6}
+.apintro .aviso{margin:0}
+
+.apbl{background:var(--sup);border:1px solid var(--linea);border-radius:var(--r);
+  padding:14px 16px;margin-bottom:12px;box-shadow:var(--s1);
+  border-left:3px solid var(--linea2)}
+.apbl.ejecutar{border-left-color:var(--cA)}
+.apbl.falta{border-left-color:var(--cD)}
+.apbl.nada{border-left-color:var(--linea2)}
+.apbl.fuera{border-left-color:var(--cE)}
+.apbl>header{display:flex;gap:11px;align-items:flex-start;margin-bottom:12px}
+.apbl h3{margin:0;font-size:16px;letter-spacing:-.01em}
+.apn{flex:none;width:23px;height:23px;border-radius:50%;background:var(--sup3);
+  color:var(--tinta2);display:grid;place-items:center;font-size:12px;font-weight:700}
+/* El número va sobre el tono fuerte, no sobre el color plano: sobre el plano
+   el texto queda por debajo del contraste mínimo en modo claro. */
+.apbl.ejecutar .apn{background:var(--cA-t);color:var(--sobreColor)}
+.apbl.falta .apn{background:var(--cD-t);color:var(--sobreColor)}
+.apnota{display:block;font-size:12px;color:var(--tinta3);line-height:1.5;
+  margin-top:2px;max-width:92ch}
+.apcuenta{margin-left:auto;font-size:13px;font-weight:650;color:var(--tinta2);
+  white-space:nowrap;font-variant-numeric:tabular-nums}
+.apvacio{margin:0;font-size:13px;color:var(--tinta3)}
+
+.apfam{border-top:1px solid var(--linea);padding-top:10px;margin-top:10px}
+.apfam:first-of-type{border-top:0;padding-top:0;margin-top:0}
+.apfamt{margin-bottom:7px}
+.apfamt b{font-size:13.5px}
+.apmag{font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--tinta3);font-weight:600;margin-left:8px}
+.apfamn{display:block;font-size:12px;color:var(--tinta3);line-height:1.5;
+  max-width:92ch;margin-top:1px}
+
+.apacc{background:var(--sup2);border:1px solid var(--linea);border-radius:var(--r2);
+  margin-bottom:6px}
+.apacc.abierta{border-color:var(--linea2)}
+.apfila{display:grid;grid-template-columns:minmax(190px,1.5fr) 92px minmax(160px,1fr)
+  minmax(120px,.8fr) auto;gap:12px;align-items:center;padding:10px 12px}
+.apverbo{font-size:13.5px;font-weight:600;line-height:1.35}
+.apcasos{font-size:13px;color:var(--tinta2);font-variant-numeric:tabular-nums;
+  white-space:nowrap}
+.apcant,.apimp{font-size:12.5px;color:var(--tinta2);line-height:1.4}
+.apcant b,.apimp b{font-variant-numeric:tabular-nums;color:var(--tinta)}
+.apbot{display:flex;gap:6px;justify-content:flex-end}
+/* El detalle sobre el fondo claro: sobre el gris de la fila, el enlace de
+   «ver la ficha» no llega al contraste mínimo. */
+.apdet{border-top:1px solid var(--linea);padding:2px 12px 10px;background:var(--sup);
+  border-radius:0 0 var(--r2) var(--r2)}
+.apdet .mini{margin:8px 0 0}
+table.apt{font-size:12.5px}
+table.apt thead th{position:static;cursor:default;background:transparent;
+  padding:8px 10px}
+table.apt th.num{text-align:right}
+table.apt tbody td{padding:8px 10px;vertical-align:top}
+table.apt tbody tr{cursor:default}
+table.apt tbody tr:hover{background:transparent}
+.apt .mini{display:block;margin:0}
+
+.apcierre{background:var(--sup);border:1px solid var(--linea);border-radius:var(--r);
+  padding:15px 17px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;
+  box-shadow:var(--s1)}
+.apcierre p{margin:0;flex:1;min-width:300px;font-size:13px;color:var(--tinta2);
+  line-height:1.55}
+@media (max-width:1000px){
+  .apfila{grid-template-columns:1fr;gap:5px}
+  .apbot{justify-content:flex-start;margin-top:4px}
+}
