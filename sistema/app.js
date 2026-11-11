@@ -49,38 +49,38 @@ var App = (function () {
   /* Las colas son el corazón de la herramienta: ordenan el trabajo por
      prioridad y cada una tiene su propia forma de decidirse. */
   var COLAS = [
-    { id: "revision", titulo: "Decidir a qué código de SAP corresponde", corto: "Decidir el código",
+    { id: "revision", que: "A qué material de SAP corresponde cada ítem contado. Sin eso, no se puede decidir nada más del caso.", titulo: "Decidir a qué código de SAP corresponde", corto: "Decidir el código",
       desc: "Es el trabajo principal y el que destraba el resto. Cada caso llega con el " +
             "candidato más probable y el motivo exacto por el que no se cerró solo. " +
             "Acá se decide QUÉ material es; dónde está su stock se ve después.",
       pred: function (c) { return L(c) === "D"; },
       porMotivo: true, lote: false, color: "D" },
-    { id: "altas", titulo: "No se encontró en el maestro: ¿se crea?", corto: "Crear en SAP",
+    { id: "altas", que: "Están en el depósito y ningún material del maestro les corresponde. ¿Se crean en SAP?", titulo: "No se encontró en el maestro: ¿se crea?", corto: "Crear en SAP",
       desc: "Están contados en el depósito y ningún material del maestro cargado les " +
             "corresponde. Lo que se decide acá es si se crea el material en SAP, y con qué " +
             "centro y almacén.",
       pred: function (c) { return L(c) === "B"; }, lote: true, color: "B" },
-    { id: "existencias", titulo: "Cargar en SAP existencia que falta", corto: "Ajustar el stock",
+    { id: "existencias", que: "El código existe y la mercadería está, pero SAP no registra existencia en esa base.", titulo: "Cargar en SAP existencia que falta", corto: "Ajustar el stock",
       desc: "El material existe en SAP y está identificado, pero SAP no registra existencia " +
             "en esa base. No es un alta: es un ajuste de stock, y tiene que cuadrar un " +
             "almacén concreto.",
       pred: function (c) { return L(c) === "A" && sinStock(c); }, lote: true, color: "A" },
-    { id: "identificados", titulo: "Confirmar las correspondencias encontradas", corto: "Confirmar el código",
+    { id: "identificados", que: "El análisis ya les encontró el código y lo verificó. Falta que una persona lo confirme.", titulo: "Confirmar las correspondencias encontradas", corto: "Confirmar el código",
       desc: "El análisis ya les encontró el código y lo verificó por nomenclatura y " +
             "características. Sólo falta que una persona lo confirme, o corrija el que no " +
             "corresponda.",
       pred: function (c) { return L(c) === "A" && !sinStock(c); }, lote: true, color: "A" },
-    { id: "almacenes", titulo: "Dónde está el stock: el almacén", corto: "Dónde está el stock",
+    { id: "almacenes", que: "El material está bien identificado; lo que no corresponde es el almacén donde figura.", titulo: "Dónde está el stock: el almacén", corto: "Dónde está el stock",
       desc: "El material está bien identificado; lo que no coincide es el almacén donde SAP " +
             "registra su stock. Detectar la diferencia y decidir cambiarla son dos cosas " +
             "distintas: acá se decide, de a una.",
       pred: function (c) { return c.almacen_estado === AL_CAMB || c.almacen_estado === AL_MULT; },
       lote: false, color: "D", esAlmacen: true },
-    { id: "depurar", titulo: "Materiales del maestro sin existencia", corto: "Maestro en cero",
+    { id: "depurar", que: "Materiales con existencia cero. No hay stock que dar de baja: se decide el registro.", titulo: "Materiales del maestro sin existencia", corto: "Maestro en cero",
       desc: "Están en el maestro con existencia CERO. No hay stock que dar de baja: lo que " +
             "se decide es qué pasa con el registro —se mantiene, se bloquea o se da de baja—.",
       pred: function (c) { return L(c) === "F"; }, lote: true, color: "E" },
-    { id: "bajas", titulo: "Dar de baja lo que no se encontró", corto: "Dar de baja",
+    { id: "bajas", que: "SAP registra stock en esa base y ningún inventario lo encontró. Van últimas.", titulo: "Dar de baja lo que no se encontró", corto: "Dar de baja",
       desc: "SAP registra stock en esa base y ningún inventario físico lo identificó. " +
             "Aprobar significa proponer la baja, no ejecutarla. Conviene dejarlo para el " +
             "final: la lista se achica a medida que se resuelven los códigos.",
@@ -284,6 +284,30 @@ var App = (function () {
     });
     r.materiales = Object.keys(mats).length;
     return r;
+  }
+
+  /* Un color por base. El índice sale del orden del análisis, no del
+     alfabético, y es el mismo en la pantalla, en el Excel y en el informe: el
+     color tiene que significar lo mismo en los tres lados. Nunca va solo —el
+     nombre se escribe siempre al lado—, porque un color no se recuerda; lo que
+     resuelve es encontrar de un vistazo lo de cada base en una lista larga. */
+  function nBase(b) {
+    var i = D.meta.bases.indexOf(b);
+    return i >= 0 ? i + 1 : 0;
+  }
+  /* Quién decidió, cuando hay quién. El almacén guarda «(sin identificar)» si
+     nadie escribió su nombre, y eso pegado a «Correspondencia confirmada» se
+     lee como si lo que faltara identificar fuera el material. */
+  var SIN_FIRMA = "(sin identificar)";
+  function quienDecidio(e) {
+    return e.revisor && e.revisor !== SIN_FIRMA ? e.revisor : "";
+  }
+
+  function chipBase(b) {
+    return '<span class="bs bs' + nBase(b) + '"><i></i>' + esc(b) + "</span>";
+  }
+  function puntoBase(b) {
+    return '<span class="bsp bs' + nBase(b) + '"><i></i>' + esc(b) + "</span>";
   }
 
   function ubicacionDe(base, material) {
@@ -951,17 +975,22 @@ var App = (function () {
     var out = COLAS.map(function (q, i) {
       var todos = deCola(q.id).filter(enAlcance);
       return { id: q.id, q: q, n: String(i + 1), titulo: q.titulo, corto: q.corto,
+               que: q.que,
                pend: todos.filter(function (c) { return pendienteCola(c, q); }).length,
                total: todos.length, color: q.color };
     });
     var dec = D.casos.filter(function (c) {
       return enAlcance(c) && L(c) !== "E" && !pendiente(c); });
     out.push({ id: SEG_HECHO, n: "✓", titulo: "Ya decididos", corto: "Ya decididos",
+               que: "Casos con la decisión tomada. Dicen qué hay que hacer con cada uno " +
+                    "en SAP, y se pueden cambiar.",
                pend: dec.length, total: dec.length, color: "A", hecho: true });
     var fuera = D.casos.filter(function (c) { return enAlcance(c) && L(c) === "E"; });
     out.push({ id: SEG_FUERA, n: "—", titulo: "Sin acción · fuera del alcance",
-               corto: "Fuera del alcance", pend: fuera.length, total: fuera.length,
-               color: "E", fuera: true });
+               corto: "Fuera del alcance",
+               que: "Indumentaria, equipamiento y repuestos. El inventario es de Farmacia: " +
+                    "de su ausencia no se concluye nada.",
+               pend: fuera.length, total: fuera.length, color: "E", fuera: true });
     return out;
   }
   function segPor(id) {
@@ -1234,38 +1263,68 @@ var App = (function () {
       '<div class="alcbot">' +
       '<button class="abot' + (estado.base ? "" : " on") + '" data-base="">Las tres bases</button>' +
       D.meta.bases.map(function (b) {
-        return '<button class="abot' + (estado.base === b ? " on" : "") +
-          '" data-base="' + esc(b) + '">' + esc(b) + "</button>"; }).join("") +
+        return '<button class="abot bs bs' + nBase(b) + (estado.base === b ? " on" : "") +
+          '" data-base="' + esc(b) + '"><i></i>' + esc(b) + "</button>"; }).join("") +
       "</div></div>";
-    h += '<div class="inds">' +
-      ind("pend", num(pend), "pendientes de decisión") +
-      ind("ok", num(hechos), "ya decididos") +
-      ind("", num(fuera), "fuera del alcance") +
+    var ex = explicaVisible();
+    h += '<div class="inds' + (ex ? " conq" : "") + '">' +
+      ind("pend", num(pend), "pendientes de decisión",
+          "Casos que esperan que alguien decida.") +
+      ind("ok", num(hechos), "ya decididos",
+          "Con la decisión tomada y lista para aplicar en SAP.") +
+      ind("", num(fuera), "fuera del alcance",
+          "No son de Farmacia: no se concluye nada.") +
       ind("", (decidibles.length ? Math.round(hechos / decidibles.length * 100) : 0) + "%",
-          "avance del alcance elegido") +
+          "avance", "Sobre los casos que requieren una decisión.") +
       "</div></section>";
 
-    /* Los grupos, agrupados por la etapa a la que pertenecen. */
-    function fila(etapa, titulo) {
-      var ss = segs.filter(function (x) { return ETAPA_DE[x.id] === etapa; });
-      return '<div class="segfila"><span class="segeta">' + esc(titulo) + "</span>" +
-        '<div class="segs">' + ss.map(chipSeg).join("") + "</div></div>";
+    /* Los grupos, agrupados por la etapa a la que pertenecen. Son tarjetas y
+       no píldoras porque una píldora que dice «Dar de baja 359» obliga a
+       adivinar qué es dar de baja y por qué hay 359. */
+    function fila(etapa, titulo, sub, ss) {
+      ss = ss || segs.filter(function (x) { return ETAPA_DE[x.id] === etapa; });
+      return '<div class="segfila"><div class="segeta"><b>' + esc(titulo) + "</b>" +
+        (ex && sub ? "<span>" + esc(sub) + "</span>" : "") + "</div>" +
+        '<div class="segs">' + ss.map(tarjetaSeg).join("") + "</div></div>";
     }
-    function chipSeg(x) {
+    function tarjetaSeg(x) {
       return '<button class="seg' + (x.id === estado.seg ? " on" : "") +
         (x.pend ? "" : " vacio") + '" data-seg="' + esc(x.id) +
-        '" style="--cc:var(--c' + x.color + ');--cct:var(--c' + x.color + '-t)">' +
+        '" style="--cc:var(--c' + x.color + ');--cct:var(--c' + x.color +
+        '-t);--ccf:var(--c' + x.color + '-f)">' +
         '<span class="segt">' + esc(x.corto) + "</span>" +
-        '<span class="segc">' + num(x.pend) + "</span></button>";
+        '<span class="segc">' + num(x.pend) + "</span>" +
+        (ex && x.que ? '<span class="segq">' + esc(x.que) + "</span>" : "") +
+        "</button>";
     }
     h += '<nav class="segzona" aria-label="Qué hay que decidir">' +
-      fila("traza", "Etapa 2 · Qué es cada cosa") +
-      fila("decidir", "Etapa 4 · Qué se hace") +
-      '<div class="segfila"><span class="segeta">Lo que ya no requiere decisión</span>' +
-      '<div class="segs">' + segs.filter(function (x) { return x.hecho || x.fuera; })
-        .map(chipSeg).join("") + "</div></div>" +
+      '<div class="segtop"><h2>En qué trabajar</h2>' +
+      '<button class="btn chico" id="bExplica">' +
+      (ex ? "Ocultar las explicaciones" : "Mostrar qué es cada cosa") + "</button></div>" +
+      fila("traza", "Etapa 2 · Qué es cada cosa",
+           "Primero hay que saber a qué material de SAP corresponde cada ítem: hasta " +
+           "que eso no esté, el resto no se puede decidir.") +
+      fila("decidir", "Etapa 4 · Qué se hace",
+           "Con el código ya decidido, qué hacer con el stock: ajustarlo, moverlo de " +
+           "almacén, limpiar el maestro o darlo de baja.") +
+      fila(null, "Lo que ya no requiere decisión",
+           "Está acá para que se vea que se lo miró, no para hacer algo con ello.",
+           segs.filter(function (x) { return x.hecho || x.fuera; })) +
       "</nav>";
     return h;
+  }
+
+  /* Las explicaciones de los grupos: se leen la primera semana y después
+     estorban. Por eso se pueden apagar, y quedan apagadas. */
+  function explicaVisible() {
+    try { return localStorage.getItem("invsap.explica.v1") !== "no"; }
+    catch (e) { return true; }
+  }
+  function alternarExplica() {
+    try {
+      localStorage.setItem("invsap.explica.v1", explicaVisible() ? "no" : "si");
+    } catch (e) { void e; }
+    pintarInicio();
   }
 
   function cablearCabecera(el) {
@@ -1279,6 +1338,8 @@ var App = (function () {
         estado.bf.motivo = ""; estado.modo = "bandeja"; guardarSesion(); pintarInicio(); }); });
     var rg = el.querySelector("#rGuia");
     if (rg) rg.addEventListener("click", modalGuia);
+    var bx = el.querySelector("#bExplica");
+    if (bx) bx.addEventListener("click", alternarExplica);
     var rs = el.querySelector("#rSig");
     if (rs) rs.addEventListener("click", function () {
       var pa = proximaAccion(); if (!pa) return;
@@ -1292,13 +1353,17 @@ var App = (function () {
     // ---- cabecera del segmento: qué es y cómo se trabaja
     var lista = bandeja();
     var pq = PORQUE[s.id];
+    /* La explicación larga y el porqué del orden se apagan con el mismo
+       interruptor que las de las tarjetas: con las tres encendidas a la vez
+       hay tres explicaciones del mismo grupo apiladas. */
+    var ex = explicaVisible();
     var h = '<section class="segcab"><div><h1>' + esc(s.titulo) + "</h1>" +
-      '<p class="sub">' + esc(s.q ? s.q.desc : s.fuera
+      (ex ? '<p class="sub">' + esc(s.q ? s.q.desc : s.fuera
         ? "Indumentaria, equipamiento y repuestos. El inventario relevado es de Farmacia, " +
           "así que nunca iban a aparecer: su ausencia no prueba nada y no se propone ninguna baja."
-        : "Casos que ya tienen una decisión tomada. Se pueden revisar y cambiar.") + "</p>" +
-      (pq ? '<p class="segpq"><span class="k">Por qué este grupo ahora</span>' + esc(pq.ahora) +
-            ' <b>' + esc(pq.destraba) + "</b></p>" : "") + "</div>" +
+        : "Casos que ya tienen una decisión tomada. Se pueden revisar y cambiar.") + "</p>" : "") +
+      (ex && pq ? '<p class="segpq"><span class="k">Por qué este grupo ahora</span>' +
+            esc(pq.ahora) + ' <b>' + esc(pq.destraba) + "</b></p>" : "") + "</div>" +
       '<div class="segacc">' +
       (s.q && !s.fuera && !s.hecho && s.pend
         ? '<button class="btn pri" id="bUnoAUno">Verlos de a uno</button>' : "") +
@@ -1387,8 +1452,10 @@ var App = (function () {
     cablearBandeja(el, s, lista, idsSeg);
   }
 
-  function ind(cls, n, txt) {
-    return '<div class="indi ' + cls + '"><b>' + n + "</b><span>" + esc(txt) + "</span></div>";
+  function ind(cls, n, txt, que) {
+    return '<div class="indi ' + cls + '"><b>' + n + "</b><span>" + esc(txt) + "</span>" +
+      (que && explicaVisible() ? '<span class="indq">' + esc(que) + "</span>" : "") +
+      "</div>";
   }
 
   /* Qué decisiones se pueden aplicar en lote dentro de cada segmento. Son las
@@ -1675,9 +1742,15 @@ var App = (function () {
       case SEG_FUERA:
         preg = "No requiere ninguna decisión dentro de este análisis.";
         break;
+      case SEG_HECHO:
+        /* Lo que se decidió, y nada más. El nombre de quien decidió va abajo,
+           con su rótulo: acá, pegado a la decisión, se leía como parte de
+           ella. */
+        preg = "Lo decidido: " + esc(e.aprobacion).toLowerCase() + ".";
+        bt("re", "Cambiar la decisión");
+        break;
       default:
-        preg = "Decidido: " + esc(e.aprobacion) +
-               (e.revisor ? " · " + esc(e.revisor) : "");
+        preg = "Lo decidido: " + esc(e.aprobacion).toLowerCase() + ".";
         bt("re", "Cambiar la decisión");
     }
     return { preg: preg, botones: b.join("") };
@@ -1718,7 +1791,7 @@ var App = (function () {
       '<b class="tjnom">' + esc(c.nombre_fisico || c.texto_sap || "—") + "</b>" +
       '<span class="et ' + l + '"><i class="pt" style="background:var(--c' + l + ')"></i>' +
       l + " · " + CORTO[l] + "</span>" +
-      '<span class="tjb">' + esc(c.base) + " · " + esc(c.tipo || "—") + "</span>" +
+      chipBase(c.base) + '<span class="tjb">' + esc(c.tipo || "—") + "</span>" +
       (e.observaciones ? '<span class="tjobs" title="' + esc(e.observaciones) + '">con observación</span>' : "") +
       "</header>";
     var conAlm = seg === "almacenes" || seg === "existencias" || seg === "bajas" ||
@@ -1726,12 +1799,29 @@ var App = (function () {
     h += '<div class="fuentes">' + bloqueFisico(c) + bloqueSap(c, e, conAlm) + "</div>";
     h += '<p class="tjpor"><span class="k">Por qué aparece acá</span>' + esc(porQue(c, seg)) + "</p>";
     if (py.preg) h += '<p class="tjpreg">' + esc(py.preg) + "</p>";
+    /* En una tarjeta ya decidida, lo que importa después de la decisión es qué
+       queda para hacer en SAP, y si todavía falta decidir otra cosa del mismo
+       caso —el almacén, el ajuste—, que es por lo que un caso «ya decidido»
+       puede seguir apareciendo en otro grupo. Va antes del botón: primero se
+       lee, después se cambia. */
+    if (seg === SEG_HECHO) {
+      var ac = accionSap(c);
+      h += '<p class="tjsap' + (ac.pend ? " pend" : "") + '"><span class="k">' +
+        (ac.pend ? "Todavía falta" : "Qué hay que hacer en SAP") + "</span>" +
+        esc(ac.pend ? ac.verbo.replace(/^PENDIENTE · /, "") + ": " + ac.det : ac.det) +
+        "</p>";
+    }
     h += '<div class="tjacc">' + py.botones +
       '<button class="btn chico fant" data-detalle="' + esc(c.id) + '">Ver el detalle completo</button>' +
       "</div>";
-    if (seg === SEG_HECHO && e.historial.length) {
-      h += '<p class="tjhist">' + esc(e.historial[e.historial.length - 1].que) +
-        " · " + esc(e.revisor || "—") + " · " + esc(fecha(e.actualizado)) + "</p>";
+    /* La firma, sin repetir qué se decidió: eso ya está arriba, en «por qué
+       aparece acá». */
+    if (seg === SEG_HECHO && e.actualizado) {
+      var q = quienDecidio(e);
+      h += '<p class="tjhist">' +
+        (q ? "Lo decidió " + esc(q) : '<b class="sinfirma">Sin firmar</b>: no quedó ' +
+             "registrado quién (escribí tu nombre arriba antes de decidir)") +
+        " · " + esc(fecha(e.actualizado)) + "</p>";
     }
     h += "</div></article>";
     return h;
@@ -2493,7 +2583,7 @@ var App = (function () {
       h += panelDestino(c, e);
     } else if (et === "verificacion") {
       h += '<div class="rok">✓ <b>Se consulta en SAP antes de crear</b> · ' +
-        esc(e.revisor || "sin identificar") +
+        (quienDecidio(e) ? "lo decidió " + esc(quienDecidio(e)) : "sin firmar") +
         (e.actualizado ? " · " + esc(fecha(e.actualizado)) : "") +
         ". Falta el resultado de la consulta.</div>";
       h += '<div class="rres"><span class="k">¿Qué dijo SAP?</span>' +
@@ -2981,7 +3071,7 @@ var App = (function () {
         '<td><span class="et ' + l + '"><i class="pt" style="background:var(--c' + l + ')"></i>' +
           l + " · " + CORTO[l] + "</span>" +
           (c.motivo ? '<div class="mini">' + esc(c.motivo) + "</div>" : "") + "</td>" +
-        "<td>" + esc(c.base) + '<div class="mini">' + esc(c.tipo) + "</div></td>" +
+        "<td>" + puntoBase(c.base) + '<div class="mini">' + esc(c.tipo) + "</div></td>" +
         '<td class="cfis">' + (c.nombre_fisico
             ? "<b>" + esc(c.nombre_fisico) + "</b><div class=\"mini\">" +
               esc(c.sistema_origen) + (c.codigo_fisico ? " · " + esc(c.codigo_fisico) : "") + "</div>"
@@ -3100,7 +3190,7 @@ var App = (function () {
       '<button class="btn chico" id="bVolver">← Volver</button></div>';
     h += "<h1>" + esc(c.nombre_fisico || c.texto_sap) + "</h1>" +
       '<p class="sub"><span class="et ' + l + '"><i class="pt" style="background:var(--c' + l + ')"></i>' +
-      l + " · " + CORTO[l] + "</span> &nbsp; " + esc(c.base) + " · " + esc(c.tipo) +
+      l + " · " + CORTO[l] + "</span> &nbsp; " + chipBase(c.base) + " · " + esc(c.tipo) +
       (c.motivo ? " · " + esc(c.motivo) : "") + "</p>";
 
     h += '<div class="ficha"><div>';
@@ -3197,7 +3287,9 @@ var App = (function () {
     h += "</div><div>";
     h += '<div class="bloque"><h3>Decisión</h3><div class="campos" style="margin-bottom:13px">' +
       campo("Estado de revisión", e.estado_revision) + campo("Decisión", e.aprobacion) +
-      (e.revisor ? campo("Último cambio", e.revisor + " · " + fecha(e.actualizado)) : "") + "</div>";
+      (e.actualizado ? campo("Último cambio",
+        (quienDecidio(e) ? "lo decidió " + quienDecidio(e) : "sin firmar: no quedó " +
+         "registrado quién") + " · " + fecha(e.actualizado)) : "") + "</div>";
     h += '<div class="acciones"><div class="grupo">' +
       (l === "A" || l === "D"
         ? '<button class="btn ok" data-acc="confirmar">Confirmar correspondencia</button>'
@@ -3255,7 +3347,8 @@ var App = (function () {
       "</div>";
     h += '<div style="margin-top:12px"><span class="et ' + cl + '">' +
       '<i class="pt" style="background:var(--c' + cl + ')"></i>' + esc(est || "—") + "</span>" +
-      (e.almacen_decidido ? ' <span class="mini">· decidido por ' + esc(e.revisor || "—") + "</span>" : "") +
+      (e.almacen_decidido ? ' <span class="mini">· ' +
+        (quienDecidio(e) ? "lo decidió " + esc(quienDecidio(e)) : "sin firmar") + "</span>" : "") +
       "</div>";
     if (e.almacen_decidido) {
       h += '<div class="just" style="margin-top:11px"><b>Decisión registrada:</b> ' +
@@ -4074,7 +4167,7 @@ var App = (function () {
         h += '<tr data-ficha="' + esc(c.id) + '" class="clic"><td><b>' +
           esc(c.nombre_fisico || c.texto_sap || "—") + "</b>" +
           '<div class="mini">' + esc(c.tipo) + "</div></td>" +
-          "<td>" + esc(c.base) + "</td>" +
+          "<td>" + puntoBase(c.base) + "</td>" +
           "<td>" + esc(e.verificacion || e.ruta_b || "—") +
           (e.riesgo_duplicado ? '<div class="mini exc">riesgo de duplicado ' +
             esc(e.riesgo_duplicado.toLowerCase()) + "</div>" : "") + "</td>" +
@@ -4322,8 +4415,8 @@ var App = (function () {
       '<div class="alc"><span class="k">Alcance</span><div class="alcbot">' +
       '<button class="abot' + (estado.base ? "" : " on") + '" data-base="">Las tres bases</button>' +
       D.meta.bases.map(function (b) {
-        return '<button class="abot' + (estado.base === b ? " on" : "") +
-          '" data-base="' + esc(b) + '">' + esc(b) + "</button>"; }).join("") +
+        return '<button class="abot bs bs' + nBase(b) + (estado.base === b ? " on" : "") +
+          '" data-base="' + esc(b) + '"><i></i>' + esc(b) + "</button>"; }).join("") +
       "</div></div>" +
       '<div class="inds">' +
       ind("ok", num(p.ejecutar), "decisiones para aplicar en SAP") +
@@ -4393,7 +4486,7 @@ var App = (function () {
         "</tr></thead><tbody>" +
         bases.map(function (b) {
           var x = p.porBase[b];
-          return "<tr><td>" + esc(b) + '</td><td class="num">' + num(x.ejecutar) +
+          return "<tr><td>" + puntoBase(b) + '</td><td class="num">' + num(x.ejecutar) +
             '</td><td class="num">' + num(x.falta) + '</td><td class="num">' + num(x.nada) +
             '</td><td class="num">' + num(x.fuera) + "</td></tr>";
         }).join("") + "</tbody></table></section>";
@@ -4439,7 +4532,7 @@ var App = (function () {
       "</tr></thead><tbody>";
     cs.forEach(function (x) {
       var c = x.c;
-      h += "<tr><td>" + num(c.n) + "</td><td>" + esc(c.base) + "</td><td>" +
+      h += "<tr><td>" + num(c.n) + "</td><td>" + puntoBase(c.base) + "</td><td>" +
         esc(x.cod || "—") + "</td><td>" +
         esc(c.nombre_fisico || c.texto_sap || "") + '</td><td class="num">' +
         (x.a.un ? num(x.a.un) + ' <span class="mini">' +

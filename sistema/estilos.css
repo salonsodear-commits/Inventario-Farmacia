@@ -13,6 +13,13 @@
   --cA:#1baf7a; --cB:#2a78d6; --cC:#eb6834; --cD:#6250d6; --cE:#9b9a94;
   --cA-f:#e6f6f0; --cB-f:#e9f1fc; --cC-f:#fdeee7; --cD-f:#eeecfb; --cE-f:#f0f0ed;
   --ok:#0f7f58; --alerta:#b8431f;
+  /* Un color por base. No reemplaza al nombre —que va siempre escrito al
+     lado—: sirve para encontrar de un vistazo lo de cada base en una lista
+     larga. Los tres tonos están medidos sobre su propio relleno y sobre las
+     dos superficies, en los dos temas. */
+  --bs1:#0b6a72; --bs1-f:#e1f1f2;
+  --bs2:#8a3f9e; --bs2-f:#f4e9f8;
+  --bs3:#8a5a0b; --bs3-f:#f8efdd;
   --r:14px; --r2:10px;
   --s1:0 1px 2px rgba(20,18,12,.05);
   --s2:0 1px 3px rgba(20,18,12,.06), 0 8px 24px -12px rgba(20,18,12,.14);
@@ -27,6 +34,9 @@
     --cA:#199e70; --cB:#3987e5; --cC:#d95926; --cD:#9085e9; --cE:#6f6e68;
     --cA-f:#12302a; --cB-f:#13263a; --cC-f:#331f0f; --cD-f:#232036; --cE-f:#26262a;
     --ok:#49c49a; --alerta:#f08359;
+    --bs1:#5cc4cd; --bs1-f:#0e2b2e;
+    --bs2:#cb9ae4; --bs2-f:#2a1b33;
+    --bs3:#dda64c; --bs3-f:#332713;
     --s1:0 1px 2px rgba(0,0,0,.4); --s2:0 1px 3px rgba(0,0,0,.45),0 8px 24px -12px rgba(0,0,0,.6);
     --s3:0 24px 70px -18px rgba(0,0,0,.8);
   }
@@ -39,6 +49,9 @@
   --cA:#199e70; --cB:#3987e5; --cC:#d95926; --cD:#9085e9; --cE:#6f6e68;
   --cA-f:#12302a; --cB-f:#13263a; --cC-f:#331f0f; --cD-f:#232036; --cE-f:#26262a;
   --ok:#49c49a; --alerta:#f08359;
+  --bs1:#5cc4cd; --bs1-f:#0e2b2e;
+  --bs2:#cb9ae4; --bs2-f:#2a1b33;
+  --bs3:#dda64c; --bs3-f:#332713;
   --s1:0 1px 2px rgba(0,0,0,.4); --s2:0 1px 3px rgba(0,0,0,.45),0 8px 24px -12px rgba(0,0,0,.6);
   --s3:0 24px 70px -18px rgba(0,0,0,.8);
 }
@@ -698,20 +711,29 @@ tr.clic:hover{background:var(--sup2)}
 .indi span{font-size:11px;color:var(--tinta3)}
 .indi.pend b{color:var(--cD)} .indi.ok b{color:var(--ok)}
 
-/* ---- solapas de segmento ---- */
-.segs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
-.seg{display:flex;align-items:center;gap:8px;background:var(--sup);
-  border:1px solid var(--linea);border-radius:99px;padding:7px 14px 7px 8px;
-  cursor:pointer;font-size:13px;color:var(--tinta2);font-weight:500}
-.seg:hover{border-color:var(--tinta3)}
-.seg.on{border-color:var(--cc);background:var(--sup);box-shadow:0 0 0 2px var(--cc) inset,
-  var(--s1);color:var(--tinta);font-weight:650}
-.seg.vacio{opacity:.55}
+/* ---- los grupos de trabajo, como tarjetas ----
+   Eran píldoras con un número al lado: ocupaban poco y no decían nada. Una
+   píldora que dice «Dar de baja 359» obliga a adivinar qué es «dar de baja» y
+   por qué hay 359. La tarjeta dice el nombre, la cuenta y, si se quiere, una
+   línea de qué es cada cosa. */
+.segs{display:grid;grid-template-columns:repeat(auto-fill,minmax(238px,1fr));
+  gap:8px;margin-bottom:14px}
+.seg{display:block;text-align:left;position:relative;background:var(--sup);
+  border:1px solid var(--linea);border-left:3px solid var(--cc);
+  border-radius:var(--r2);padding:11px 13px;cursor:pointer;color:var(--tinta2)}
+.seg:hover{border-color:var(--linea2);border-left-color:var(--cc);box-shadow:var(--s1)}
+.seg.on{border-color:var(--cc);background:var(--ccf);box-shadow:0 0 0 1px var(--cc)}
+.seg.vacio{opacity:.62}
+.segt{display:block;font-size:13.5px;font-weight:650;color:var(--tinta);
+  line-height:1.3;padding-right:52px}
+.segq{display:block;font-size:11.5px;color:var(--tinta3);line-height:1.45;
+  margin-top:4px;padding-right:4px}
+.segc{position:absolute;top:10px;right:11px;font-variant-numeric:tabular-nums;
+  font-weight:700;color:var(--cct);background:var(--ccf);border-radius:99px;
+  padding:1px 9px;font-size:12.5px;border:1px solid var(--cc)}
+.seg.vacio .segc{color:var(--tinta3);background:var(--sup3);border-color:var(--linea)}
 .segn{width:20px;height:20px;border-radius:50%;background:var(--cc);color:var(--sobreColor);
   display:grid;place-items:center;font-size:11px;font-weight:700;flex:none}
-.segc{font-variant-numeric:tabular-nums;font-weight:700;color:var(--tinta);
-  background:var(--sup3);border-radius:99px;padding:1px 8px;font-size:12px}
-.seg.on .segc{background:var(--cc);color:var(--sobreColor)}
 
 .segcab{display:flex;gap:16px;align-items:flex-start;justify-content:space-between;
   flex-wrap:wrap;margin-bottom:12px}
@@ -772,6 +794,15 @@ tr.clic:hover{background:var(--sup2)}
 .tjsel2 select{font-size:12.5px;padding:5px 8px;border-radius:7px;
   border:1px solid var(--linea2);background:var(--sup);color:var(--tinta)}
 .tjhist{font-size:11.5px;color:var(--tinta3);margin:9px 0 0;line-height:1.45}
+.tjhist .sinfirma{color:var(--alerta)}
+/* Lo que queda para SAP en una tarjeta ya decidida: es la razón de mirarla.
+   Si todavía falta decidir otra cosa del mismo caso, lo dice y se nota. */
+.tjsap{font-size:12.5px;color:var(--tinta2);margin:0 0 4px;line-height:1.5;
+  background:var(--cA-f);border-left:3px solid var(--cA-t);border-radius:0 6px 6px 0;
+  padding:7px 11px}
+.tjsap .k{display:block;margin-bottom:1px;color:var(--cA-t);font-weight:650}
+.tjsap.pend{background:var(--cD-f);border-left-color:var(--cD-t)}
+.tjsap.pend .k{color:var(--cD-t)}
 .finito.chico{padding:34px 20px}
 .finito.chico h2{font-size:15px;letter-spacing:0;text-transform:none;color:var(--tinta2)}
 .pieaviso{font-size:12.5px;color:var(--tinta3);line-height:1.6;margin:18px 0 0;
@@ -881,6 +912,9 @@ tr.tot td{border-top:2px solid var(--linea2);font-weight:650}
   --cA-t:#0e8a5e; --cB-t:#1b5fb0; --cC-t:#b84a18; --cD-t:#4a39b5; --cE-t:#6b6a64;
   --fis:#0f7f58; --fis-f:#edf8f3; --fis-b:#bfe6d6;
   --sap:#1d5fae; --sap-f:#edf3fb; --sap-b:#c3d8f0;
+  --bs1:#0b6a72; --bs1-f:#e1f1f2;
+  --bs2:#8a3f9e; --bs2-f:#f4e9f8;
+  --bs3:#8a5a0b; --bs3-f:#f8efdd;
   --ok:#0f7f58; --alerta:#b8431f;
   --sobreAcento:#ffffff; --sobreColor:#ffffff;
   color:var(--tinta)}
@@ -909,17 +943,19 @@ tr.tot td{border-top:2px solid var(--linea2);font-weight:650}
 .retomada.yendose{opacity:0;transition:opacity .55s}
 
 /* ---- los grupos, agrupados por la etapa a la que pertenecen ---- */
-.segzona{display:flex;flex-direction:column;gap:7px;margin-bottom:16px}
-.segfila{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.segeta{font-size:10px;letter-spacing:.09em;text-transform:uppercase;
-  color:var(--tinta3);font-weight:700;width:168px;flex:none;text-align:right;
-  line-height:1.3}
-.segfila .segs{margin-bottom:0;flex:1}
-.seg{padding:7px 14px}
-@media (max-width:980px){
-  .segeta{width:auto;text-align:left}
-  .segfila{flex-direction:column;align-items:flex-start;gap:4px}
-}
+.segzona{display:flex;flex-direction:column;gap:14px;margin-bottom:16px}
+.segfila{display:block}
+.segeta{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:6px}
+.segeta b{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--tinta3);font-weight:700}
+.segeta span{font-size:11.5px;color:var(--tinta3);line-height:1.4}
+.segfila .segs{margin-bottom:0}
+/* El interruptor de las explicaciones: se leen la primera semana y después
+   estorban, así que se apagan y quedan apagadas. */
+.segtop{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  flex-wrap:wrap;margin-bottom:2px}
+.segtop h2{margin:0}
+@media (max-width:980px){ .segs{grid-template-columns:1fr} }
 
 /* ---- equivalencias de presentación ---- */
 .pres{background:var(--sup);border:1px solid var(--linea);border-radius:var(--r);
@@ -1056,3 +1092,36 @@ table.apt tbody tr:hover{background:transparent}
   .apfila{grid-template-columns:1fr;gap:5px}
   .apbot{justify-content:flex-start;margin-top:4px}
 }
+
+/* ===================== el color de cada base =====================
+   Tres bases, tres colores. El color no reemplaza al nombre —que va escrito
+   siempre al lado— porque nadie tiene que acordarse de cuál es cuál: sirve
+   para encontrar de un vistazo lo que es de una base en una lista larga. */
+.bs{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
+  padding:2px 9px 2px 7px;border-radius:99px;white-space:nowrap;
+  background:var(--bsf);color:var(--bsc);border:1px solid var(--bsc)}
+.bs i{width:7px;height:7px;border-radius:50%;background:var(--bsc);flex:none}
+.bs1{--bsc:var(--bs1);--bsf:var(--bs1-f)}
+.bs2{--bsc:var(--bs2);--bsf:var(--bs2-f)}
+.bs3{--bsc:var(--bs3);--bsf:var(--bs3-f)}
+/* En una celda de tabla alcanza con el punto y el nombre, sin la píldora. */
+.bsp{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.bsp i{width:8px;height:8px;border-radius:50%;background:var(--bsc);flex:none}
+.bsp.bs1{--bsc:var(--bs1)} .bsp.bs2{--bsc:var(--bs2)} .bsp.bs3{--bsc:var(--bs3)}
+/* El botón de alcance lleva el color de su base: así el color queda declarado
+   donde se elige, y no hay que explicar en ningún lado cuál es cuál. */
+.abot.bs i{width:7px;height:7px}
+.abot.bs{background:var(--sup2);color:var(--tinta2);border-color:var(--linea2);
+  font-weight:500;padding:6px 14px 6px 11px;font-size:13px}
+.abot.bs:hover{border-color:var(--bsc);color:var(--tinta)}
+.abot.bs.on{background:var(--bsf);color:var(--bsc);border-color:var(--bsc);font-weight:650}
+/* Con las explicaciones encendidas, los indicadores pasan a ser tarjetas y se
+   llevan el ancho entero: cuatro números sueltos con un párrafo debajo, y
+   alineados a la derecha, quedaban colgando. */
+.indq{display:block;font-size:11px;color:var(--tinta3);line-height:1.4;margin-top:3px}
+.inds.conq{flex-basis:100%;display:grid;gap:9px;
+  grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+.inds.conq .indi{text-align:left;background:var(--sup2);border:1px solid var(--linea);
+  border-radius:var(--r2);padding:10px 12px}
+.inds.conq .indi b{font-size:22px}
+.inds.conq .indi>span{font-size:11.5px;color:var(--tinta2)}

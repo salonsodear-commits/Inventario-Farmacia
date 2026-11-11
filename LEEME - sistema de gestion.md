@@ -77,9 +77,11 @@ por dónde empezar: la pantalla de inicio lo dice.
 2. **«Trabajar» es el panel de gestión.** Arriba, la **hoja de ruta**: seis etapas, en qué
    etapa está el proceso, cuánto avanzó cada una y cuál es el próximo paso concreto.
 3. Elegí el **alcance**: las tres bases o una sola. Todo lo que está abajo lo respeta —los
-   indicadores, los pendientes y las decisiones en lote—.
-4. Elegí una **solapa**. Son los siete grupos de siempre, en el mismo orden de prioridad,
-   ahora como solapas de una única bandeja en vez de siete tarjetas apiladas.
+   indicadores, los pendientes y las decisiones en lote—. **Cada base tiene su color**, el
+   mismo en la pantalla, en el Excel y en el informe; el nombre va escrito igual al lado.
+4. Elegí un **grupo**. Son tarjetas, agrupadas por la etapa a la que pertenecen, y cada
+   una dice su nombre, cuántos casos tiene y **una línea de qué es**. Esa línea se puede
+   apagar con «Ocultar las explicaciones» y queda apagada.
 5. Abajo aparece **cada caso como una pregunta**, con lo que dice el depósito de un lado,
    lo que dice SAP del otro, por qué el sistema lo levantó, y las respuestas posibles como
    botones. **Se contesta con un clic**, sin entrar a ninguna pantalla.
@@ -100,6 +102,33 @@ por dónde empezar: la pantalla de inicio lo dice.
 | **Aplicar en SAP** | **El resultado.** Qué decisiones se tomaron y qué hay que hacer con cada una: qué dar de alta, qué dar de baja, qué ajustar y qué mover, con sus cantidades; más lo que todavía no se pudo decidir y lo que está fuera del alcance. Es lo que se le pasa a quien ejecuta en SAP. |
 | **Informe** | El informe explicativo con el estado actualizado. Contesta de cero qué es todo esto. |
 | **Cómo se usa** | Esto mismo, dentro del sistema. |
+
+### El panel de arriba
+
+Eran píldoras con un número al lado. Una píldora que dice «Dar de baja 359» obliga a
+adivinar qué es dar de baja y por qué hay 359, así que ahora cada grupo es una **tarjeta**
+con su nombre, su cuenta, su color y una línea de qué es:
+
+| | |
+|---|---|
+| **Decidir el código** | A qué material de SAP corresponde cada ítem contado. Sin eso, no se puede decidir nada más del caso. |
+| **Crear en SAP** | Están en el depósito y ningún material del maestro les corresponde. ¿Se crean en SAP? |
+| **Confirmar el código** | El análisis ya les encontró el código y lo verificó. Falta que una persona lo confirme. |
+| **Ajustar el stock** | El código existe y la mercadería está, pero SAP no registra existencia en esa base. |
+| **Dónde está el stock** | El material está bien identificado; lo que no corresponde es el almacén donde figura. |
+| **Maestro en cero** | Materiales con existencia cero. No hay stock que dar de baja: se decide el registro. |
+| **Dar de baja** | SAP registra stock en esa base y ningún inventario lo encontró. Van últimas. |
+| **Ya decididos** | Casos con la decisión tomada. Dicen qué hay que hacer con cada uno en SAP, y se pueden cambiar. |
+| **Fuera del alcance** | Indumentaria, equipamiento y repuestos. El inventario es de Farmacia: de su ausencia no se concluye nada. |
+
+Las explicaciones **se apagan con un botón** —el mismo apaga las de los indicadores y la
+del grupo abierto— y quedan apagadas: se leen la primera semana y después estorban.
+
+Una tarjeta **ya decidida** dice tres cosas por separado y ninguna se confunde con otra:
+qué se decidió, **qué queda para hacer en SAP** —o qué falta decidir todavía del mismo
+caso— y **quién lo decidió**. Si nadie escribió su nombre, lo dice: *sin firmar, no quedó
+registrado quién*. Antes eso salía pegado a la decisión, como «Correspondencia confirmada
+· (sin identificar)», y se leía como si lo que faltara identificar fuera el material.
 
 ### La hoja de ruta
 

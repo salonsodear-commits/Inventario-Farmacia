@@ -10,6 +10,13 @@ var Exportar = (function () {
   function L(c) { return App.LETRA[c.clasificacion]; }
 
   function num(n) { return App.num(n); }
+  /* La base, con su color: el mismo de la pantalla. Una columna de bases en
+     blanco y negro obliga a leer palabra por palabra para encontrar la que se
+     busca. El nombre va escrito igual, el color no reemplaza nada. */
+  function celdaBase(b) {
+    var i = D().meta.bases.indexOf(b);
+    return i >= 0 ? { v: b, s: E.BASE[i % E.BASE.length] } : { v: b || "" };
+  }
   function hoy() { return new Date().toISOString().slice(0, 10); }
   function fechaCorta(iso) { return iso ? new Date(iso).toLocaleDateString("es-AR") : ""; }
 
@@ -48,7 +55,7 @@ var Exportar = (function () {
     var e = ef(c), d = (App.decisiones()[c.id] || {});
     return [
       { v: c.n }, { v: c.id }, { v: c.origen }, { v: c.clasificacion },
-      { v: c.accion, s: E.TEXTO }, { v: c.motivo || "" }, { v: c.base }, { v: c.centro },
+      { v: c.accion, s: E.TEXTO }, { v: c.motivo || "" }, celdaBase(c.base), { v: c.centro },
       { v: c.sistema_origen }, { v: c.informe_origen, s: E.TEXTO }, { v: c.tipo },
       { v: c.codigo_fisico || "" }, { v: c.nombre_fisico || "", s: E.TEXTO },
       { v: c.presentacion || "", s: E.TEXTO },
@@ -231,7 +238,7 @@ var Exportar = (function () {
       f.push([
         { v: x.a.verbo, s: E.TEXTO },
         { v: x.a.pend ? "Sí" : "No" },
-        { v: c.base },
+        celdaBase(c.base),
         { v: d.centro_alta || c.centro || "" },
         { v: d.almacen_alta || d.almacen_ajuste || d.almacen_propuesto ||
              (c.almacenes || []).map(function (z) { return z.almacen; }).join(" · ") || "" },
@@ -358,7 +365,7 @@ var Exportar = (function () {
     D().meta.bases.forEach(function (b) {
       var x = p.porBase[b];
       if (!x) return;
-      f.push([{ v: b }, { v: centros[b] || "" },
+      f.push([celdaBase(b), { v: centros[b] || "" },
               { v: x.ejecutar, s: E.ENTERO }, { v: x.falta, s: E.ENTERO },
               { v: x.nada, s: E.ENTERO }, { v: x.fuera, s: E.ENTERO },
               { v: x.ejecutar + x.falta + x.nada + x.fuera, s: E.ENTERO }]);

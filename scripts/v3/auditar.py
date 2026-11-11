@@ -212,6 +212,15 @@ est = zo.read("xl/styles.xml").decode("utf-8")
 ok(est.count('wrapText="1"') == 1,
    "sólo el encabezado envuelve el texto; los datos no",
    "%d estilos con wrapText" % est.count('wrapText="1"'))
+# El color de cada base: el mismo hex que en la pantalla y en el informe.
+for color, base in [("FF0B6A72", "San Juan"), ("FF8A3F9E", "Neuquén"), ("FF8A5A0B", "Salta")]:
+    ok(color in est, "el Excel trae el color de %s" % base, color)
+usados = set()
+for hoja in ["Casos", "Qué hacer en SAP"]:
+    x = zo.read("xl/worksheets/sheet%d.xml" % idx[hoja]).decode("utf-8")
+    usados |= set(re.findall(r's="(1[012])"', x))
+ok(usados == {"10", "11", "12"},
+   "y la columna de la base lo usa en las tres", " ".join(sorted(usados)))
 zo.close()
 
 mg = celdas("Maestro general")
@@ -375,6 +384,32 @@ for frase, titulo in [
     ("El sistema no modifica SAP", "y se dice que esto no modifica SAP"),
 ]:
     ok(frase.lower() in h.lower(), titulo)
+# El panel: cada grupo es una tarjeta que dice qué es, y las explicaciones se
+# pueden apagar. Antes eran píldoras con un número y había que adivinar.
+for frase, titulo in [
+    ("class=\"segq\"", "cada grupo lleva una línea de qué es"),
+    ("A qué material de SAP corresponde cada ítem contado",
+     "y esa línea está escrita, no es el título repetido"),
+    ("Mostrar qué es cada cosa", "las explicaciones se pueden encender y apagar"),
+    ("Etapa 2 · Qué es cada cosa", "los grupos están agrupados por etapa"),
+]:
+    ok(frase.lower() in h.lower(), titulo)
+# Un color por base. El nombre va escrito igual: el color no distingue solo.
+for frase, titulo in [
+    ("--bs1:#0b6a72", "San Juan tiene su color"),
+    ("--bs2:#8a3f9e", "Neuquén el suyo"),
+    ("--bs3:#8a5a0b", "y Salta el suyo"),
+    ("chipbase", "y se usa donde aparece la base"),
+]:
+    ok(frase.lower() in h.lower(), titulo)
+# «Decidido: Correspondencia confirmada · (sin identificar)» se leía como si el
+# material fuera lo que no estaba identificado.
+ok("Lo decidido: " in h, "una tarjeta decidida dice qué se decidió")
+ok("registrado quién" in h,
+   "y si nadie firmó, lo dice con esas palabras y no «sin identificar»")
+ok('"Decidido: " + esc(e.aprobacion) +' not in h,
+   "la decisión ya no lleva pegado el nombre de quien decidió")
+
 ap0 = io.open(RAIZ + "sistema/app.js", encoding="utf-8").read()
 sin_coment = re.sub(r"/\*[\s\S]*?\*/", "", re.sub(r"(?m)^\s*//.*$", "", ap0))
 ok("VER_REUSA" not in sin_coment and "reutiliza" not in sin_coment,

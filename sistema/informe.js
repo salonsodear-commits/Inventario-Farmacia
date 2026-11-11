@@ -42,6 +42,12 @@ var Informe = (function () {
   function et(l) {
     return '<span class="eti ' + l + '">' + l + "</span>";
   }
+  /* La base con su punto de color. El nombre va escrito igual: el color sirve
+     para encontrar la fila, no para saber cuál es. */
+  function pb(b) {
+    var i = D().meta.bases.indexOf(b);
+    return (i >= 0 ? '<i class="bp bp' + (i + 1) + '"></i>' : "") + esc(b);
+  }
   function alt(n) {
     return '<span class="eti alt' + n + '">' + n + "</span>";
   }
@@ -362,7 +368,7 @@ var Informe = (function () {
       tabla(["Base", "Sistema", "Ítems físicos", "Unidades", "A", "B", "C", "D", "E", "Casos"],
         m.bases.map(function (b) {
           var g = k.por_base[b], fu = m.fuentes.filter(function (x) { return x.base === b; })[0];
-          return [esc(b), esc(fu.sistema), num(g.items_fisicos), num(g.unidades_fisicas),
+          return [pb(b), esc(fu.sistema), num(g.items_fisicos), num(g.unidades_fisicas),
                   num(g[m.clases[0]]), num(g[m.clases[1]]), num(g[m.clases[2]]),
                   num(g[m.clases[3]]), num(g[m.clases[4]]), num(g.casos)];
         }).concat([["<b>Total</b>", "", "<b>" + num(k.items_fisicos) + "</b>",
@@ -415,7 +421,7 @@ var Informe = (function () {
         m.bases.filter(function (b) { return pl.porBase[b]; }).map(function (b) {
           var x = pl.porBase[b];
           var ce = (d.casos.filter(function (c) { return c.base === b && c.centro; })[0] || {}).centro;
-          return [esc(b), esc(ce || ""), num(x.ejecutar), num(x.falta), num(x.nada),
+          return [pb(b), esc(ce || ""), num(x.ejecutar), num(x.falta), num(x.nada),
                   num(x.fuera)];
         }), ["", "", "n", "n", "n", "n"]) + `
       <p class="nota">El detalle caso por caso —código, nomenclatura de los dos lados,
@@ -465,7 +471,7 @@ var Informe = (function () {
       tabla(["Base", "Tipo", "Almacén", "Confianza", "Otros almacenes de la base con stock de ese tipo"],
         (am.propuesta || []).map(function (p) {
           var otros = (p.alternativas || []).filter(function (x) { return x.almacen !== p.almacen; });
-          return [esc(p.base), esc(p.tipo), "<b>" + esc(p.almacen || "—") + "</b>",
+          return [pb(p.base), esc(p.tipo), "<b>" + esc(p.almacen || "—") + "</b>",
                   esc(p.confianza),
                   otros.length ? otros.map(function (x) {
                     return esc(x.almacen) + " (" + num(x.unidades) + " un.)"; }).join(" · ") : "—"];
@@ -779,6 +785,8 @@ var Informe = (function () {
   var ESTILO = `<style>
   .informe{--ia:#1F4E78;--itx:#111;--itx2:#444;--itx3:#6f6f6f;--ilin:#d8d7d2;
     --iA:#0f7f58;--iB:#1d5fae;--iC:#b8431f;--iD:#4a3bb5;--iE:#6b6b6b;--iF:#0e6b73;
+    /* El color de cada base, el mismo que en el sistema y en el Excel. */
+    --ib1:#0b6a72;--ib2:#8a3f9e;--ib3:#8a5a0b;
     background:#e9e9e6;padding:16px 0;color:var(--itx)}
   .informe *{box-sizing:border-box}
   .hoja{width:210mm;min-height:297mm;background:#fff;margin:0 auto 14px;padding:18mm 16mm 16mm;
@@ -822,6 +830,9 @@ var Informe = (function () {
     padding:7px 10px;margin:0 0 11px;line-height:1.55}
   .glosa b{color:var(--itx)}
   .ok{color:var(--iA)}
+  .bp{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;
+    vertical-align:1px}
+  .bp1{background:var(--ib1)} .bp2{background:var(--ib2)} .bp3{background:var(--ib3)}
   .eti{display:inline-block;width:17px;height:17px;line-height:17px;text-align:center;
     border-radius:50%;color:#fff;font-weight:700;font-size:8.5pt}
   .eti.A{background:var(--iA)} .eti.B{background:var(--iB)} .eti.C{background:var(--iC)}

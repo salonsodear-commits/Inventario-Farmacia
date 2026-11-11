@@ -92,12 +92,17 @@
       '<numFmt numFmtId="165" formatCode="&quot;$&quot;\\ #,##0.00"/>' +
       '<numFmt numFmtId="166" formatCode="dd/mm/yyyy"/>' +
     '</numFmts>' +
-    '<fonts count="5">' +
+    '<fonts count="8">' +
       '<font><sz val="10"/><name val="Calibri"/></font>' +
       '<font><b/><sz val="10"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>' +
       '<font><b/><sz val="14"/><color rgb="FF1F4E78"/><name val="Calibri"/></font>' +
       '<font><sz val="9"/><color rgb="FF808080"/><name val="Calibri"/></font>' +
       '<font><b/><sz val="10"/><color rgb="FF1F4E78"/><name val="Calibri"/></font>' +
+      /* Un color por base: el mismo que en la pantalla, para que una columna de
+         bases se lea de un saque. El nombre va escrito igual. */
+      '<font><b/><sz val="10"/><color rgb="FF0B6A72"/><name val="Calibri"/></font>' +
+      '<font><b/><sz val="10"/><color rgb="FF8A3F9E"/><name val="Calibri"/></font>' +
+      '<font><b/><sz val="10"/><color rgb="FF8A5A0B"/><name val="Calibri"/></font>' +
     '</fonts>' +
     '<fills count="3">' +
       '<fill><patternFill patternType="none"/></fill>' +
@@ -109,7 +114,7 @@
       '<border><left/><right/><top/><bottom style="thin">' +
         '<color rgb="FFBFBFBF"/></bottom><diagonal/></border></borders>' +
     '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-    '<cellXfs count="10">' +
+    '<cellXfs count="13">' +
       '<xf numFmtId="0"   fontId="0" fillId="0" borderId="0" xfId="0"/>' +
       '<xf numFmtId="0"   fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1">' +
         '<alignment vertical="center" wrapText="1"/></xf>' +
@@ -123,12 +128,16 @@
         '<alignment vertical="top"/></xf>' +
       '<xf numFmtId="164" fontId="3" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/>' +
       '<xf numFmtId="0"   fontId="4" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1"/>' +
+      '<xf numFmtId="0"   fontId="5" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
+      '<xf numFmtId="0"   fontId="6" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
+      '<xf numFmtId="0"   fontId="7" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
     '</cellXfs>' +
     '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>' +
     '</styleSheet>';
 
   var EST = { NORMAL: 0, CAB: 1, ENTERO: 2, IMPORTE: 3, FECHA: 4, TEXTO: 5,
-              TITULO: 6, TENUE: 7, ENTERO_TENUE: 8, SUBTITULO: 9 };
+              TITULO: 6, TENUE: 7, ENTERO_TENUE: 8, SUBTITULO: 9,
+              BASE: [10, 11, 12] };
 
   // ---------------------------------------------------------------- planilla
   /* hoja = { nombre, filas: [[celda, ...], ...], anchos: [n], congelar: "A2",
